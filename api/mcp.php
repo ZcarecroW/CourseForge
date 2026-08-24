@@ -1,24 +1,24 @@
 <?php
 /**
- * CourseForge 3 - the Model Context Protocol endpoint.
+ * CourseForge 4 - the Model Context Protocol endpoint.
  *
  * A second, deliberately separate front door. api/index.php serves the browser:
- * cookie session, CSRF token, one user signed in at a time. This one serves an
- * MCP client - Claude Code on the same machine, or the Claude desktop app over
- * the internet - which has none of those things and authenticates with a bearer
- * token instead.
+ * cookie session, CSRF token, one account signed in at a time. This one serves
+ * an MCP client - Claude Code on the same machine, the Claude desktop app over
+ * the internet, Cursor, VS Code - which has none of those things and
+ * authenticates with a bearer token instead.
  *
- * Turning it on is three lines in data/config.json:
+ * Nothing is configured in a file. A connection is created in the application,
+ * under Connect, which issues a token once and stores only its hash. That
+ * connection belongs to an account, inherits that account's role on every
+ * request, and may be limited to some of the tool groups. An installation with
+ * no connections has no way in here at all.
  *
- *   "mcp": { "enabled": true, "token": "<a long random string>", "username": "you" }
+ *   claude mcp add --transport http courseforge https://example.com/api/mcp.php  *     --header "Authorization: Bearer cf4_..."
  *
- * and then, in a terminal:
- *
- *   claude mcp add --transport http courseforge https://example.com/api/mcp.php \
- *     --header "Authorization: Bearer <the same string>"
- *
- * It stays off until all three are set, because it exposes one user's courses
- * to anyone holding the token.
+ * The whole protocol lives in src/Mcp/Server.php; this file exists so that the
+ * endpoint has a URL of its own and so that a failure during boot still answers
+ * in JSON-RPC rather than with a blank 500.
  */
 declare(strict_types=1);
 
