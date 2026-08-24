@@ -759,10 +759,25 @@ final class StructureTools
                     . 'content: ' . implode(', ', $lost) . '.';
         }
 
-        $result['next_step'] = $unwritten > 0
-            ? 'Call get_page_brief with course_id ' . $courseId . ' for the next unwritten page, or start_run to '
-                . 'write the whole course through the profile\'s model.'
-            : 'Every page of this course already has text. publish_course pushes it to BookStack.';
+        // An outline with chapters but no pages parses cleanly and is useless:
+        // there is nothing to write and nothing to publish. It is nearly always
+        // the same mistake - the nesting was lost, so what were meant to be
+        // pages became chapters - and saying that is more use than a count.
+        if ((int)($result['pages'] ?? 0) === 0) {
+            $result['warning'] = trim((string)($result['warning'] ?? '') . ' ' . ((int)($result['chapters'] ?? 0) > 0
+                ? 'This outline has chapters but no pages at all, so there is nothing to write. Pages are the '
+                    . 'nested numbers indented inside a chapter - call get_structure_brief for the exact format, '
+                    . 'or preview_structure to see what CourseForge reads from a draft before you apply it.'
+                : 'This outline has nothing in it.'));
+        }
+
+        $result['next_step'] = match (true) {
+            (int)($result['pages'] ?? 0) === 0 => 'Fix the outline and apply it again. preview_structure shows '
+                . 'what CourseForge understands from a draft without changing anything.',
+            $unwritten > 0 => 'Call get_page_brief with course_id ' . $courseId . ' for the next unwritten page, '
+                . 'or start_run to write the whole course through the model the profile names.',
+            default => 'Every page of this course already has text. publish_course pushes it to BookStack.',
+        };
 
         return $result;
     }

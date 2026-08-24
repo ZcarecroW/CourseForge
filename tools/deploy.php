@@ -149,22 +149,44 @@ function connect(array $config, bool $allowPlain): mixed
     return $connection;
 }
 
-/** Creates a remote directory and everything above it. Remembers what exists. */
+/**
+ * Creates a remote directory and everything above it. Remembers what exists.
+ *
+ * The remote path is always POSIX, whatever this machine is - but `dirname()`
+ * is not: on Windows it answers a backslash for the root of an absolute path,
+ * so a guard that only tests for "/" never stops and the recursion runs until
+ * the stack does. Both forms are treated as the root, and the walk goes upwards
+ * in a loop rather than recursively, which cannot overflow whatever dirname
+ * decides to return.
+ */
 function ensureDirectory(mixed $ftp, string $path, array &$known): void
 {
+    $path = rtrim(str_replace('\\', '/', $path), '/');
     if ($path === '' || $path === '.' || isset($known[$path])) {
         return;
     }
-    $parent = dirname($path);
-    if ($parent !== '' && $parent !== '.' && $parent !== '/') {
-        ensureDirectory($ftp, $parent, $known);
+
+    // Collect the missing ancestors from the leaf upwards, then create them
+    // from the top down - FTP has no equivalent of mkdir -p.
+    $missing = [];
+    for ($at = $path; $at !== '' && $at !== '.' && $at !== '/'; ) {
+        if (isset($known[$at])) {
+            break;
+        }
+        $missing[] = $at;
+        $parent = rtrim(str_replace('\\', '/', dirname($at)), '/');
+        if ($parent === $at) {
+            break; // dirname stopped moving: we are at the root, whatever it spells it
+        }
+        $at = $parent;
     }
-    if (@ftp_chdir($ftp, $path)) {
-        $known[$path] = true;
-        return;
+
+    foreach (array_reverse($missing) as $directory) {
+        if (!@ftp_chdir($ftp, $directory)) {
+            @ftp_mkdir($ftp, $directory);
+        }
+        $known[$directory] = true;
     }
-    @ftp_mkdir($ftp, $path);
-    $known[$path] = true;
 }
 
 /* ----------------------------------------------------------------- main */
@@ -221,26 +243,55 @@ $known = [];
 $sent = 0;
 $failed = [];
 
-foreach ($changed as $path => $hash) {
-    $remote = ($config['path'] === '' ? '' : $config['path']) . '/' . $path;
+/**
+ * Sends one file, and says whether it arrived.
+ *
+ * Upload beside the target and rename over it: a connection that drops half way
+ * cannot leave a truncated PHP file being served, which on a directory of PHP is
+ * the difference between a deploy that fails and a site that half works.
+ */
+$put = static function (mixed $ftp, string $local, string $remote) use (&$known): bool {
     ensureDirectory($ftp, dirname($remote), $known);
 
-    // Upload beside the target and rename over it: a connection that drops
-    // half way cannot leave a truncated PHP file being served.
     $temporary = $remote . '.uploading';
-    $ok = @ftp_put($ftp, $temporary, $root . '/' . $path, FTP_BINARY);
-    if ($ok) {
-        @ftp_delete($ftp, $remote);
-        $ok = @ftp_rename($ftp, $temporary, $remote);
+    if (!@ftp_put($ftp, $temporary, $local, FTP_BINARY)) {
+        @ftp_delete($ftp, $temporary);
+        return false;
+    }
+    @ftp_delete($ftp, $remote);
+    if (!@ftp_rename($ftp, $temporary, $remote)) {
+        @ftp_delete($ftp, $temporary);
+        return false;
+    }
+    return true;
+};
+
+$total = count($changed);
+$reconnects = 0;
+
+foreach ($changed as $path => $hash) {
+    $remote = ($config['path'] === '' ? '' : $config['path']) . '/' . $path;
+    $ok = $put($ftp, $root . '/' . $path, $remote);
+
+    // A six-hundred-file upload is long enough that the server will close the
+    // control channel at some point, and every file after that fails for the
+    // same reason. One reconnect and one retry turns five hundred reported
+    // failures back into the single hiccup it actually was.
+    if (!$ok) {
+        @ftp_close($ftp);
+        $known = [];
+        $ftp = connect($config, $options['allow-plain']);
+        $reconnects++;
+        $say('  ...       reconnected after ' . $path);
+        $ok = $put($ftp, $root . '/' . $path, $remote);
     }
 
     if ($ok) {
         $sent++;
-        $say(sprintf('  [%3d/%3d] %s', $sent, count($changed), $path));
+        $say(sprintf('  [%3d/%3d] %s', $sent, $total, $path));
         $previous[$path] = $hash;
     } else {
         $failed[] = $path;
-        @ftp_delete($ftp, $temporary);
         $say('  FAILED    ' . $path);
     }
 }
@@ -265,7 +316,9 @@ Json::write($manifestFile, $previous);
 $say('');
 $say(str_repeat('-', 72));
 if ($failed === []) {
-    $say($sent . ' file(s) uploaded. The manifest is at ' . $manifestFile . '.');
+    $say($sent . ' file(s) uploaded'
+        . ($reconnects > 0 ? ', after ' . $reconnects . ' reconnection(s)' : '')
+        . '. The manifest is at ' . $manifestFile . '.');
 } else {
     $say($sent . ' uploaded, ' . count($failed) . ' failed: ' . implode(', ', array_slice($failed, 0, 8))
         . (count($failed) > 8 ? ' and more' : ''));
