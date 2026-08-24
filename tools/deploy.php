@@ -56,6 +56,21 @@ const NEVER_SEND = [
     'deploy.json', '.deploy', '.netrc', '.env',
 ];
 
+/**
+ * Paths sent even though the directory holding them is skipped.
+ *
+ * `data/` is the server's: the database, the settings this installation has
+ * changed, the update backups. All of it except this one file, which is the
+ * release's, and which is the thing that stops the database being fetched over
+ * HTTP. An earlier version of this tool skipped the directory and therefore
+ * skipped the guard with it; the installation check on the deployed site is
+ * what caught it. CourseForge writes the file itself when it finds it missing,
+ * so this is now the second of two answers rather than the only one.
+ */
+const SEND_ANYWAY = [
+    'data/.htaccess',
+];
+
 /** Where the manifest of what was last uploaded lives. Outside the release. */
 const MANIFEST = '/deploy-manifest.json';
 
@@ -103,10 +118,19 @@ function localTree(string $root): array
                 continue;
             }
             $relative = $prefix === '' ? $entry : $prefix . '/' . $entry;
+            $path = $dir . '/' . $entry;
+
             if (in_array($entry, NEVER_SEND, true) || in_array($relative, NEVER_SEND, true)) {
+                // A skipped directory may still hold something the release owns.
+                if (is_dir($path)) {
+                    foreach (SEND_ANYWAY as $keep) {
+                        if (str_starts_with($keep . '/', $relative . '/') && is_file($root . '/' . $keep)) {
+                            $files[$keep] = hash_file('sha256', $root . '/' . $keep) ?: '';
+                        }
+                    }
+                }
                 continue;
             }
-            $path = $dir . '/' . $entry;
             if (is_dir($path)) {
                 $walk($path, $relative);
                 continue;

@@ -175,18 +175,27 @@ final class Diagnostics
             // all, so the detail says what was found rather than what it means,
             // and leaves the conclusion to the one person who can reach the URL.
             if (str_starts_with(self::normalise(CF_DATA), self::normalise(CF_ROOT) . '/')) {
+                // CourseForge writes this file itself whenever it finds it
+                // missing, on the way to opening the database. So an absent one
+                // no longer means the release copy failed to arrive - it means
+                // PHP tried to write it and could not, which is a permissions
+                // problem on the one directory that must not be readable, and
+                // is worth failing rather than warning about.
                 $checks[] = self::isFile(CF_DATA . '/.htaccess')
                     ? self::ok(
                         'data_private',
                         'data/.htaccess',
                         'present - Apache only; fetch /data/app.sqlite yourself and confirm you are refused'
                     )
-                    : self::warn(
+                    : self::fail(
                         'data_private',
                         'data/.htaccess',
-                        'missing, and the data directory is under the document root',
-                        'app.sqlite holds every password hash. Restore data/.htaccess, or move the directory '
-                        . 'out of the document root with COURSEFORGE_DATA_DIR.'
+                        'missing, and CourseForge could not write it',
+                        'app.sqlite holds every password hash, and the directory holding it is under the '
+                        . 'document root with nothing refusing requests for it. CourseForge writes this file '
+                        . 'by itself when it is absent, so its absence means PHP was refused permission. Give '
+                        . 'PHP write access to ' . Text::path(CF_DATA) . ', or move the directory out of the '
+                        . 'document root with COURSEFORGE_DATA_DIR and stop needing it.'
                     );
             }
         }

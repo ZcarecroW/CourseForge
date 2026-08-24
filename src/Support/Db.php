@@ -29,12 +29,10 @@ final class Db
         if (self::$pdo instanceof PDO) {
             return self::$pdo;
         }
-        if (!is_dir(CF_DATA) && !@mkdir(CF_DATA, 0770, true) && !is_dir(CF_DATA)) {
-            throw new RuntimeException('The data directory is missing and could not be created: ' . CF_DATA);
-        }
-        if (!is_writable(CF_DATA)) {
-            throw new RuntimeException('The data directory is not writable by PHP: ' . CF_DATA);
-        }
+        // Creates the directory when it is missing and writes the deny file
+        // when that is missing, which is not the same thing: PHP creates the
+        // directory itself on a fresh install, and what it creates is empty.
+        DataDirectory::ensure();
 
         $pdo = new PDO('sqlite:' . self::file(), null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

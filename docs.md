@@ -1820,6 +1820,46 @@ an ordinary file in the document root.
 
 The shipped rules do five things:
 
+#### The data directory guards itself
+
+`data/app.sqlite` holds every password hash on the installation, so the one
+thing that must never be true is that it can be fetched over HTTP. The release
+ships `data/.htaccess`, which denies everything in that directory — but shipping
+a file is a weaker guarantee than it looks, because there are three ordinary
+ways to end up with a data directory the release never wrote into:
+
+- PHP creates the directory itself when it is missing, and what it creates is
+  empty;
+- an update deliberately never writes into `data/`, since everything else in
+  there belongs to the installation rather than to the release — so a directory
+  that lost the file could never get it back by updating;
+- a deployment tool that skips `data/` for that same reason skips the one file
+  in it that *is* the release's. CourseForge's own `tools/deploy.php` did
+  exactly that, and what caught it was the installation check on the deployed
+  site.
+
+So CourseForge writes the file itself, from a constant in the code rather than
+from a copy of a file that may be the very thing missing, on the way to opening
+the database — which every request does. A file that is already there is left
+alone, including one you have edited.
+
+That changes what an absent one means. `data/.htaccess` missing is now a
+**failure** rather than a warning in the installation check, because it can only
+mean PHP was refused permission to write it, in the one directory that must not
+be readable.
+
+None of which helps on **nginx, Caddy or IIS**, which read no `.htaccess` at
+all. There, and anywhere you would rather not depend on one, move the directory
+out of the document root and stop needing it:
+
+```
+SetEnv COURSEFORGE_DATA_DIR /var/lib/courseforge           # Apache
+fastcgi_param COURSEFORGE_DATA_DIR /var/lib/courseforge;   # nginx
+```
+
+Then only `index.html`, `assets/` and `api/` need to be public at all, and the
+question of what refuses `data/` stops arising.
+
 1. route `/api/…` to `api/index.php`, and `/mcp` to `api/mcp.php`;
 2. leave `api/mcp.php` alone, because it is a second front door with its own
    authentication and must not be swallowed by the front controller;

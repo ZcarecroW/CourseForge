@@ -1,5 +1,9 @@
-# The SQLite database, the user file and the configuration live here.
-# Nothing in this directory may ever be reachable over HTTP.
+# The SQLite database, the settings this installation has changed and the
+# update backups live here. Nothing in this directory may ever be
+# reachable over HTTP.
+#
+# CourseForge rewrites this file whenever it finds it missing, because the
+# alternative is an installation whose password hashes are one URL away.
 <IfModule mod_authz_core.c>
     Require all denied
 </IfModule>
