@@ -1,6 +1,6 @@
 <?php
 /**
- * CourseForge 3 - the scheduler, over HTTP.
+ * CourseForge - the scheduler, over HTTP.
  *
  * Shared hosts almost never give you a real crontab; what they give you is a box
  * in a control panel where you paste a URL and choose "every minute". So this is
@@ -18,6 +18,16 @@
  */
 declare(strict_types=1);
 
+// Run from a shell this file answers "Not found." and looks broken, because
+// there is no query string to carry the token. Say where the tick actually
+// lives instead - on STDERR and with a failing status, because the likely
+// reader is a crontab that has been pointed at the wrong file, and a clean exit
+// would let it report success every minute while nothing ever ticks.
+if (PHP_SAPI === 'cli') {
+    fwrite(STDERR, "This is the HTTP endpoint. On the command line use tools/cron.php instead.\n");
+    exit(1);
+}
+
 require __DIR__ . '/src/bootstrap.php';
 
 use CourseForge\Support\Cron;
@@ -30,15 +40,17 @@ error_reporting(E_ALL);
 
 // Accept the token in the query string or in a header. The query string is what
 // a control-panel scheduler can manage; the header is for anything better.
-$token = (string)($_GET['token'] ?? '');
+// Trimmed on both paths: a token pasted into a control panel arrives with a
+// trailing space often enough to be worth allowing for.
+$token = is_string($_GET['token'] ?? null) ? trim($_GET['token']) : '';
 if ($token === '') {
-    $header = (string)($_SERVER['HTTP_X_CRON_TOKEN'] ?? '');
-    $token = trim($header);
+    $header = $_SERVER['HTTP_X_CRON_TOKEN'] ?? null;
+    $token = is_string($header) ? trim($header) : '';
 }
 
 if (!Cron::tokenValid($token)) {
-    // Deliberately terse, and the same answer whether the token is wrong or
-    // simply not configured.
+    // Deliberately terse, and the same answer whether the token is wrong or was
+    // never configured at all.
     Response::send(['ok' => false, 'error' => 'Not found.'], 404);
 }
 

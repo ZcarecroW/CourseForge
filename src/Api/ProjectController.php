@@ -9,6 +9,10 @@ use CourseForge\Domain\Pages;
 use CourseForge\Domain\Profiles;
 use CourseForge\Domain\Projects;
 use CourseForge\Domain\Tags;
+use CourseForge\Domain\Transfers;
+use CourseForge\Security\Access;
+use CourseForge\Security\Actor;
+use CourseForge\Support\Audit;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Request;
 use CourseForge\Support\Runtime;
@@ -21,36 +25,57 @@ final class ProjectController
         'auto_tags', 'tag_pool', 'tag_pool_strict',
     ];
 
-    /** @return array<string,mixed> */
-    public static function index(Request $request, string $username): array
+    /**
+     * The course list.
+     *
+     * This is the one listing that widens by itself. An administrator opening
+     * the course list is looking at the installation - what is being written on
+     * it, what is stuck, how much of it there is - and every row carries an
+     * `owner`, so a shared list is readable without a second request per
+     * course. Profiles, tags and connections do the opposite and default to the
+     * actor's own, because those are working sets rather than an inventory: a
+     * picker holding every account's tags buries the twelve that are actually
+     * in use. Both widen or narrow with `?owner=name`.
+     *
+     * @return array<string,mixed>
+     */
+    public static function index(Request $request, ?Actor $actor): array
     {
-        return ['projects' => Projects::all($username)];
+        $me = $actor ?? throw HttpException::unauthorized();
+        return ['projects' => Projects::all(Access::listingOwner($me, $request->query('owner')))];
     }
 
     /** @return array<string,mixed> */
-    public static function create(Request $request, string $username): array
+    public static function create(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
+
         $profileId = $request->intOrNull('profile_id');
         if ($profileId !== null) {
-            Profiles::require($username, $profileId); // reject a foreign profile id
+            Profiles::require($me->username, $profileId); // reject a foreign profile id
         }
         $name = $request->str('name', 'Untitled course');
-        $project = Projects::create($username, $name !== '' ? $name : 'Untitled course', $request->str('topic'), $profileId);
+        $project = Projects::create($me->username, $name !== '' ? $name : 'Untitled course', $request->str('topic'), $profileId);
 
-        return ['project' => Projects::tree($username, (int)$project['id'])];
+        return ['project' => Projects::tree($me->username, (int)$project['id'])];
     }
 
     /** @return array<string,mixed> */
-    public static function show(Request $request, string $username): array
+    public static function show(Request $request, ?Actor $actor): array
     {
-        return ['project' => Projects::tree($username, $request->id('id'))];
-    }
-
-    /** @return array<string,mixed> */
-    public static function update(Request $request, string $username): array
-    {
+        $me = $actor ?? throw HttpException::unauthorized();
         $id = $request->id('id');
-        Projects::require($username, $id);
+        $owner = (string)Access::project($me, $id)['username'];
+
+        return ['project' => Projects::tree($owner, $id)];
+    }
+
+    /** @return array<string,mixed> */
+    public static function update(Request $request, ?Actor $actor): array
+    {
+        $me = $actor ?? throw HttpException::unauthorized();
+        $id = $request->id('id');
+        $owner = (string)Access::project($me, $id)['username'];
 
         $fields = [];
         foreach (self::WRITABLE as $key) {
@@ -65,54 +90,111 @@ final class ProjectController
             };
         }
         if (($fields['profile_id'] ?? null) !== null) {
-            Profiles::require($username, (int)$fields['profile_id']);
+            // The profile has to be one of the owner's. An administrator
+            // cannot lend their own AI account to somebody else's course by
+            // assigning a profile id from their own library.
+            Profiles::require($owner, (int)$fields['profile_id']);
         }
 
-        Projects::update($username, $id, $fields);
-        return ['project' => Projects::tree($username, $id)];
+        Projects::update($owner, $id, $fields);
+        return ['project' => Projects::tree($owner, $id)];
     }
 
     /** @return array<string,mixed> */
-    public static function delete(Request $request, string $username): array
+    public static function delete(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $id = $request->id('id');
-        Projects::require($username, $id);
-        Projects::delete($username, $id);
-        return ['projects' => Projects::all($username)];
+        $owner = (string)Access::project($me, $id)['username'];
+
+        Projects::delete($owner, $id);
+        return ['projects' => Projects::all(Access::listingOwner($me, $request->query('owner')))];
+    }
+
+    /* ------------------------------------------------------------- transfer */
+
+    /**
+     * Hands a course to another account.
+     *
+     * Administrators only. What has to move with a course, what is deliberately
+     * left behind and why - the profile carries an API key, the tag links point
+     * at a library the new owner does not own, the published book is not ours to
+     * destroy - is all in `Domain\Transfers`, which this shares with the MCP
+     * tool rather than reimplementing.
+     *
+     * What is this handler's own business is the audit line, because this is the
+     * door that knows who pressed the button, and the response: `transfer.notes`
+     * says in sentences the screen can print what was cleared, what had to be
+     * created in the receiving library, and which tags now say something
+     * different there.
+     *
+     * @return array<string,mixed>
+     */
+    public static function transfer(Request $request, ?Actor $actor): array
+    {
+        $me = $actor ?? throw HttpException::unauthorized();
+        $me->requireAdmin();
+
+        $id = $request->id('id');
+        $project = Access::project($me, $id);
+
+        // The work itself lives in Domain\Transfers, because the MCP tool does
+        // the same thing and a transfer that is complete on one front door and
+        // partial on the other is the kind of difference nobody finds until the
+        // data is already wrong.
+        $result = Transfers::course($id, $request->requiredStr('to', 'The receiving account'));
+
+        Audit::record(
+            $me->username,
+            'project.transfer',
+            (string)$project['name'],
+            'from ' . $result['from'] . ' to ' . $result['to']
+                . '; tags=' . $result['tags'] . '; runs=' . $result['runs']
+        );
+
+        return [
+            'project' => Projects::tree($result['to'], $id),
+            'projects' => Projects::all(Access::listingOwner($me)),
+            'transfer' => $result,
+        ];
     }
 
     /* ------------------------------------------------------------ structure */
 
     /** Designs a new outline, or revises the current one when feedback is given. */
-    public static function generateStructure(Request $request, string $username): array
+    public static function generateStructure(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $id = $request->id('id');
-        $project = Projects::require($username, $id);
+        $project = Access::project($me, $id);
+        $owner = (string)$project['username'];
 
         if ($project['profile_id'] === null) {
             throw HttpException::unprocessable('Assign a profile to this course first.');
         }
         if ($request->str('topic') !== '') {
-            $project = Projects::update($username, $id, ['topic' => $request->str('topic')]);
+            $project = Projects::update($owner, $id, ['topic' => $request->str('topic')]);
         }
         if (trim((string)$project['topic']) === '') {
             throw HttpException::unprocessable('Enter a course topic first.');
         }
 
-        $profile = Profiles::data($username, (int)$project['profile_id']);
+        $profile = Profiles::data($owner, (int)$project['profile_id']);
         Runtime::beginLongRequest();
 
         $markdown = StructureGenerator::run($profile, $project, $request->str('feedback'));
         Projects::applyStructure($project, $markdown);
 
-        return ['project' => Projects::tree($username, $id)];
+        return ['project' => Projects::tree($owner, $id)];
     }
 
     /** Parses the edited Markdown into chapters and pages. */
-    public static function applyStructure(Request $request, string $username): array
+    public static function applyStructure(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $id = $request->id('id');
-        $project = Projects::require($username, $id);
+        $project = Access::project($me, $id);
+        $owner = (string)$project['username'];
 
         $markdown = $request->raw('structure_md');
         if (trim($markdown) === '') {
@@ -121,7 +203,7 @@ final class ProjectController
 
         $result = Projects::applyStructure($project, $markdown);
         return [
-            'project' => Projects::tree($username, $id),
+            'project' => Projects::tree($owner, $id),
             'removed' => ['pages' => $result['removed_pages'], 'chapters' => $result['removed_chapters']],
         ];
     }
@@ -132,10 +214,11 @@ final class ProjectController
      * Patches the content details of the course, one chapter or one page.
      * A feature sent as 0 and a parameter sent as null both mean "inherit".
      */
-    public static function updateDetails(Request $request, string $username): array
+    public static function updateDetails(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $id = $request->id('id');
-        Projects::require($username, $id);
+        $owner = (string)Access::project($me, $id)['username'];
 
         $target = $request->enum('target', ['course', 'chapter', 'page'], 'course');
         $features = $request->arr('features');
@@ -144,22 +227,27 @@ final class ProjectController
         match ($target) {
             'chapter' => Chapters::patchDetails($id, $request->requiredId('target_id', 'Chapter id'), $features, $params),
             'page' => Pages::patchDetails($id, $request->requiredId('target_id', 'Page id'), $features, $params),
-            default => Projects::patchDetails($username, $id, $features, $params),
+            default => Projects::patchDetails($owner, $id, $features, $params),
         };
 
         Projects::touch($id);
-        return ['project' => Projects::tree($username, $id)];
+        return ['project' => Projects::tree($owner, $id)];
     }
 
     /* ----------------------------------------------------------------- tags */
 
-    public static function attachTag(Request $request, string $username): array
+    public static function attachTag(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $id = $request->id('id');
-        $project = Projects::require($username, $id);
+        $project = Access::project($me, $id);
+        $owner = (string)$project['username'];
 
+        // Every tag call runs against the owner's library, never the actor's:
+        // a tag an administrator adds to somebody else's course has to be a
+        // tag that course's owner can then see, edit and take off again.
         Tags::attach(
-            $username,
+            $owner,
             $project,
             $request->enum('target', ['course', 'chapter', 'page'], 'course'),
             $request->intOrNull('target_id'),
@@ -167,46 +255,50 @@ final class ProjectController
             $request->str('value'),
             $request->bool('inherit')
         );
-        return self::tagResult($username, $id);
+        return self::tagResult($owner, $id);
     }
 
     /** "enabled" toggles one assignment (used for AI tags); "inherit" flows down. */
-    public static function updateTag(Request $request, string $username): array
+    public static function updateTag(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $id = $request->id('id');
-        $project = Projects::require($username, $id);
+        $project = Access::project($me, $id);
+        $owner = (string)$project['username'];
 
         $target = $request->enum('target', ['course', 'chapter', 'page'], 'course');
         $targetId = $request->intOrNull('target_id');
         $tagId = $request->requiredId('tag_id', 'Tag id');
 
         if ($request->has('enabled')) {
-            Tags::setEnabled($username, $project, $target, $targetId, $tagId, $request->bool('enabled'));
+            Tags::setEnabled($owner, $project, $target, $targetId, $tagId, $request->bool('enabled'));
         } else {
-            Tags::setInherit($username, $project, $target, $targetId, $tagId, $request->bool('inherit'));
+            Tags::setInherit($owner, $project, $target, $targetId, $tagId, $request->bool('inherit'));
         }
-        return self::tagResult($username, $id);
+        return self::tagResult($owner, $id);
     }
 
-    public static function detachTag(Request $request, string $username): array
+    public static function detachTag(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $id = $request->id('id');
-        $project = Projects::require($username, $id);
+        $project = Access::project($me, $id);
+        $owner = (string)$project['username'];
 
         Tags::detach(
-            $username,
+            $owner,
             $project,
             $request->enum('target', ['course', 'chapter', 'page'], 'course'),
             $request->intOrNull('target_id'),
             $request->requiredId('tag_id', 'Tag id')
         );
-        return self::tagResult($username, $id);
+        return self::tagResult($owner, $id);
     }
 
     /** @return array<string,mixed> */
-    private static function tagResult(string $username, int $projectId): array
+    private static function tagResult(string $owner, int $projectId): array
     {
         Projects::touch($projectId);
-        return ['project' => Projects::tree($username, $projectId), 'tags' => Tags::all($username)];
+        return ['project' => Projects::tree($owner, $projectId), 'tags' => Tags::all($owner)];
     }
 }

@@ -54,6 +54,15 @@ final class Settings
                 'default' => 2, 'min' => 1, 'max' => 16,
             ],
             [
+                'key' => 'app.public_url', 'group' => 'general', 'type' => 'string',
+                'label' => 'Public address',
+                'description' => 'The address this installation is reached at. CourseForge works it out from '
+                    . 'the request, so leave it empty unless it guesses wrong - behind a reverse proxy, for '
+                    . 'instance. It is what the cron URL and the MCP connection line are built from.',
+                'placeholder' => 'https://courseforge.example.com',
+                'default' => '',
+            ],
+            [
                 'key' => 'app.debug', 'group' => 'general', 'type' => 'bool',
                 'label' => 'Debug mode',
                 'description' => 'Puts exception details into API responses. Leave this off on anything reachable from the internet.',
@@ -138,6 +147,32 @@ final class Settings
                 'default' => 16000, 'min' => 1000, 'max' => 200000,
             ],
 
+            /* ------------------------------------------- claude subscription */
+            [
+                'key' => 'app.claude_cli_path', 'group' => 'claude_cli', 'type' => 'string',
+                'label' => 'Path to the claude binary',
+                'description' => 'Left as "claude" it is looked up on PATH, which is right on a machine where '
+                    . 'you installed it normally. Give a full path when PHP runs with a PATH of its own.',
+                'default' => 'claude', 'admin_only' => true,
+            ],
+            [
+                'key' => 'app.claude_cli_allowed_paths', 'group' => 'claude_cli', 'type' => 'list',
+                'label' => 'Directories the CLI may be started from',
+                'description' => 'Empty means no restriction. Naming directories here refuses to start the '
+                    . 'binary from anywhere else, which is worth doing if anything other than you can write '
+                    . 'to the machine.',
+                'default' => [], 'admin_only' => true, 'advanced' => true,
+            ],
+            [
+                'key' => 'app.claude_cli_models', 'group' => 'claude_cli', 'type' => 'list',
+                'label' => 'Models the subscription offers',
+                'description' => 'The CLI has no endpoint that lists them, so this is the list the Profiles '
+                    . 'screen shows. Add a model here when Anthropic ships one before CourseForge knows about it.',
+                'default' => ['opus', 'sonnet', 'haiku', 'fable',
+                    'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'claude-fable-5'],
+                'admin_only' => true, 'advanced' => true,
+            ],
+
             /* ---------------------------------------------------------- mcp */
             [
                 'key' => 'mcp.enabled', 'group' => 'mcp', 'type' => 'bool',
@@ -208,13 +243,13 @@ final class Settings
             [
                 'key' => 'updates.auto_check', 'group' => 'updates', 'type' => 'bool',
                 'label' => 'Check for updates automatically',
-                'description' => 'Once a day, from the scheduler. Needs cron.',
+                'description' => 'Once a day, from the scheduler, so this screen is current when you open it. Needs cron. Automatic installation asks GitHub on its own and does not depend on this.',
                 'default' => true, 'admin_only' => true,
             ],
             [
                 'key' => 'updates.auto_install', 'group' => 'updates', 'type' => 'bool',
                 'label' => 'Install them automatically',
-                'description' => 'Unattended updates at the time below. A backup is taken first and restored if the new version fails to start.',
+                'description' => 'Unattended updates at the time below, from the scheduler. Needs cron. A backup is taken first and restored if the new version fails to start.',
                 'default' => false, 'admin_only' => true,
             ],
             [
@@ -253,6 +288,7 @@ final class Settings
             ['key' => 'batch', 'label' => 'Batch and runs', 'description' => 'How queued generation is polled and how long its records are kept.'],
             ['key' => 'updates', 'label' => 'Updates', 'description' => 'Checking GitHub for a new version, and installing it.'],
             ['key' => 'mcp', 'label' => 'MCP', 'description' => 'The endpoint Claude and other MCP clients connect to.'],
+            ['key' => 'claude_cli', 'label' => 'Claude subscription', 'description' => 'The locally installed Claude Code CLI, for an installation running on your own machine.'],
             ['key' => 'security', 'label' => 'Security', 'description' => 'Sign-in throttling and session lifetime.'],
             ['key' => 'timeouts', 'label' => 'Timeouts', 'description' => 'How long CourseForge waits for somebody else.'],
         ];

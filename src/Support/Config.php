@@ -310,11 +310,23 @@ final class Config
     private static function prune(array $doc): array
     {
         foreach ($doc as $key => $value) {
-            if (is_array($value) && !array_is_list($value)) {
-                $doc[$key] = self::prune($value);
-                if ($doc[$key] === []) {
-                    unset($doc[$key]);
-                }
+            if (!is_array($value)) {
+                continue;
+            }
+            // An empty array is a list as far as array_is_list is concerned, so
+            // testing for a list first would leave behind exactly the skeleton
+            // this method exists to remove: the branch whose last override has
+            // just been deleted.
+            if ($value === []) {
+                unset($doc[$key]);
+                continue;
+            }
+            if (array_is_list($value)) {
+                continue;
+            }
+            $doc[$key] = self::prune($value);
+            if ($doc[$key] === []) {
+                unset($doc[$key]);
             }
         }
         return $doc;

@@ -70,7 +70,7 @@ final class Invite
             [self::hash($code), $role, time(), $expires, $issuedBy]
         );
 
-        $path = self::write($code, $role, $expires);
+        $path = self::write(Db::lastId(), $code, $role, $expires);
         return ['code' => $code, 'path' => $path, 'role' => $role, 'expires_at' => $expires];
     }
 
@@ -180,7 +180,7 @@ final class Invite
      * data directory if it is not. Both are refused over HTTP by the shipped
      * server configuration.
      */
-    private static function write(string $code, string $role, int $expires): string
+    private static function write(int $inviteId, string $code, string $role, int $expires): string
     {
         $when = $expires > 0
             ? 'This code expires on ' . gmdate('Y-m-d H:i', $expires) . ' UTC.'
@@ -210,10 +210,9 @@ final class Invite
             $path = rtrim($dir, "/\\") . '/' . self::FILE;
             if (@file_put_contents($path, $body . "\n", LOCK_EX) !== false) {
                 @chmod($path, 0640);
-                Db::run(
-                    'UPDATE invites SET file_path = ? WHERE id = (SELECT MAX(id) FROM invites)',
-                    [$path]
-                );
+                // By id, not by MAX(id): two invites issued in the same second
+                // would otherwise leave one row pointing at the other one's file.
+                Db::run('UPDATE invites SET file_path = ? WHERE id = ?', [$path, $inviteId]);
                 return $path;
             }
         }

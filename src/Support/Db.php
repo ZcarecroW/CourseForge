@@ -369,7 +369,14 @@ final class Db
         $pdo->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_batch_items_active
                         ON batch_items(page_id) WHERE status IN ('pending', 'working')");
 
-        // Version 6: accounts, and a run that knows which quality pass it is.
+        // Version 6: accounts, a run that knows which quality pass it is, and
+        // the second of a batch's two deadlines. `expires_at` is when the
+        // provider stops running whatever is still queued - a day, two on
+        // Gemini. `results_expire_at` is when it stops letting the finished
+        // answers be downloaded, which is weeks later and a different number on
+        // every provider. One column cannot hold both, and reading one as the
+        // other is how a whole course is left sitting at a provider until it is
+        // deleted for good.
         self::ensureColumn($pdo, 'mcp_clients', 'scopes', "TEXT NOT NULL DEFAULT ''");
         self::ensureColumn($pdo, 'mcp_clients', 'expires_at', 'INTEGER NOT NULL DEFAULT 0');
         self::ensureColumn($pdo, 'mcp_clients', 'note', "TEXT NOT NULL DEFAULT ''");
@@ -380,6 +387,7 @@ final class Db
         self::ensureColumn($pdo, 'batch_jobs', 'options', "TEXT NOT NULL DEFAULT '{}'");
         self::ensureColumn($pdo, 'batch_jobs', 'usage', "TEXT NOT NULL DEFAULT '{}'");
         self::ensureColumn($pdo, 'batch_jobs', 'created_by', "TEXT NOT NULL DEFAULT ''");
+        self::ensureColumn($pdo, 'batch_jobs', 'results_expire_at', 'INTEGER NOT NULL DEFAULT 0');
         self::ensureColumn($pdo, 'batch_items', 'pass', 'INTEGER NOT NULL DEFAULT 1');
         self::ensureColumn($pdo, 'batch_items', 'usage', "TEXT NOT NULL DEFAULT '{}'");
 

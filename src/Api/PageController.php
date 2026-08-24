@@ -8,6 +8,8 @@ use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Pages;
 use CourseForge\Domain\Profiles;
 use CourseForge\Domain\Projects;
+use CourseForge\Security\Access;
+use CourseForge\Security\Actor;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Request;
 use CourseForge\Support\Runtime;
@@ -16,19 +18,23 @@ use CourseForge\Support\Runtime;
 final class PageController
 {
     /** @return array<string,mixed> */
-    public static function show(Request $request, string $username): array
+    public static function show(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $projectId = $request->id('id');
-        Projects::require($username, $projectId);
+        Access::project($me, $projectId); // 404 unless the actor may reach the course
+
         return ['page' => Pages::detail($projectId, $request->id('pageId'))];
     }
 
     /** @return array<string,mixed> */
-    public static function update(Request $request, string $username): array
+    public static function update(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $projectId = $request->id('id');
         $pageId = $request->id('pageId');
-        Projects::require($username, $projectId);
+
+        $owner = (string)Access::project($me, $projectId)['username'];
         Pages::require($projectId, $pageId);
 
         $fields = [];
@@ -51,7 +57,7 @@ final class PageController
 
         Pages::update($pageId, $fields);
         if (isset($fields['title'])) {
-            Projects::resyncStructure($username, $projectId); // keep title-based matching intact
+            Projects::resyncStructure($owner, $projectId); // keep title-based matching intact
         }
         Projects::touch($projectId);
 
@@ -59,17 +65,23 @@ final class PageController
     }
 
     /** @return array<string,mixed> */
-    public static function generate(Request $request, string $username): array
+    public static function generate(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $projectId = $request->id('id');
         $pageId = $request->id('pageId');
-        $project = Projects::require($username, $projectId);
+
+        $project = Access::project($me, $projectId);
+        $owner = (string)$project['username'];
         Pages::require($projectId, $pageId);
 
         if ($project['profile_id'] === null) {
             throw HttpException::unprocessable('Assign a profile to this course first.');
         }
-        $profile = Profiles::data($username, (int)$project['profile_id']);
+        // The model, the key and the language belong to the course, which means
+        // to its owner - an administrator writing a page here spends the
+        // owner's account, not their own.
+        $profile = Profiles::data($owner, (int)$project['profile_id']);
 
         if ($request->has('extra_context')) {
             Pages::update($pageId, ['extra_context' => $request->raw('extra_context')]);
@@ -84,11 +96,13 @@ final class PageController
     /* -------------------------------------------------------------- chapter */
 
     /** @return array<string,mixed> */
-    public static function updateChapter(Request $request, string $username): array
+    public static function updateChapter(Request $request, ?Actor $actor): array
     {
+        $me = $actor ?? throw HttpException::unauthorized();
         $projectId = $request->id('id');
         $chapterId = $request->id('chapterId');
-        Projects::require($username, $projectId);
+
+        $owner = (string)Access::project($me, $projectId)['username'];
         Chapters::require($projectId, $chapterId);
 
         $fields = [];
@@ -105,10 +119,10 @@ final class PageController
 
         Chapters::update($chapterId, $fields);
         if (isset($fields['title']) || isset($fields['description'])) {
-            Projects::resyncStructure($username, $projectId);
+            Projects::resyncStructure($owner, $projectId);
         }
         Projects::touch($projectId);
 
-        return ['project' => Projects::tree($username, $projectId)];
+        return ['project' => Projects::tree($owner, $projectId)];
     }
 }
