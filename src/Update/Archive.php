@@ -851,9 +851,23 @@ final class Archive
         }
     }
 
-    /** A byte count as something a person reads, for the log lines. */
+    /**
+     * A byte count as something a person reads.
+     *
+     * Written for the log lines, where the numbers are release archives of a
+     * few megabytes, but it is also what the free-space precondition prints -
+     * and a disk is three orders of magnitude bigger than an archive. Without
+     * the two larger steps that check reported "412274 MB free", which is a
+     * number nobody can read at a glance.
+     */
     public static function size(int $bytes): string
     {
+        if ($bytes >= 1099511627776) {
+            return round($bytes / 1099511627776, 1) . ' TB';
+        }
+        if ($bytes >= 1073741824) {
+            return round($bytes / 1073741824, 1) . ' GB';
+        }
         if ($bytes >= 1048576) {
             return round($bytes / 1048576, 1) . ' MB';
         }

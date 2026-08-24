@@ -139,13 +139,17 @@ final class Diagnostics
     {
         $checks = [];
 
+        // Every path below is printed, never opened, so each one goes through
+        // Text::path first - CF_DATA is built by appending "/data" to a constant
+        // that on Windows already carries backslashes, and the report is read by
+        // somebody who has to recognise the directory.
         $present = self::isDir(CF_DATA);
         $checks[] = $present
-            ? self::ok('data_dir', 'Data directory', CF_DATA)
+            ? self::ok('data_dir', 'Data directory', Text::path(CF_DATA))
             : self::fail(
                 'data_dir',
                 'Data directory',
-                CF_DATA . ' does not exist',
+                Text::path(CF_DATA) . ' does not exist',
                 'The application creates it on first run when the parent directory allows that. Create it by '
                 . 'hand, or point COURSEFORGE_DATA_DIR somewhere PHP can write.'
             );
@@ -158,7 +162,7 @@ final class Diagnostics
         if ($present) {
             $checks[] = self::isWritable(CF_DATA)
                 ? self::ok('data_writable', 'Data directory writable')
-                : self::fail('data_writable', 'Data directory writable', 'PHP cannot write to ' . CF_DATA);
+                : self::fail('data_writable', 'Data directory writable', 'PHP cannot write to ' . Text::path(CF_DATA));
 
             // Only worth saying when the data directory sits under the document
             // root, which is the default because it is the only thing that
@@ -243,7 +247,7 @@ final class Diagnostics
                 : self::fail(
                     'defaults_file',
                     'config/defaults.json',
-                    'missing or unreadable at ' . $defaults,
+                    'missing or unreadable at ' . Text::path($defaults),
                     'This file ships with the release. Restore it from the archive you installed from.'
                 );
 
@@ -263,7 +267,7 @@ final class Diagnostics
                 $checks[] = self::fail(
                     'config_writable',
                     'data/config.json',
-                    'not checked - ' . $overrideDir . ' does not exist',
+                    'not checked - ' . Text::path($overrideDir) . ' does not exist',
                     'See the Paths section. Nothing can be configured from the screens until the data '
                     . 'directory is there.'
                 );
@@ -277,7 +281,7 @@ final class Diagnostics
                     : self::fail(
                         'config_writable',
                         'data/config.json',
-                        'PHP cannot write ' . $overrideFile,
+                        'PHP cannot write ' . Text::path($overrideFile),
                         'Settings changed in the application are stored here. Without it nothing can be '
                         . 'configured from the screens.'
                     );
@@ -397,7 +401,7 @@ final class Diagnostics
                 $checks[] = self::warn(
                     'legacy_users',
                     'Legacy users.json',
-                    'still present in ' . CF_DATA,
+                    'still present in ' . Text::path(CF_DATA),
                     $total > 0
                         ? 'It is ignored now that accounts exist. Delete it - it holds a password hash.'
                         : 'Nothing imports it on its own. Create the first administrator with the invite code, '
@@ -431,7 +435,9 @@ final class Diagnostics
         // depends on what was writable at the time.
         $candidates = [CF_ROOT . '/' . Invite::FILE, CF_DATA . '/' . Invite::FILE];
         $present = array_values(array_filter($candidates, static fn(string $p): bool => self::isFile($p)));
-        $where = implode(', ', $present);
+        // $present is what the checks below are made on; $where is what is read,
+        // so only the second one is respelled.
+        $where = implode(', ', array_map(static fn(string $p): string => Text::path($p), $present));
 
         if ($present === [] && !$open) {
             $checks[] = self::ok('invite_file', Invite::FILE, 'not on disk');
@@ -553,7 +559,7 @@ final class Diagnostics
 
         try {
             Db::pdo();
-            $checks[] = self::ok('sqlite', 'SQLite database', Db::file());
+            $checks[] = self::ok('sqlite', 'SQLite database', Text::path(Db::file()));
 
             // Read after the migration rather than before it, because there is
             // no before: Db::pdo() migrates as it opens, so by the time any
@@ -629,9 +635,13 @@ final class Diagnostics
                         )
                         : self::warn('cron_tick', 'Last tick', 'never - point your host at /cron.php?token=... once a minute');
                 } elseif ($cron['healthy']) {
-                    $checks[] = self::ok('cron_tick', 'Last tick', $cron['seconds_ago'] . 's ago');
+                    $checks[] = self::ok('cron_tick', 'Last tick', self::ago((int)$cron['seconds_ago']));
                 } else {
-                    $checks[] = self::warn('cron_tick', 'Last tick', $cron['seconds_ago'] . 's ago - it is meant to run every minute');
+                    $checks[] = self::warn(
+                        'cron_tick',
+                        'Last tick',
+                        self::ago((int)$cron['seconds_ago']) . ' - it is meant to run every minute'
+                    );
                 }
             }
 
@@ -669,7 +679,7 @@ final class Diagnostics
                 : self::warn(
                     'install_writable',
                     'Installation writable',
-                    'PHP cannot write to ' . CF_ROOT,
+                    'PHP cannot write to ' . Text::path(CF_ROOT),
                     'One-click and unattended updates are unavailable. Update by uploading the release yourself.'
                 );
 
@@ -827,6 +837,34 @@ final class Diagnostics
     }
 
     /* -------------------------------------------------------------- helpers */
+
+    /**
+     * An age in seconds, in the words the rest of CourseForge uses for it.
+     *
+     * A row reading "2087s ago" asks the reader to do a division, next to a
+     * screen that says "29 minutes ago" everywhere else. The phrasing belongs
+     * here rather than in the browser, because these rows are printed as they
+     * arrive by the Settings screen and by the command-line printer over the
+     * same data, and only one of those two runs JavaScript. The steps match
+     * relativeTime() in assets/js/core/format.js so the two surfaces never
+     * describe the same moment differently.
+     */
+    private static function ago(int $seconds): string
+    {
+        if ($seconds < 15) {
+            return 'just now';
+        }
+
+        $steps = [[60, 'second', 1], [3600, 'minute', 60], [86400, 'hour', 3600], [2592000, 'day', 86400]];
+        foreach ($steps as [$limit, $unit, $divisor]) {
+            if ($seconds < $limit) {
+                $value = intdiv($seconds, $divisor);
+                return $value . ' ' . $unit . ($value === 1 ? '' : 's') . ' ago';
+            }
+        }
+
+        return 'on ' . gmdate('j M Y', time() - $seconds) . ' UTC';
+    }
 
     /** @param array<int,array<string,string>> $checks */
     private static function section(string $key, string $label, array $checks): array

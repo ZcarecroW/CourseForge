@@ -392,6 +392,23 @@ final class ClaudeCliProvider implements Provider
 
         if (!is_array($payload)) {
             $detail = trim($result['stderr'] !== '' ? $result['stderr'] : $result['stdout']);
+
+            // An exit status above 128 is a signal, and the two that get sent
+            // here are a host time limit and somebody killing the process
+            // tree. Both leave a JSON object that stops mid-field, and
+            // reporting that as "did not return JSON" sends the reader looking
+            // for a bug in the CLI when what happened is that the answer was
+            // cut off. It is worth telling apart: the work was done and paid
+            // for, and running it again with more time will succeed.
+            if ($result['status'] > 128) {
+                throw HttpException::badRequest(
+                    'The Claude CLI was stopped by the system (signal ' . ($result['status'] - 128) . ') '
+                    . 'part way through its answer, so what came back is incomplete. That is usually a time '
+                    . 'limit on the process rather than anything wrong with the request - raise the AI '
+                    . 'request timeout, or generate fewer pages at once.'
+                );
+            }
+
             throw HttpException::badRequest(
                 'The Claude CLI did not return JSON (exit code ' . $result['status'] . '). '
                 . ($detail !== '' ? Text::snippet($detail) : 'It produced no output at all.')

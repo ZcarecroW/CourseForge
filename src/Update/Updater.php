@@ -189,7 +189,30 @@ final class Updater
         // and the value is clamped here to a small integer.
         $limit = max(1, min(200, $limit));
 
-        return Db::rows('SELECT * FROM update_history ORDER BY id DESC LIMIT ' . $limit);
+        return array_map(
+            static fn(array $row): array => self::readable($row),
+            Db::rows('SELECT * FROM update_history ORDER BY id DESC LIMIT ' . $limit)
+        );
+    }
+
+    /**
+     * One history row on its way to a screen.
+     *
+     * The stored path is left exactly as it was written, because it is the
+     * archive an operator may later have to find by hand and because nothing
+     * should be able to rewrite a record of what happened. Only the copy the
+     * screen prints is respelled.
+     *
+     * @param array<string,mixed> $row
+     * @return array<string,mixed>
+     */
+    private static function readable(array $row): array
+    {
+        if (($row['backup_path'] ?? '') !== '') {
+            $row['backup_path'] = Text::path((string)$row['backup_path']);
+        }
+
+        return $row;
     }
 
     /**
@@ -329,7 +352,9 @@ final class Updater
             'There is room for the download and a backup',
             !is_float($free) || $needed === 0 || $free > $needed,
             false,
-            is_float($free) ? round($free / 1048576) . ' MB free in the data directory.' : 'The free space could not be read.'
+            is_float($free)
+                ? Archive::size((int)$free) . ' free in the data directory.'
+                : 'The free space could not be read.'
         );
 
         return $checks;
@@ -517,7 +542,9 @@ final class Updater
 
         [$writable] = self::probeWritable(CF_ROOT);
         if (!$writable) {
-            throw HttpException::unprocessable('PHP cannot write to ' . CF_ROOT . ', so nothing can be restored.');
+            throw HttpException::unprocessable(
+                'PHP cannot write to ' . Text::path(CF_ROOT) . ', so nothing can be restored.'
+            );
         }
 
         $owner = Lock::acquire(self::LOCK, self::LOCK_SECONDS);
@@ -1543,21 +1570,25 @@ final class Updater
      * often enough to matter: an immutable flag, a read-only mount, a SELinux
      * context, a Windows ACL. The one reliable test is to write a file.
      *
+     * The second element is the precondition's detail line, which is read on the
+     * Updates screen and nowhere else - hence Text::path. The probe itself is
+     * still built from $directory as it was handed in.
+     *
      * @return array{0:bool,1:string}
      */
     private static function probeWritable(string $directory): array
     {
         if (!is_dir($directory)) {
-            return [false, $directory . ' does not exist.'];
+            return [false, Text::path($directory) . ' does not exist.'];
         }
 
         $probe = rtrim($directory, '/\\') . '/.cf-write-probe-' . bin2hex(random_bytes(4));
         if (@file_put_contents($probe, 'cf') === false) {
-            return [false, 'PHP cannot create files in ' . $directory . '.'];
+            return [false, 'PHP cannot create files in ' . Text::path($directory) . '.'];
         }
         @unlink($probe);
 
-        return [true, $directory];
+        return [true, Text::path($directory)];
     }
 
     /** @return array{key:string,label:string,ok:bool,blocking:bool,detail:string} */
@@ -1669,7 +1700,11 @@ final class Updater
             [time(), $status, $log, mb_substr($error, 0, 2000), $backupPath, $id]
         );
 
-        return Db::row('SELECT * FROM update_history WHERE id = ?', [$id]) ?? [
+        // The caller hands this row straight back to the screen, so it goes
+        // through the same respelling as a row read from history().
+        $row = Db::row('SELECT * FROM update_history WHERE id = ?', [$id]);
+
+        return $row !== null ? self::readable($row) : [
             'id' => $id,
             'status' => $status,
             'log' => $log,

@@ -12,6 +12,7 @@ use CourseForge\Support\Diagnostics;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Request;
 use CourseForge\Support\Settings;
+use CourseForge\Support\Text;
 
 /**
  * The Settings screen.
@@ -38,7 +39,10 @@ final class SettingsController
             'prompt_groups' => Config::promptGroups(),
             'prompt_slots' => Config::promptSlots(),
             'defaults_file' => basename(Config::defaultsFile()),
-            'overrides_file' => Config::file(),
+            // Printed in full in the screen's opening paragraph, so it goes out
+            // in the platform's own spelling rather than the half Windows, half
+            // Unix string Config builds for fopen().
+            'overrides_file' => Text::path(Config::file()),
         ];
     }
 
@@ -202,7 +206,10 @@ final class SettingsController
         return $status + [
             'configured' => $token !== '',
             'url' => $token === '' ? '' : Cron::publicUrl($token),
-            'cli' => 'php ' . CF_ROOT . '/tools/cron.php --quiet',
+            // A line somebody is meant to copy into a crontab or a control
+            // panel, so the path in it is spelled for the platform it will run
+            // on rather than left half and half.
+            'cli' => 'php ' . Text::path(CF_ROOT . '/tools/cron.php') . ' --quiet',
             'workers' => Config::int('app.cron_workers', 2),
             'seconds' => Config::int('app.cron_seconds', 50),
         ];
