@@ -34,9 +34,13 @@ use CourseForge\Support\HttpException;
  * admin group, where that intention is written down.
  *
  * This is also where the surface opens - `whoami` is the first tool in the
- * registry, and `Scopes::effective()` always grants this group whatever a
- * connection asked for, because a connection that cannot answer "who am I" is
- * harder to use for no gain in safety.
+ * registry, and the only one in the whole application that a narrowed
+ * connection keeps whatever it was given. That exemption is declared on the
+ * tool itself rather than on this group, and the distinction is the point: a
+ * connection that cannot say what it is connected as is harder to use and no
+ * safer, while the rest of this group changes a password and revokes
+ * connections. Exempting the group would have handed both to a token that was
+ * given neither.
  *
  * One thing is deliberately absent: there is no tool that CREATES a connection.
  * A token able to mint another token could mint one carrying scopes wider than
@@ -63,6 +67,14 @@ final class AccountTools
                 handler: static fn(Actor $actor, array $args): array => self::whoami($actor),
                 readOnly: true,
                 idempotent: true,
+                // The one tool a narrowed connection keeps. Answering "what am
+                // I connected as" gives away nothing the token did not already
+                // prove, and a connection that cannot answer it is harder to
+                // use for no gain in safety. Nothing else in this group is
+                // exempt - changing a password and revoking a connection are
+                // both here, and a token narrowed to writing pages has no
+                // business with either.
+                alwaysAvailable: true,
             ),
 
             new Tool(

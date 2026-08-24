@@ -18,6 +18,14 @@ use CourseForge\Security\Actor;
  * `admin` needs an administrator whatever the token says, and there is no way
  * to grant it to a connection owned by a normal account. Scopes narrow what a
  * token can do; they never widen it.
+ *
+ * Exactly one tool escapes the narrowing - `whoami`, which answers "what am I
+ * connected as". A connection that cannot answer that is harder to use and no
+ * safer, and it gives nothing away that the token did not already prove. That
+ * exemption is a property of the one tool, declared on it, and deliberately
+ * not of the group it sits in: the account group also holds "change my
+ * password" and "revoke my connections", and a token narrowed to writing pages
+ * has no business with either.
  */
 final class Scopes
 {
@@ -144,15 +152,7 @@ final class Scopes
             return $allowed;
         }
 
-        // The account group is never narrowed away. It holds nothing but
-        // "who am I", "what are my own connections" and "change my own
-        // password" - and a connection that cannot answer the first of those
-        // is harder to use for no gain in safety.
-        $granted = array_values(array_intersect($allowed, array_map('strval', $requested)));
-        if (!in_array(self::ACCOUNT, $granted, true)) {
-            $granted[] = self::ACCOUNT;
-        }
-        return $granted;
+        return array_values(array_intersect($allowed, array_map('strval', $requested)));
     }
 
     /** @param string[] $requested keeps only groups that exist */

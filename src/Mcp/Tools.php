@@ -94,10 +94,7 @@ final class Tools
 
         $out = [];
         foreach (self::registry() as $tool) {
-            if (!in_array($tool->scope, $allowed, true)) {
-                continue;
-            }
-            if ($tool->admin && !$actor->isAdmin()) {
+            if (!self::visible($tool, $actor, $allowed)) {
                 continue;
             }
             $out[] = $tool->describe();
@@ -136,9 +133,7 @@ final class Tools
         $tool = self::registry()[$name] ?? null;
         $allowed = Scopes::effective($actor, $scopes);
 
-        if ($tool === null
-            || !in_array($tool->scope, $allowed, true)
-            || ($tool->admin && !$actor->isAdmin())) {
+        if ($tool === null || !self::visible($tool, $actor, $allowed)) {
             throw HttpException::notFound(
                 'There is no tool called "' . $name . '" on this connection. Call tools/list to see what there is.'
             );
@@ -154,6 +149,24 @@ final class Tools
         }
 
         return ['text' => self::json($result), 'data' => $result];
+    }
+
+    /**
+     * Whether this connection may see and call one tool.
+     *
+     * Asked in exactly one place, so that listing a tool and running it can
+     * never disagree - a tool that appears but refuses, or refuses but appears,
+     * is worse than either.
+     *
+     * @param string[] $allowed
+     */
+    private static function visible(Tool $tool, Actor $actor, array $allowed): bool
+    {
+        if ($tool->admin && !$actor->isAdmin()) {
+            return false;
+        }
+        // One tool is exempt from the narrowing: see the note in Scopes.
+        return $tool->alwaysAvailable || in_array($tool->scope, $allowed, true);
     }
 
     /** @param array<string,mixed> $data */

@@ -42,6 +42,7 @@ final class Tool
         public readonly bool $spends = false,
         public readonly ?bool $openWorld = null,
         public readonly int $maxResultChars = 0,
+        public readonly bool $alwaysAvailable = false,
     ) {
     }
 
