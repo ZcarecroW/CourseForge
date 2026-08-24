@@ -388,7 +388,7 @@ export const ContentTab = {
     });
 
     return {
-      state, project, busy, selection, selectedPage, selectedChapter, draft, chapterDraft,
+      state, project, allPages, busy, selection, selectedPage, selectedChapter, draft, chapterDraft,
       dirty, chapterDirty, loadingPage, savingPage, pageFeedback, viewMode, inspectorTab,
       outlineOpen, inspectorOpen, search, filter, tree, filtering, isCollapsed, toggleChapter,
       collapseAll, pageDotClass, selectPage, selectChapter, savePage, saveChapterEdits,
@@ -678,8 +678,41 @@ export const ContentTab = {
           </div>
         </template>
 
-        <empty-state v-else icon="file-text" title="Nothing selected"
-                     hint="Pick a page or a chapter in the outline on the left."/>
+        <!-- Nothing selected. This branch owns the only way back to the outline
+             below 1024px, where the outline is a drawer rather than a column:
+             without a head of its own it used to be a dead end, and with it the
+             page list, the filter and the generation controls were all out of
+             reach on a phone. -->
+        <template v-else>
+          <div class="pane__head">
+            <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show the outline"
+                    @click="outlineOpen = true"><app-icon name="menu" :size="15"/></button>
+            <span class="eyebrow grow">Content</span>
+          </div>
+
+          <div class="pane__body">
+            <empty-state v-if="allPages.length" icon="file-text" title="Nothing selected"
+                         hint="Pick a page or a chapter in the outline to edit it, give it context, or have it written.">
+              <button class="btn outline-toggle" @click="outlineOpen = true">
+                <app-icon name="menu" :size="14"/> Open the outline
+              </button>
+            </empty-state>
+
+            <!-- A course with no pages at all has nothing to pick, so pointing
+                 at the outline would be pointing at an empty list. -->
+            <empty-state v-else icon="sitemap" title="This course has no pages yet"
+                         hint="The outline decides which pages exist. Write one on the Structure tab, or have CourseForge design it, then come back here to fill the pages in.">
+              <div class="row wrap gap-2" style="justify-content:center">
+                <button class="btn btn--primary" @click="state.projectTab = 'structure'">
+                  <app-icon name="sitemap" :size="14"/> Go to Structure
+                </button>
+                <button class="btn outline-toggle" @click="outlineOpen = true">
+                  <app-icon name="menu" :size="14"/> Open the outline
+                </button>
+              </div>
+            </empty-state>
+          </div>
+        </template>
       </section>
 
       <!-- ============================================== inspector ======= -->

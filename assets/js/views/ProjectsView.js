@@ -1,5 +1,16 @@
+/**
+ * Courses - the inventory of everything being written on this installation.
+ *
+ * A normal account sees its own courses and nothing else, which is the whole of
+ * what it needs. An administrator is shown every account's, because this is the
+ * one listing that answers a question about the installation rather than about
+ * a person: what is being written on it, what is stuck, how much of it there
+ * is. Each row carries its owner, so a shared list stays readable - somebody
+ * else's course is marked as theirs, and the filter narrows the list to one
+ * account when only one account is the point.
+ */
 import { ref, reactive, computed, watch } from 'vue';
-import { state, loadProjects, openProject } from '@/core/store.js';
+import { state, isAdmin, loadProjects, openProject } from '@/core/store.js';
 import { post, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
@@ -23,6 +34,7 @@ export const ProjectsView = {
   setup() {
     const search = ref('');
     const sort = ref('updated');
+    const ownerFilter = ref('');
     const showCreate = ref(false);
     const creating = ref(false);
     const draft = reactive({ name: '', topic: '', profile_id: null });
@@ -32,8 +44,39 @@ export const ProjectsView = {
       if (draft.profile_id === null && profiles.length) draft.profile_id = profiles[0].id;
     }, { immediate: true, deep: false });
 
-    const found = useFuzzy(computed(() => state.projects), search, { keys: ['name', 'topic'], limit: 200 });
+    /**
+     * Every account with a course here, for the filter.
+     *
+     * Only ever more than one name for an administrator - the server sends a
+     * normal account nothing but its own rows - so the filter draws itself only
+     * when there is genuinely something to choose between.
+     */
+    const owners = computed(() => {
+      const names = new Set();
+      for (const project of state.projects) if (project.owner) names.add(project.owner);
+      return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    });
+
+    const showOwners = computed(() => isAdmin.value && owners.value.length > 1);
+
+    /** Somebody else's course, from the point of view of the person looking. */
+    const isForeign = (project) =>
+      isAdmin.value && Boolean(project.owner) && project.owner !== state.user?.username;
+
+    // The owner filter narrows the pool before the search runs, so a search
+    // inside one account's courses stays inside it.
+    const pool = computed(() => (ownerFilter.value
+      ? state.projects.filter((project) => project.owner === ownerFilter.value)
+      : state.projects));
+
+    const found = useFuzzy(pool, search, { keys: ['name', 'topic'], limit: 200 });
     const projects = computed(() => [...found.value].sort(SORTS[sort.value] ?? SORTS.updated));
+
+    // An account whose last course was deleted would otherwise leave the list
+    // filtered to a name that no longer appears in it.
+    watch(owners, (names) => {
+      if (ownerFilter.value && !names.includes(ownerFilter.value)) ownerFilter.value = '';
+    });
 
     const create = () => attempt(async () => {
       if (!draft.topic.trim()) {
@@ -69,7 +112,8 @@ export const ProjectsView = {
     const profileName = (id) => state.profiles.find((p) => p.id === id)?.name ?? 'no profile';
 
     return {
-      state, search, sort, projects, showCreate, creating, draft, confirmDelete,
+      state, isAdmin, search, sort, projects, showCreate, creating, draft, confirmDelete,
+      ownerFilter, owners, showOwners, isForeign,
       create, remove, open: openProject, profileName,
       relativeTime, percent, plural,
     };
@@ -90,6 +134,16 @@ export const ProjectsView = {
             <app-icon name="search" :size="14"
                       style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
             <input v-model="search" placeholder="Search courses…" style="padding-left:30px" spellcheck="false">
+          </div>
+          <div v-if="showOwners" class="row gap-2 none">
+            <span class="t-xs dim">Belongs to</span>
+            <select v-model="ownerFilter" style="width:auto"
+                    title="Show only the courses of one account">
+              <option value="">Everyone</option>
+              <option v-for="owner in owners" :key="owner" :value="owner">
+                {{ owner === state.user.username ? owner + ' (you)' : owner }}
+              </option>
+            </select>
           </div>
           <div class="row gap-2 none">
             <span class="t-xs dim">Sort</span>
@@ -131,6 +185,13 @@ export const ProjectsView = {
               </div>
 
               <div class="row wrap gap-1">
+                <!-- Only ever drawn for an administrator, and only for a course
+                     that is not theirs: a list of your own courses does not need
+                     your own name on every card. -->
+                <span v-if="isForeign(project)" class="chip chip--inherited"
+                      :title="'This course belongs to ' + project.owner">
+                  <app-icon name="user" :size="10"/>{{ project.owner }}
+                </span>
                 <span class="badge">{{ plural(project.chapter_count, 'chapter') }}</span>
                 <span v-if="project.pushed_count" class="badge badge--success">
                   <app-icon name="upload" :size="10"/> {{ project.pushed_count }} published
@@ -153,8 +214,10 @@ export const ProjectsView = {
         </div>
 
         <empty-state v-else-if="state.projects.length" icon="search"
-                     title="Nothing matches that search"
-                     hint="Try a different word, or clear the search box."/>
+                     title="Nothing matches that"
+                     :hint="ownerFilter
+                       ? 'No course of ' + ownerFilter + ' matches. Try a different word, or set the owner back to everyone.'
+                       : 'Try a different word, or clear the search box.'"/>
 
         <empty-state v-else icon="book" title="No courses yet"
                      hint="A course starts with one sentence: what should be taught, to whom, and up to which level.">
@@ -203,6 +266,9 @@ export const ProjectsView = {
       <p class="t-sm">
         <strong>{{ confirmDelete.name }}</strong> and all
         {{ plural(confirmDelete.page_count, 'generated page') }} will be removed from CourseForge.
+      </p>
+      <p v-if="isForeign(confirmDelete)" class="hint mt-2 c-warning">
+        This course belongs to <strong>{{ confirmDelete.owner }}</strong>, not to you. They will not be told.
       </p>
       <p class="hint mt-2">Anything already published stays in BookStack — delete it there separately.</p>
       <template #footer>

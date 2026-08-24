@@ -1,0 +1,180 @@
+/* ============================================================================
+   CourseForge - the administration screens.
+
+   Only what the rest of the design system genuinely lacks. Everything here is
+   built from the custom properties in tokens.css, so both themes follow without
+   a second definition, and every block says which screen it is for.
+
+   If a screen needs a card, a badge, a table or a form row, it uses the ones in
+   components.css. Nothing is repeated here.
+   ========================================================================== */
+
+/* -- the administrator block in the sidebar --------------------------------
+   App.js. A second navigation group, set off from the four screens everybody
+   has by a rule and a heading, so it reads as "and, because you are an
+   administrator, also these" rather than as four more destinations. */
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--s-4);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--border-soft);
+}
+
+/* Pairs with .eyebrow, which supplies the type; this only places it over the
+   nav items below it and takes the colour down a step, because a heading in
+   the sidebar must never compete with the destination under it. */
+.nav-group__title {
+  padding: 0 10px var(--s-1);
+  color: var(--text-faint);
+}
+
+/* -- one setting ------------------------------------------------------------
+   Settings and Prompts. A definition list: what the setting is called, what it
+   actually does in a full sentence, and the control that changes it. The
+   description sits under the label rather than beside the control, so a long
+   explanation never squeezes the input it belongs to. */
+.setting-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+  gap: var(--s-2) var(--s-5);
+  align-items: start;
+  padding: var(--s-4);
+  border-bottom: 1px solid var(--border-soft);
+}
+.setting-row:last-child { border-bottom: 0; }
+
+.setting-row__text { min-width: 0; }
+.setting-row__label { font-size: var(--t-sm); font-weight: 550; }
+.setting-row__desc {
+  margin-top: 3px;
+  font-size: var(--t-xs);
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+/* Holds the input and, under it, anything that has to be said about the value
+   itself - a unit, a warning, "leave blank to keep the stored secret". */
+.setting-row__control {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+/* A setting this installation has moved off what the release ships. The rule
+   down the left is the marker; .changed-flag names it in words for anybody who
+   cannot see the colour. */
+.setting-row.is-changed {
+  border-left: 2px solid var(--accent);
+  padding-left: calc(var(--s-4) - 2px);
+}
+
+.changed-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--t-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+@media (max-width: 860px) {
+  .setting-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* -- the danger zone --------------------------------------------------------
+   Accounts, Settings and Updates. Actions that destroy something or that can
+   lock an administrator out of their own installation: deleting an account,
+   resetting every setting, rolling a release back. Being visibly a different
+   kind of panel is the point - it is the only warning some people will read. */
+.danger-zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-5);
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-lg);
+  background: var(--danger-soft);
+}
+
+.danger-zone__title {
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--danger);
+}
+
+/* -- the update history -----------------------------------------------------
+   Updates. Extends .log from components.css with the three things an install
+   record is made of: when it happened, what was added, what was taken away.
+   Every line stays readable on its own, because this log is normally read
+   after something has already gone wrong. */
+.log__stamp {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  margin-right: var(--s-2);
+}
+.log__line--added   { color: var(--success); }
+.log__line--removed { color: var(--danger); }
+.log__line--muted   { color: var(--text-faint); }
+
+/* -- the installation check -------------------------------------------------
+   Settings. One row per check: a status glyph, what was checked, what was
+   found, and - only when something is not right - what to do about it. The
+   glyph gets a column of its own so that every label starts on the same
+   vertical line and a section of forty checks can be skimmed rather than read.
+   Deliberately denser than .setting-row: this is a report, not a form. */
+.diag-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--s-4);
+}
+
+.diag-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: start;
+  padding: var(--s-2) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.diag-row:last-child { border-bottom: 0; }
+
+/* The icon sits on the text baseline rather than on the box's top edge. */
+.diag-row__icon { margin-top: 3px; }
+
+/* -- which layer of prompts am I editing ------------------------------------
+   Prompts. A strip directly under the header, in the accent wash rather than
+   in a card, because it is not one more thing on the page - it is the frame
+   the rest of the page has to be read in. Somebody editing the installation
+   layer while a profile quietly overrides it is the one mistake this screen
+   can produce, and it is invisible from inside the editor. */
+.prompt-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  flex: none;
+  padding: var(--s-3) var(--s-5);
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--accent-line);
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.55;
+}
+
+/* The prompt itself, which is the reason the screen exists, so it takes
+   whatever height is left over rather than a guessed number of rows. The floor
+   keeps it usable when the pane is short; below that the pane scrolls. */
+.prompt-editor {
+  flex: 1 1 auto;
+  min-height: 300px;
+  resize: vertical;
+}

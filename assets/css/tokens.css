@@ -3,6 +3,23 @@
    Every colour, radius, shadow and step of the type scale lives here. Nothing
    else in the stylesheet hard-codes a colour, so both themes stay in sync by
    construction. index.html stamps data-theme on <html> before the first paint.
+
+   Contrast
+   --------
+   Nothing in this file is small text on its own: the four text tiers and the
+   five accent colours are drawn at 10.5px and 11.5px all over the application,
+   and at those sizes WCAG AA asks for 4.5:1 against whatever is behind them.
+   Every value below was chosen against that number rather than by eye, on the
+   worst surface it is actually drawn on - which for a text tier is the flat
+   panel or the neutral chip wash, and for an accent colour is its own 10%
+   tint, because a badge puts the colour on a wash of itself.
+
+   That constrains how quiet a quiet colour is allowed to be. The four text
+   tiers are still four distinct steps, but the steps at the quiet end are
+   necessarily smaller than they once were, because 4.5:1 is the floor and
+   there is only so much room between it and the body colour. Anything added
+   here later has to clear the same bar; the smaller a token is set, the less
+   licence it has to recede.
    ========================================================================== */
 
 :root {
@@ -25,8 +42,8 @@
   /* -- text -------------------------------------------------------------- */
   --text:          #e8eef9;
   --text-muted:    #9baaC6;
-  --text-dim:      #6d7d9c;
-  --text-faint:    #4e5c78;
+  --text-dim:      #919db5;
+  --text-faint:    #8290ad;
 
   /* -- accents ----------------------------------------------------------- */
   --accent:        #38bdf8;
@@ -133,30 +150,30 @@
   --border-strong: #c3ccdd;
 
   --text:          #10192b;
-  --text-muted:    #55637f;
-  --text-dim:      #74809a;
-  --text-faint:    #97a2b8;
+  --text-muted:    #48546c;
+  --text-dim:      #566076;
+  --text-faint:    #5f6e8b;
 
-  --accent:        #0284c7;
-  --accent-hover:  #0369a1;
-  --accent-strong: #0369a1;
+  --accent:        #026da4;
+  --accent-hover:  #03689f;
+  --accent-strong: #03689f;
   --accent-ink:    #ffffff;
-  --accent-soft:   rgb(2 132 199 / 10%);
-  --accent-line:   rgb(2 132 199 / 28%);
+  --accent-soft:   rgb(2 109 164 / 10%);
+  --accent-line:   rgb(2 109 164 / 28%);
 
-  --success:       #059669;
-  --success-soft:  rgb(5 150 105 / 10%);
-  --success-line:  rgb(5 150 105 / 28%);
+  --success:       #04724f;
+  --success-soft:  rgb(4 114 79 / 10%);
+  --success-line:  rgb(4 114 79 / 28%);
   --success-ink:   #ffffff;
 
-  --warning:       #b45309;
-  --warning-soft:  rgb(180 83 9 / 10%);
-  --warning-line:  rgb(180 83 9 / 26%);
+  --warning:       #a34a07;
+  --warning-soft:  rgb(163 74 7 / 10%);
+  --warning-line:  rgb(163 74 7 / 26%);
 
-  --danger:        #dc2626;
-  --danger-hover:  #b91c1c;
-  --danger-soft:   rgb(220 38 38 / 9%);
-  --danger-line:   rgb(220 38 38 / 26%);
+  --danger:        #c51f1f;
+  --danger-hover:  #a91919;
+  --danger-soft:   rgb(197 31 31 / 9%);
+  --danger-line:   rgb(197 31 31 / 26%);
   --danger-ink:    #ffffff;
 
   --magic:         #7c3aed;
@@ -165,7 +182,7 @@
 
   --neutral-soft:  rgb(71 85 105 / 8%);
 
-  --select:        rgb(2 132 199 / 22%);
+  --select:        rgb(2 109 164 / 22%);
   --select-blur:   rgb(100 116 139 / 15%);
   --active-line:   rgb(15 23 42 / 4%);
 

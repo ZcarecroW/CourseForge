@@ -1,8 +1,39 @@
+/**
+ * Profiles - the AI accounts, the models and the wording a course is written with.
+ *
+ * A profile is the answer to "who writes this, with what, and how does it
+ * sound". It bundles the AI accounts and their keys, the BookStack instances a
+ * course is published into, which model writes the outline and which writes the
+ * pages, the language, how many pages run at once, and any prompt this profile
+ * says differently from the installation default. A course points at one
+ * profile, so changing the model for twenty courses is one edit here.
+ *
+ * Three things about this screen are worth knowing before reading it.
+ *
+ * The provider catalogue is no longer four entries. CourseForge 4 knows about
+ * roughly two dozen endpoints, most of which are the same OpenAI-shaped API at
+ * a different address, so the picker is grouped by what actually distinguishes
+ * them - whether there is a batch queue behind it, whether it runs on your own
+ * machine, whether it costs anything - and it is searchable, because a list of
+ * two dozen in a dropdown is a list nobody reads to the end.
+ *
+ * A batch queue is never claimed on trust. The catalogue can only say what an
+ * endpoint's documentation promises; whether *your key* may use the queue is a
+ * different question, and the only honest answer comes from asking the endpoint
+ * with that key. So the queue badge appears when a probe has said yes for this
+ * account, and never because a table said the provider has one.
+ *
+ * And the ":batch" convention is the most valuable thing on this screen, so it
+ * is spelled out rather than hidden behind a tickbox: queueing a course means
+ * the pages come back within a day, for roughly half the money, and the tab can
+ * be closed while it happens.
+ */
 import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { state, loadProfiles } from '@/core/store.js';
 import { post, put, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
-import { clone, uid, LANGUAGES } from '@/core/format.js';
+import { useFuzzy } from '@/core/fuzzy.js';
+import { clone, uid, plural, relativeTime, LANGUAGES } from '@/core/format.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';
@@ -14,18 +45,110 @@ const MODEL_SLOTS = [
   {
     key: 'overview',
     label: 'Course outline',
-    hint: 'Designs and revises the chapter/page structure. One call per course.',
+    hint: 'Designs and revises the chapter and page structure. One call per course.',
     batchable: false,
   },
   {
     key: 'page',
     label: 'Course pages',
-    hint: 'Writes the actual teaching content. One call per page — this is where the budget goes.',
+    hint: 'Writes the actual teaching content. One call per page - this is where the budget goes.',
     batchable: true,
   },
 ];
 
 const BATCH_SUFFIX = ':batch';
+
+/**
+ * The adapters CourseForge has always had a class for, used only to sort a
+ * catalogue that predates the `group` field. Everything else is grouped by what
+ * the entry says about itself.
+ */
+const NATIVE_KINDS = new Set(['openai', 'anthropic', 'openrouter', 'claude_cli']);
+
+/**
+ * The headings the provider picker is divided by, in the order they are shown.
+ *
+ * The order is deliberate: what CourseForge supports first-class, then what
+ * costs money and can be queued, then what costs money and cannot, then what
+ * costs nothing because it runs on your own hardware, and last the escape hatch
+ * for an address nobody has heard of.
+ */
+const PROVIDER_GROUPS = [
+  {
+    id: 'native',
+    label: 'Built into CourseForge',
+    description: 'CourseForge speaks these APIs itself, quirks and all, so nothing has to be discovered.',
+  },
+  {
+    id: 'hosted_queue',
+    label: 'Hosted, with a batch queue',
+    description: 'A paid endpoint whose documentation promises a queue. Queueing a long run costs roughly '
+      + 'half as much - whether your own key may use it is a separate question, answered by the check '
+      + 'button on the account.',
+  },
+  {
+    id: 'hosted_sync',
+    label: 'Hosted, answered straight away',
+    description: 'A paid endpoint with no queue CourseForge can drive. Every page is written the moment it '
+      + 'is asked for, at full price.',
+  },
+  {
+    id: 'local',
+    label: 'Running on your own machine',
+    description: 'Nothing leaves the machine and nothing is billed. No key is needed, there is no queue, '
+      + 'and the model id has to match exactly what the server is serving.',
+  },
+  {
+    id: 'custom',
+    label: 'Somewhere else entirely',
+    description: 'Any address that speaks the OpenAI chat API. Paste it and let CourseForge find out what '
+      + 'is behind it.',
+  },
+];
+
+/**
+ * What a capability probe concluded, in words a person can act on.
+ *
+ * `forbidden` is the one worth reading twice: the queue is real and this key is
+ * not allowed near it, so checking again will keep saying the same thing. What
+ * changes that answer is a paid tier, not another round trip.
+ */
+const PROBE_RESULTS = {
+  yes: {
+    badge: 'badge--success',
+    label: 'queue works with this key',
+    line: 'The batch queue answered, and this key may use it.',
+  },
+  no: {
+    badge: 'badge--outline',
+    label: 'no queue',
+    line: 'There is no batch queue here that CourseForge can submit to.',
+  },
+  no_upload_lane: {
+    badge: 'badge--warning',
+    label: 'queue without an upload',
+    line: 'This provider has a batch queue but no compatible file upload, so CourseForge has no way to '
+      + 'hand it the work. Pages from this account are written one at a time.',
+  },
+  forbidden: {
+    badge: 'badge--warning',
+    label: 'queue not open to this key',
+    line: 'The queue exists and this key may not use it. Some providers sell the queue only on a paid '
+      + 'tier, so an upgrade is what changes this - checking again will not.',
+  },
+  unknown: {
+    badge: 'badge--outline',
+    label: 'undecided',
+    line: 'The endpoint answered in a way that settles nothing. CourseForge will try a real submission '
+      + 'only if you ask it to, and report whatever comes back.',
+  },
+};
+
+/** A catalogue entry stands in for one that is missing, so nothing renders blank. */
+const UNKNOWN_PROVIDER = {
+  id: '', kind: '', label: 'Not chosen yet', base_url: '', needs_key: true, batch: 'probe',
+  batch_note: '', hint: '', docs: '', local: false, beta: false, group: 'custom', preset_key: '',
+};
 
 export const ProfilesView = {
   name: 'ProfilesView',
@@ -37,10 +160,12 @@ export const ProfilesView = {
     const saving = ref(false);
     const models = reactive({});           // ai account id -> string[]
     const modelMeta = reactive({});        // ai account id -> { batch:Set, supportsBatch:bool }
-    const checks = reactive({});           // ai account id -> { ok, detail, busy }
+    const checks = reactive({});           // ai account id -> { ok, detail, probe, busy }
     const openGroups = reactive({});
     const confirmDelete = ref(false);
     const listOpen = ref(false);            // the profile list is a drawer below 1024px
+    const picker = ref(null);               // the AI account whose provider is being chosen
+    const providerSearch = ref('');
     const textareas = {};
 
     const select = (profile) => {
@@ -89,43 +214,174 @@ export const ProfilesView = {
       toast.success('Profile deleted.');
     }, 'Delete profile');
 
+    /* ------------------------------------------------------ the catalogue */
+
+    /**
+     * Which heading a catalogue entry belongs under.
+     *
+     * The server says so in 4.0. The fallback exists for a catalogue served by
+     * an older build, and it sorts by what the entry does say: an adapter
+     * CourseForge has a class for is built in, a local server is local, and
+     * everything else is separated by whether a queue is documented.
+     */
+    const groupOf = (provider) => {
+      const stated = String(provider.group ?? '').trim();
+      if (stated) return stated;
+      if (NATIVE_KINDS.has(provider.kind) && !provider.preset_key) return 'native';
+      if (provider.local === true) return 'local';
+      if ((provider.preset_key ?? '') === 'custom') return 'custom';
+      return provider.batch === true ? 'hosted_queue' : 'hosted_sync';
+    };
+
+    /**
+     * The catalogue's own id for an entry.
+     *
+     * A dozen entries share the `oai-compat` kind and differ only by preset, so
+     * the kind alone is not an identity. The server sends an id that already
+     * combines the two; the fallback rebuilds it the same way for a catalogue
+     * that does not.
+     */
+    const providerId = (provider) => String(provider.id ?? '')
+      || (provider.preset_key ? `${provider.kind}:${provider.preset_key}` : provider.kind);
+
+    const trimSlash = (url) => String(url ?? '').trim().replace(/\/+$/, '');
+
+    /**
+     * The catalogue entry an account is on.
+     *
+     * Three ways of asking, most specific first. A stored preset key is the
+     * real answer: a dozen entries share the OpenAI-compatible kind and differ
+     * only by which preset they carry. Failing that, the address identifies the
+     * preset almost as well - a preset is mostly an address plus the quirks
+     * that go with it - and this is what recognises an account stored before
+     * presets existed. Last, the kind alone, which is all a pre-4.0 profile
+     * carries.
+     */
+    const providerFor = (account) => {
+      const key = String(account?.preset_key ?? '').trim();
+      if (key) {
+        const byPreset = state.providers.find((p) => String(p.preset_key ?? '') === key);
+        if (byPreset) return byPreset;
+      }
+
+      const url = trimSlash(account?.base_url);
+      if (url) {
+        const byUrl = state.providers.find(
+          (p) => p.kind === account?.kind && trimSlash(p.base_url) === url
+        );
+        if (byUrl) return byUrl;
+      }
+
+      return state.providers.find((p) => p.kind === account?.kind && !p.preset_key)
+        ?? state.providers.find((p) => p.kind === account?.kind)
+        ?? { ...UNKNOWN_PROVIDER, kind: account?.kind ?? '', label: account?.kind || UNKNOWN_PROVIDER.label };
+    };
+
+    /**
+     * Whether this provider is reached at an address the user can change.
+     *
+     * Everything is, except the Claude subscription: that one drives a CLI
+     * already signed in on the server, so there is no address to type. The
+     * custom endpoint is the other way round - it has no address until
+     * somebody pastes one, which is the whole reason it exists.
+     */
+    const overHttp = (provider) =>
+      String(provider.base_url ?? '') !== '' || provider.group === 'custom';
+
+    /**
+     * A server on your own machine answers an unauthenticated request, so a key
+     * is not asked for. The catalogue says which, per entry, rather than being
+     * guessed from the address.
+     */
+    const needsKey = (provider) => provider.needs_key === true;
+
+    const providerHits = useFuzzy(
+      computed(() => state.providers),
+      providerSearch,
+      { keys: ['label', 'hint', 'base_url'], limit: 200 },
+    );
+
+    /** The picker, grouped and in heading order; a group with no hits is dropped. */
+    const providerGroups = computed(() => {
+      const buckets = new Map();
+      for (const provider of providerHits.value) {
+        const id = groupOf(provider);
+        if (!buckets.has(id)) buckets.set(id, []);
+        buckets.get(id).push(provider);
+      }
+
+      const out = [];
+      for (const group of PROVIDER_GROUPS) {
+        const items = buckets.get(group.id);
+        if (items?.length) out.push({ ...group, items });
+        buckets.delete(group.id);
+      }
+      // A group the server invented after this file was written still shows,
+      // rather than silently hiding every provider in it.
+      for (const [id, items] of buckets) {
+        out.push({ id, label: id, description: '', items });
+      }
+      return out;
+    });
+
+    const openPicker = (account) => {
+      picker.value = account;
+      providerSearch.value = '';
+    };
+
+    /**
+     * Points an account at a different provider.
+     *
+     * The base URL is reset to the new provider's address only when the field
+     * still holds the old provider's - an address somebody typed themselves is
+     * never thrown away. The name follows the same rule, so an account nobody
+     * has renamed keeps saying what it is.
+     */
+    const setProvider = (account, provider) => {
+      const previous = providerFor(account);
+      account.kind = provider.kind;
+      account.preset_key = provider.preset_key ?? '';
+      if (!account.base_url || account.base_url === previous.base_url) {
+        account.base_url = provider.base_url ?? '';
+      }
+      if (!account.name || account.name === previous.label) account.name = provider.label;
+
+      // Everything already learned about this account was learned about a
+      // different endpoint.
+      delete models[account.id];
+      delete modelMeta[account.id];
+      delete checks[account.id];
+    };
+
+    const chooseProvider = (provider) => {
+      const account = picker.value;
+      picker.value = null;
+      if (account) setProvider(account, provider);
+    };
+
+    const isCurrentProvider = (provider) =>
+      picker.value !== null && providerId(providerFor(picker.value)) === providerId(provider);
+
     /* -------------------------------------------------------- accounts */
 
     const addBookstack = () => draft.value.data.bookstack.push({
       id: uid(), name: 'BookStack', base_url: 'https://', token_id: '', token_secret: '', token_secret_set: false,
     });
-    /** The catalogue entry for an account kind, with a usable fallback. */
-    const kindInfo = (kind) => state.providers.find((p) => p.kind === kind)
-      ?? { kind, label: kind, base_url: '', needs_key: true, batch: false, hint: '' };
 
     const addAi = () => {
-      const first = state.providers[0] ?? { kind: 'openai', label: 'OpenAI', base_url: 'https://api.openai.com/v1' };
+      const first = state.providers[0] ?? UNKNOWN_PROVIDER;
       draft.value.data.ai.push({
-        id: uid(), name: first.label, kind: first.kind, base_url: first.base_url,
-        api_key: '', organization: '', cli_path: '', site_url: '', site_name: '', api_key_set: false,
+        id: uid(), name: first.label, kind: first.kind, preset_key: first.preset_key ?? '',
+        base_url: first.base_url ?? '', api_key: '', organization: '', cli_path: '',
+        site_url: '', site_name: '', api_key_set: false,
       });
-    };
-
-    /**
-     * Changing the type resets the base URL to that provider's default, but
-     * only when the field still holds another provider's default - a URL the
-     * user typed themselves is never thrown away.
-     */
-    const setKind = (account, kind) => {
-      const previous = kindInfo(account.kind);
-      const next = kindInfo(kind);
-      account.kind = kind;
-      if (!account.base_url || account.base_url === previous.base_url) account.base_url = next.base_url;
-      delete models[account.id];
-      delete modelMeta[account.id];
-      delete checks[account.id];
     };
 
     const aiAccounts = computed(() => draft.value?.data.ai ?? []);
     const modelList = (accountId) => models[accountId] ?? [];
 
     const loadModels = (accountId) => attempt(async () => {
-      if (!accountId) { toast.error('Pick an AI account first.'); return; }
+      if (!accountId) { toast.error('Choose an AI account for this slot first.'); return; }
       if (!await save(true)) return;
       const data = await post(`profiles/${draft.value.id}/models`, { ai_id: accountId });
       models[accountId] = data.models ?? [];
@@ -137,58 +393,163 @@ export const ProfilesView = {
     }, 'Load models');
 
     /**
-     * Proves an account works before a course depends on it. For the Claude
-     * subscription this is the only way to see the three things that can be
+     * Asks the server to try the endpoint with this account's key.
+     *
+     * For an HTTP provider this is the capability probe: a handful of free GETs
+     * that decide whether the address is an API at all, whether the key works,
+     * and whether there is a batch queue this key may use. For the Claude
+     * subscription it is the only way to see the three things that can be
      * wrong: no CLI, not signed in, or an API key in the server environment
      * quietly taking over the billing.
      */
     const checkAccount = (accountId) => attempt(async () => {
       if (!await save(true)) return;
-      checks[accountId] = { busy: true, ok: false, detail: 'Checking...' };
+      checks[accountId] = { busy: true, ok: false, detail: 'Checking…', probe: null };
       try {
         const data = await post(`profiles/${draft.value.id}/check`, { ai_id: accountId });
-        checks[accountId] = { ...data.check, busy: false };
+        const result = data.check ?? {};
+        checks[accountId] = {
+          ...result,
+          // A server that ships the probe with the check answers the queue
+          // question outright. One that does not leaves it unanswered rather
+          // than letting "the key works" be read as "the queue works".
+          probe: typeof result.probe?.result === 'string' ? result.probe : null,
+          busy: false,
+        };
       } catch (error) {
-        checks[accountId] = { busy: false, ok: false, detail: error.message };
+        checks[accountId] = { busy: false, ok: false, detail: error.message, probe: null };
       }
     }, 'Check account');
 
     /* ----------------------------------------------------------- batching */
 
-    const slotModel = (slotKey) => draft.value?.data.models[slotKey]?.model ?? '';
+    /**
+     * What is actually known about this account's batch queue.
+     *
+     * A probe result outranks everything, because it was taken against this
+     * key. Without one, the catalogue can only be quoted as what it is - a
+     * claim about the endpoint, not about the account holding the key.
+     */
+    const probeOf = (account) => {
+      const live = checks[account?.id]?.probe;
+      if (typeof live?.result === 'string') return live;
+      const stored = account?.batch_probe;
+      return typeof stored?.result === 'string' ? stored : null;
+    };
+
+    const queueState = (account) => {
+      const provider = providerFor(account);
+      const probe = probeOf(account);
+      // What the catalogue says about this provider's queue in its own words.
+      // Always shown alongside whatever is known about the account, because it
+      // carries the detail nothing else does - the 48-hour expiry, the tier the
+      // queue is sold on, the seven-day window.
+      const note = String(provider.batch_note ?? '');
+
+      if (probe) {
+        const words = PROBE_RESULTS[probe.result] ?? PROBE_RESULTS.unknown;
+        return {
+          confirmed: probe.result === 'yes',
+          badge: words.badge,
+          label: words.label,
+          line: words.line,
+          note,
+          reason: String(probe.reason ?? ''),
+          at: Number(probe.at ?? 0),
+        };
+      }
+
+      const blank = { confirmed: false, badge: '', label: '', note, reason: '', at: 0 };
+
+      if (provider.batch === false) {
+        return {
+          ...blank,
+          line: `${provider.label} has no batch queue CourseForge can submit to, so every page is written the moment it is asked for.`,
+        };
+      }
+      if (provider.batch === true) {
+        return {
+          ...blank,
+          line: 'This endpoint is documented to have a batch queue. Whether your key may use it is a '
+            + 'different question - check the endpoint to find out before a course depends on it.',
+        };
+      }
+      return {
+        ...blank,
+        line: 'Nobody has checked yet whether there is a usable batch queue behind this address. Checking '
+          + 'costs nothing and spends nothing.',
+      };
+    };
+
+    const slotConfig = (slotKey) => draft.value?.data.models[slotKey] ?? null;
+    const slotAccount = (slotKey) =>
+      aiAccounts.value.find((a) => a.id === slotConfig(slotKey)?.ai_id) ?? null;
+
+    const slotModel = (slotKey) => slotConfig(slotKey)?.model ?? '';
+    const bareModel = (slotKey) => slotModel(slotKey).replace(/:batch$/i, '');
     const isBatch = (slotKey) => slotModel(slotKey).toLowerCase().endsWith(BATCH_SUFFIX);
 
     /** The suffix is CourseForge's own marker, so toggling it is a string edit. */
     const setBatch = (slotKey, on) => {
-      const config = draft.value?.data.models[slotKey];
+      const config = slotConfig(slotKey);
       if (!config) return;
       const bare = config.model.replace(/:batch$/i, '');
       config.model = on ? `${bare}${BATCH_SUFFIX}` : bare;
     };
 
     /**
-     * Whether the account behind a slot has a queue at all. Unknown until the
-     * model list has been fetched once, and permissive until then - the server
-     * refuses the submission with a real reason if it turns out not to.
+     * Whether this slot may be queued at all, and what to say when it may not.
+     *
+     * Permissive where the answer is genuinely unknown: the server refuses the
+     * submission with a real reason if it turns out there is no queue, and that
+     * is a better outcome than a tickbox nobody can press and nobody can
+     * explain. Only a definite no - a provider with no queue, or a probe that
+     * settled it - takes the choice away.
+     *
+     * The reason is empty wherever `queueState()` has already said the same
+     * thing on screen. Two sentences saying a provider has no queue read as a
+     * screen that has lost track of itself.
      */
     const batchState = (slotKey) => {
-      const config = draft.value?.data.models[slotKey];
-      const account = aiAccounts.value.find((a) => a.id === config?.ai_id);
-      if (!account) return { allowed: false, reason: 'Pick an AI account for this slot first.' };
+      const account = slotAccount(slotKey);
+      if (!account) return { allowed: false, reason: 'Choose an AI account for this slot first.' };
 
-      const info = kindInfo(account.kind);
-      if (!info.batch) return { allowed: false, reason: `${info.label} has no batch queue.` };
+      const provider = providerFor(account);
+      if (provider.batch === false) return { allowed: false, reason: '' };
+
+      const probe = probeOf(account);
+      if (probe && probe.result !== 'yes' && probe.result !== 'unknown') {
+        return { allowed: false, reason: '' };
+      }
 
       const meta = modelMeta[account.id];
       if (!meta) return { allowed: true, reason: '' };
       if (!meta.supportsBatch) {
         return { allowed: false, reason: 'This endpoint answered without a batch API.' };
       }
-      const bare = (config?.model ?? '').replace(/:batch$/i, '');
+
+      const bare = bareModel(slotKey);
       if (meta.batch.size && bare && !meta.batch.has(bare)) {
-        return { allowed: true, reason: `${bare} was not listed as batchable - it may be refused.` };
+        return { allowed: true, reason: `${bare} is not on the list of models the queue accepts, so it may be refused.` };
       }
       return { allowed: true, reason: '' };
+    };
+
+    /** The models the provider says its queue takes, when it says anything. */
+    const batchModelsFor = (slotKey) => {
+      const account = slotAccount(slotKey);
+      const meta = account ? modelMeta[account.id] : null;
+      return meta ? [...meta.batch] : [];
+    };
+
+    const modelsFetched = (slotKey) => {
+      const account = slotAccount(slotKey);
+      return account ? modelMeta[account.id] !== undefined : false;
+    };
+
+    const slotQueue = (slotKey) => {
+      const account = slotAccount(slotKey);
+      return account ? queueState(account) : null;
     };
 
     /* --------------------------------------------------------- prompts */
@@ -248,17 +609,22 @@ export const ProfilesView = {
     const toggleGroup = (id) => { openGroups[id] = !(openGroups[id] ?? true); };
     const groupOpen = (id) => openGroups[id] ?? true;
 
-    // Literal mustaches must never appear in a template – Vue's parser would
+    // Literal mustaches must never appear in a template - Vue's parser would
     // close the interpolation at the first `}}`. Ship them as data instead.
     const languageToken = '{' + '{language}' + '}';
+    const batchSuffix = BATCH_SUFFIX;
 
     return {
-      state, tab, draft, selectedId, saving, confirmDelete, listOpen, MODEL_SLOTS, LANGUAGES, languageToken,
+      state, tab, draft, selectedId, saving, confirmDelete, listOpen, MODEL_SLOTS, LANGUAGES,
+      languageToken, batchSuffix,
       select, create, save, remove, addBookstack, addAi, aiAccounts, modelList, loadModels,
-      kindInfo, setKind, checks, checkAccount, isBatch, setBatch, batchState,
+      providerFor, providerId, overHttp, needsKey, providerGroups, providerSearch,
+      picker, openPicker, chooseProvider, isCurrentProvider,
+      checks, checkAccount, queueState,
+      isBatch, setBatch, batchState, bareModel, batchModelsFor, modelsFetched, slotQueue,
       groups, defaultOf, textOf, isCustom, setPrompt, resetPrompt, resetAllPrompts,
       customCount, slotCount, customInGroup, insertPlaceholder, registerTextarea,
-      toggleGroup, groupOpen,
+      toggleGroup, groupOpen, plural, relativeTime,
     };
   },
   template: `
@@ -273,7 +639,7 @@ export const ProfilesView = {
 
       <aside class="pane pane--left" :class="{ 'is-open': listOpen }">
         <div class="pane__head">
-          <span class="eyebrow grow">{{ state.profiles.length }} profile(s)</span>
+          <span class="eyebrow grow">{{ plural(state.profiles.length, 'profile') }}</span>
           <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Close"
                   @click="listOpen = false"><app-icon name="x" :size="14"/></button>
         </div>
@@ -319,7 +685,7 @@ export const ProfilesView = {
             <div v-if="tab === 'accounts'" class="grid grid-2 container">
               <section class="col gap-3">
                 <div class="row between">
-                  <h3 class="t-md">BookStack instances</h3>
+                  <h3 class="card__title">BookStack instances</h3>
                   <button class="btn btn--sm" @click="addBookstack"><app-icon name="plus" :size="13"/> Add</button>
                 </div>
                 <div v-for="(instance, i) in draft.data.bookstack" :key="instance.id" class="card card--pad col gap-3">
@@ -343,7 +709,7 @@ export const ProfilesView = {
 
               <section class="col gap-3">
                 <div class="row between">
-                  <h3 class="t-md">AI accounts</h3>
+                  <h3 class="card__title">AI accounts</h3>
                   <button class="btn btn--sm" @click="addAi"><app-icon name="plus" :size="13"/> Add</button>
                 </div>
 
@@ -355,23 +721,37 @@ export const ProfilesView = {
                   </div>
 
                   <div class="form-row">
-                    <label>Type</label>
-                    <select :value="account.kind" @change="setKind(account, $event.target.value)">
-                      <option v-for="provider in state.providers" :key="provider.kind" :value="provider.kind">
-                        {{ provider.label }}
-                      </option>
-                    </select>
+                    <label>Where the models come from</label>
+                    <button class="btn btn--block" style="justify-content:flex-start"
+                            @click="openPicker(account)">
+                      <app-icon name="layers" :size="14"/>
+                      <span class="grow truncate" style="text-align:left">{{ providerFor(account).label }}</span>
+                      <span v-if="providerFor(account).beta" class="badge badge--warning none">beta</span>
+                      <span class="badge badge--outline none">change</span>
+                    </button>
                   </div>
 
-                  <!-- Everything reached over HTTP: a URL and a key. -->
-                  <template v-if="kindInfo(account.kind).needs_key">
-                    <input v-model="account.base_url" class="mono" :placeholder="kindInfo(account.kind).base_url">
-                    <div class="grid grid-2" style="gap:var(--s-2)">
+                  <!-- Address and key. A local server answers without a key, so
+                       it is never asked for one. -->
+                  <template v-if="overHttp(providerFor(account))">
+                    <div class="form-row">
+                      <input v-model="account.base_url" class="mono"
+                             :placeholder="providerFor(account).base_url || 'https://api.example.com/v1'">
+                      <p v-if="providerFor(account).local" class="hint">
+                        The address of the server on your own machine. Leave it as it is unless you changed
+                        the port.
+                      </p>
+                    </div>
+                    <div v-if="needsKey(providerFor(account))" class="grid grid-2" style="gap:var(--s-2)">
                       <input v-model="account.api_key" type="password" class="mono"
                              :placeholder="account.api_key_set ? '•••••••• stored' : 'API key'">
                       <input v-if="account.kind === 'openai'" v-model="account.organization"
                              class="mono" placeholder="Organization (optional)">
                     </div>
+                    <p v-else class="hint">
+                      No key needed. This server answers whoever asks it, which is why it must not be
+                      reachable from outside your network.
+                    </p>
                   </template>
 
                   <!-- OpenRouter identifies applications by these two headers. -->
@@ -388,19 +768,43 @@ export const ProfilesView = {
                     </p>
                   </template>
 
-                  <p class="hint">{{ kindInfo(account.kind).hint }}</p>
+                  <p class="hint">{{ providerFor(account).hint }}</p>
 
-                  <div class="row wrap gap-2">
-                    <button class="btn btn--sm" :disabled="checks[account.id]?.busy" @click="checkAccount(account.id)">
-                      <app-icon :name="checks[account.id]?.busy ? 'refresh' : 'zap'" :size="13"
-                                :spin="checks[account.id]?.busy"/>
-                      Test this account
-                    </button>
-                    <span v-if="checks[account.id] && !checks[account.id].busy"
-                          class="badge" :class="checks[account.id].ok ? 'badge--success' : 'badge--warning'">
-                      {{ checks[account.id].ok ? 'working' : 'check it' }}
-                    </span>
-                    <span v-if="checks[account.id]?.detail" class="t-xs dim grow">{{ checks[account.id].detail }}</span>
+                  <p v-if="providerFor(account).docs" class="hint">
+                    <a :href="providerFor(account).docs" target="_blank" rel="noopener noreferrer">
+                      Read this provider's own documentation
+                    </a>
+                  </p>
+
+                  <div class="divider"></div>
+
+                  <!-- What is actually known about the batch queue, which is
+                       never the same question as "does the endpoint have one". -->
+                  <div class="col gap-2">
+                    <div class="row wrap gap-2">
+                      <button class="btn btn--sm none" :disabled="checks[account.id]?.busy"
+                              @click="checkAccount(account.id)">
+                        <app-icon :name="checks[account.id]?.busy ? 'refresh' : 'zap'" :size="13"
+                                  :spin="checks[account.id]?.busy"/>
+                        {{ overHttp(providerFor(account)) ? 'Check this endpoint' : 'Check this account' }}
+                      </button>
+                      <span v-if="checks[account.id] && !checks[account.id].busy"
+                            class="badge none" :class="checks[account.id].ok ? 'badge--success' : 'badge--warning'">
+                        {{ checks[account.id].ok ? 'reachable' : 'needs attention' }}
+                      </span>
+                      <span v-if="queueState(account).confirmed" class="badge badge--accent none">
+                        <app-icon name="layers" :size="10"/> batch queue
+                      </span>
+                    </div>
+
+                    <p v-if="checks[account.id]?.detail" class="t-xs dim">{{ checks[account.id].detail }}</p>
+
+                    <p class="hint">{{ queueState(account).line }}</p>
+                    <p v-if="queueState(account).note" class="t-xs faint">{{ queueState(account).note }}</p>
+                    <p v-if="queueState(account).reason" class="t-xs faint">{{ queueState(account).reason }}</p>
+                    <p v-if="queueState(account).at" class="t-2xs faint">
+                      Checked {{ relativeTime(queueState(account).at) }}.
+                    </p>
                   </div>
                 </div>
 
@@ -411,9 +815,9 @@ export const ProfilesView = {
             </div>
 
             <!-- -------------------------------------------------- models -->
-            <div v-else-if="tab === 'models'" class="col gap-5 container-narrow">
+            <div v-else-if="tab === 'models'" class="col gap-6 container-narrow">
               <div v-for="slot in MODEL_SLOTS" :key="slot.key" class="card card--pad">
-                <h3 class="t-md">{{ slot.label }}</h3>
+                <h3 class="card__title">{{ slot.label }}</h3>
                 <p class="hint mb-4">{{ slot.hint }}</p>
                 <div class="grid grid-model" style="gap:var(--s-3)">
                   <div class="form-row">
@@ -447,23 +851,75 @@ export const ProfilesView = {
                   </div>
                 </div>
 
-                <!-- Batching only earns its latency on the per-page slot: the
+                <p class="hint mt-2">
+                  The list is a shortcut, never a limit - type any model id the provider accepts, including
+                  one it does not advertise. A server on your own machine usually has to be given the exact
+                  id it is serving.
+                </p>
+
+                <!-- Queueing only earns its latency on the per-page slot: the
                      outline is a single call, and queueing one request means
                      waiting up to a day for it. -->
-                <div v-if="slot.batchable" class="card card--flat card--pad mt-3 col gap-2">
+                <div v-if="slot.batchable" class="card card--flat card--pad mt-4 col gap-3">
                   <label class="row gap-2" style="cursor:pointer">
                     <input type="checkbox" :checked="isBatch(slot.key)"
                            :disabled="!batchState(slot.key).allowed"
                            @change="setBatch(slot.key, $event.target.checked)">
-                    <span class="strong grow">Write these pages through the provider's batch queue</span>
-                    <span v-if="isBatch(slot.key)" class="badge badge--accent">:batch</span>
+                    <span class="strong grow">Queue the pages of a course instead of writing them one by one</span>
+                    <span v-if="isBatch(slot.key)" class="badge badge--accent none">queued</span>
                   </label>
+
                   <p class="hint">
-                    Half the token price, answered within 24 hours instead of straight away. The course is queued
-                    in one go and the pages appear as they come back &mdash; you can close the tab.
-                    Regenerating a single page from the editor always stays live, whatever this says.
+                    The whole course is handed to the provider in one submission. The pages come back
+                    <strong>within a day</strong> rather than within a minute, and cost
+                    <strong>roughly half</strong> as much. Nothing has to stay open while it happens: close
+                    the tab, and the pages appear as CourseForge collects them. Regenerating a single page
+                    from the editor is always written straight away, whatever this says.
                   </p>
-                  <p v-if="batchState(slot.key).reason" class="hint c-warning">{{ batchState(slot.key).reason }}</p>
+
+                  <div v-if="bareModel(slot.key)" class="col gap-1">
+                    <p class="t-xs dim">
+                      Queueing is stored as a marker on the model id, so this slot will ask for:
+                    </p>
+                    <p class="mono t-sm">
+                      {{ bareModel(slot.key) }}<span v-if="isBatch(slot.key)" class="c-accent">{{ batchSuffix }}</span>
+                    </p>
+                  </div>
+
+                  <template v-if="slotQueue(slot.key)">
+                    <p class="hint" :class="slotQueue(slot.key).confirmed ? 'c-success' : ''">
+                      {{ slotQueue(slot.key).line }}
+                    </p>
+                    <p v-if="slotQueue(slot.key).note" class="t-xs faint">{{ slotQueue(slot.key).note }}</p>
+                    <p v-if="slotQueue(slot.key).reason" class="t-xs faint">{{ slotQueue(slot.key).reason }}</p>
+                  </template>
+
+                  <!-- Which models the queue takes is only worth saying while
+                       queueing is still on the table. -->
+                  <template v-if="batchState(slot.key).allowed">
+                    <template v-if="batchModelsFor(slot.key).length">
+                      <p class="t-xs dim">
+                        This provider names the {{ batchModelsFor(slot.key).length }} models its queue
+                        accepts. The one this slot asks for is highlighted:
+                      </p>
+                      <div class="row wrap gap-1 scroll-y" style="max-height:104px">
+                        <span v-for="id in batchModelsFor(slot.key)" :key="id" class="chip"
+                              :class="id === bareModel(slot.key) ? '' : 'chip--inherited'">{{ id }}</span>
+                      </div>
+                    </template>
+                    <p v-else-if="modelsFetched(slot.key)" class="t-xs dim">
+                      This provider does not say which models its queue takes, so a model can only be found
+                      unacceptable when the course is actually submitted - and then nothing is lost but the
+                      submission.
+                    </p>
+                    <p v-else class="t-xs dim">
+                      Fetch the model list above to see which models this provider's queue accepts.
+                    </p>
+                  </template>
+
+                  <p v-if="batchState(slot.key).reason" class="hint c-warning">
+                    {{ batchState(slot.key).reason }}
+                  </p>
                 </div>
               </div>
 
@@ -555,6 +1011,53 @@ export const ProfilesView = {
         </empty-state>
       </section>
     </div>
+
+    <!-- the provider picker ------------------------------------------- -->
+    <app-modal v-if="picker" title="Where should this account get its models?" icon="layers" wide
+               @close="picker = null">
+      <div class="col gap-4">
+        <div class="form-row">
+          <input v-model="providerSearch" placeholder="Search by name, address or what it is good at"
+                 spellcheck="false">
+          <p class="hint">
+            Most of these are the same API at a different address, so the differences that matter are
+            grouped below: whether there is a queue that halves the price of a long run, whether it runs on
+            your own machine, and whether it needs a key at all.
+          </p>
+        </div>
+
+        <section v-for="group in providerGroups" :key="group.id" class="col gap-2">
+          <div>
+            <p class="eyebrow">{{ group.label }}</p>
+            <p v-if="group.description" class="hint">{{ group.description }}</p>
+          </div>
+
+          <button v-for="provider in group.items" :key="providerId(provider)"
+                  class="card card--action card--pad col gap-2"
+                  :style="isCurrentProvider(provider) ? 'border-color:var(--accent)' : ''"
+                  @click="chooseProvider(provider)">
+            <span class="row wrap gap-2">
+              <span class="semi">{{ provider.label }}</span>
+              <span v-if="isCurrentProvider(provider)" class="badge badge--accent">in use here</span>
+              <span v-if="provider.beta" class="badge badge--warning">beta</span>
+              <span v-if="provider.batch === true" class="badge badge--outline">queue documented</span>
+              <span v-else-if="provider.batch === 'probe'" class="badge badge--outline">queue unknown</span>
+              <span v-if="provider.local" class="badge badge--success">your machine</span>
+              <span v-if="!needsKey(provider)" class="badge badge--outline">no key</span>
+            </span>
+            <span v-if="provider.base_url" class="mono t-2xs faint truncate">{{ provider.base_url }}</span>
+            <span v-if="provider.hint" class="hint">{{ provider.hint }}</span>
+          </button>
+        </section>
+
+        <empty-state v-if="!providerGroups.length" icon="search" title="Nothing matches that"
+                     hint="Clear the search to see every provider, or pick the custom endpoint at the bottom and paste an address."/>
+      </div>
+
+      <template #footer>
+        <button class="btn" @click="picker = null">Cancel</button>
+      </template>
+    </app-modal>
 
     <app-modal v-if="confirmDelete" title="Delete this profile?" icon="alert" @close="confirmDelete = false">
       <p class="t-sm">Courses using <strong>{{ draft.name }}</strong> keep all their content but lose their profile,

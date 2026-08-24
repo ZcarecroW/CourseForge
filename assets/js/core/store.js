@@ -16,6 +16,22 @@ export const state = reactive({
   lockedFor: 0,
   app: { name: 'CourseForge', version: '' },
 
+  /* first run - true until the very first account exists */
+  needsSetup: false,
+  /** What the setup screen needs before anybody is signed in: where the invite
+   *  file was written, whether an invite is open, how long a password must be. */
+  setupInfo: { min_password: 10, invite_file: '', invite_open: false },
+
+  /* administration - fetched when an admin screen opens, never at sign-in */
+  settings: [],
+  settingGroups: [],
+  settingsFiles: { defaults: '', overrides: '' },
+  scheduler: null,
+  users: [],
+  userRoles: [],
+  invite: null,
+  updateInfo: null,
+
   /* catalogue, fetched once after sign-in */
   promptGroups: {},
   promptSlots: {},
@@ -66,6 +82,24 @@ export const openCourse = computed(() => state.project ?? EMPTY_PROJECT);
 
 export const isSignedIn = computed(() => state.user !== null);
 
+/** Drives the second navigation group and every admin-only fetch. */
+export const isAdmin = computed(() => state.user?.role === 'admin');
+
+/**
+ * The shortest password this installation accepts.
+ *
+ * It is a server setting, not a constant, so every screen that asks for a
+ * password reads it from here rather than repeating a number that can drift.
+ */
+export const minPassword = computed(() => Number(state.setupInfo.min_password) || 10);
+
+/**
+ * True when the account was handed its password by somebody else and has not
+ * chosen its own yet. The shell refuses to let the dialog be dismissed until
+ * that is done.
+ */
+export const mustChangePassword = computed(() => state.user?.must_change_password === true);
+
 export const currentProfile = computed(() =>
   state.profiles.find((p) => p.id === state.project?.profile_id) ?? null
 );
@@ -91,12 +125,37 @@ export const allPages = computed(() =>
 
 /* ---------------------------------------------------------------- loading */
 
+/**
+ * Asks the server whether this installation has any accounts yet.
+ *
+ * This is the first request the application makes, before the session and
+ * before anything else, for two reasons: the answer decides which screen is
+ * drawn at all, and on a brand-new installation this request is what publishes
+ * the invite code to INVITE-CODE.txt. Nothing else writes that file.
+ */
+export async function loadSetup() {
+  const data = await api('setup', { soft: true });
+  state.needsSetup = data?.needs_setup === true;
+  state.setupInfo = {
+    min_password: data?.min_password ?? 10,
+    invite_file: data?.invite_file ?? '',
+    invite_open: data?.invite_open === true,
+    // Publishing the code fails on a directory PHP cannot write to, and that
+    // is the one failure the setup screen has to be able to explain.
+    error: data?.ok === true ? '' : (data?.error ?? ''),
+  };
+  if (data?.app) state.app = data.app;
+}
+
 export async function loadSession() {
   const data = await api('session', { soft: true });
   setCsrf(data?.csrf);
   state.user = data?.user ?? null;
   state.lockedFor = data?.locked_for ?? 0;
   if (data?.app) state.app = data.app;
+  // The session endpoint answers the same question, and it still answers it
+  // when the setup endpoint could not - see loadSetup().
+  if (typeof data?.needs_setup === 'boolean') state.needsSetup = data.needs_setup;
 }
 
 export async function loadCatalogue() {
@@ -122,6 +181,77 @@ export async function loadWorkspace() {
   await Promise.all([loadProfiles(), loadProjects(), loadTags()]);
 }
 
+/* ----------------------------------------------------------- administration
+ *
+ * None of this is fetched at sign-in. A normal account must never fire an
+ * admin request - the server would refuse it, but a 403 in the console is a
+ * bug report waiting to happen - and an administrator should not pay for four
+ * extra round trips to reach a screen they may not open today. Each screen
+ * calls its own loader when it mounts; the only exception is the update badge
+ * below, which is one request and has to happen before the screen is opened.
+ */
+
+export async function loadSettings() {
+  const data = await get('admin/settings');
+  state.settingGroups = data.groups ?? [];
+  state.settings = data.settings ?? [];
+  state.scheduler = data.scheduler ?? null;
+  state.settingsFiles = { defaults: data.defaults_file ?? '', overrides: data.overrides_file ?? '' };
+  return data;
+}
+
+/** Applies the response of a settings write, which ships the fresh catalogue. */
+export function applySettings(payload) {
+  if (payload?.settings) state.settings = payload.settings;
+  if (payload?.scheduler) state.scheduler = payload.scheduler;
+  return payload;
+}
+
+export async function loadUsers() {
+  const data = await get('admin/users');
+  state.users = data.users ?? [];
+  state.userRoles = data.roles ?? [];
+  state.invite = data.invite ?? null;
+  // The accounts screen is the other place that knows the password floor, and
+  // it is authoritative there too.
+  if (data.min_password) state.setupInfo.min_password = data.min_password;
+  return data;
+}
+
+/** Applies a response that carries the whole account list. */
+export function applyUsers(payload) {
+  if (payload?.users) state.users = payload.users;
+  if (payload?.invite) state.invite = payload.invite;
+  return payload;
+}
+
+export async function loadUpdateInfo() {
+  state.updateInfo = await get('admin/update');
+  return state.updateInfo;
+}
+
+/** The same loader under the name the Updates screen reads more naturally with. */
+export const loadUpdate = loadUpdateInfo;
+
+let updateProbed = false;
+
+/**
+ * Fills in the update badge, once per session and never on a timer.
+ *
+ * A failure here is swallowed on purpose. Asking GitHub can time out, and an
+ * error toast at sign-in about a check nobody asked for would be noise; the
+ * Updates screen shows the same failure properly, to somebody who went looking.
+ */
+export async function probeUpdate() {
+  if (updateProbed) return state.updateInfo;
+  updateProbed = true;
+  try {
+    return await loadUpdateInfo();
+  } catch {
+    return null;
+  }
+}
+
 /* ------------------------------------------------------------- navigation */
 
 /** Leaving mid-generation would orphan the requests still in flight. */
@@ -131,8 +261,14 @@ function generationBlocks() {
   return true;
 }
 
+/** The screens the second navigation group in App.js leads to. Keep in step. */
+export const ADMIN_VIEWS = new Set(['users', 'settings', 'prompts', 'updates']);
+
 export function go(view) {
   if (view !== state.view && generationBlocks()) return;
+  // A demotion takes effect on the next request, so the client refuses the
+  // destination as well rather than drawing a screen that cannot load.
+  if (ADMIN_VIEWS.has(view) && !isAdmin.value) return;
   state.view = view;
   state.sidebarOpen = false;
   if (view !== 'project') state.project = null;
@@ -210,6 +346,18 @@ function resetSession() {
   state.profiles = [];
   state.tags = [];
   state.view = 'projects';
+
+  // Administration is somebody's data too: the next account to sign in here
+  // must not find the previous one's list of users on screen.
+  state.settings = [];
+  state.settingGroups = [];
+  state.settingsFiles = { defaults: '', overrides: '' };
+  state.scheduler = null;
+  state.users = [];
+  state.userRoles = [];
+  state.invite = null;
+  state.updateInfo = null;
+  updateProbed = false;
 }
 
 setUnauthorizedHandler(() => {

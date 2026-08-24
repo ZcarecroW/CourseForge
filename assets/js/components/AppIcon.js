@@ -18,6 +18,9 @@ export const ICONS = {
   sliders: ['M4 21v-7', 'M4 10V3', 'M12 21v-9', 'M12 8V3', 'M20 21v-5', 'M20 12V3', 'M1 14h6', 'M9 8h6', 'M17 16h6'],
   menu: ['M3 12h18', 'M3 6h18', 'M3 18h18'],
   user: ['M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2', 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'],
+  /* the plural is the Accounts screen; the singular stays "my own account" */
+  users: ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    'M23 21v-2a4 4 0 0 0-3-3.87', 'M16 3.13a4 4 0 0 1 0 7.75'],
   'log-out': ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
   cog: [
     'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
@@ -37,6 +40,8 @@ export const ICONS = {
   pause: ['M6 4h4v16H6z', 'M14 4h4v16h-4z'],
   refresh: ['M23 4v6h-6', 'M1 20v-6h6', 'M20.49 9A9 9 0 0 0 5.64 5.64L1 10', 'M23 14l-4.64 4.36A9 9 0 0 1 3.51 15'],
   upload: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'M17 8l-5-5-5 5', 'M12 3v12'],
+  /* the mirror of upload: bringing a release down onto this installation */
+  download: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'M7 10l5 5 5-5', 'M12 15V3'],
   search: ['M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z', 'M21 21l-4.35-4.35'],
   copy: ['M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2z',
     'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'],
