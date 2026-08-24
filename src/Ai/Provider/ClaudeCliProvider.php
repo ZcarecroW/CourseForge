@@ -267,12 +267,35 @@ final class ClaudeCliProvider implements Provider
     /**
      * Runs the CLI and returns its three outputs.
      *
+     * Two implementations, because one of them cannot be made to work on
+     * Windows. Everywhere else the child's pipes are drained with
+     * stream_select() under a deadline, which is the right shape: it writes the
+     * prompt and reads the answer in the same loop, so neither side can fill a
+     * pipe buffer and wait for the other.
+     *
+     * On Windows neither stream_set_blocking(false) nor stream_select() has any
+     * effect on a pipe from proc_open. PHP blocks inside fread() until the child
+     * writes something, so the deadline is only ever re-checked when the child
+     * chooses to speak - and a child that has hung says nothing at all. This was
+     * measured rather than inferred: a thirty-minute limit reported itself after
+     * thirty-eight, and only because the process was killed by hand. A timeout
+     * that cannot fire while the thing it is timing is stuck is not a timeout.
+     *
+     * So Windows gets files instead of pipes. proc_open writes the child's
+     * output straight to disk, PHP polls proc_get_status() on the clock, and the
+     * deadline is exact. It also removes the pipe-buffer deadlock outright,
+     * since there is no buffer to fill.
+     *
      * @param array<int,string> $arguments
      * @return array{status:int,stdout:string,stderr:string,timeout:bool}
      */
     private function execute(array $arguments, ?string $stdin = null, int $timeout = 0): array
     {
         $timeout = $timeout > 0 ? $timeout : max(60, Config::int('app.ai_timeout_seconds', 1800));
+
+        if (DIRECTORY_SEPARATOR === '\\') {
+            return $this->executeViaFiles($arguments, $stdin ?? '', $timeout);
+        }
 
         $descriptors = [
             0 => ['pipe', 'r'],
@@ -374,6 +397,87 @@ final class ClaudeCliProvider implements Provider
         }
 
         return ['status' => proc_close($process), 'stdout' => $stdout, 'stderr' => $stderr, 'timeout' => false];
+    }
+
+    /**
+     * The Windows path: the child's streams are files, and the wait is a poll.
+     *
+     * Every file is made in the system temporary directory rather than in
+     * CF_DATA, so a prompt never lands anywhere the web server might serve, and
+     * every one of them is removed in the `finally` whatever happens - including
+     * when the deadline fires and the process is terminated under it.
+     *
+     * @param array<int,string> $arguments
+     * @return array{status:int,stdout:string,stderr:string,timeout:bool}
+     */
+    private function executeViaFiles(array $arguments, string $stdin, int $timeout): array
+    {
+        $prefix = sys_get_temp_dir() . '/cf-cli-' . bin2hex(random_bytes(6));
+        $inFile = $prefix . '.in';
+        $outFile = $prefix . '.out';
+        $errFile = $prefix . '.err';
+
+        if (@file_put_contents($inFile, $stdin) === false) {
+            throw HttpException::badRequest(
+                'Could not write the prompt to a temporary file in ' . sys_get_temp_dir() . '.'
+            );
+        }
+
+        try {
+            $process = @proc_open(
+                array_merge([$this->binary], $arguments),
+                [
+                    0 => ['file', $inFile, 'r'],
+                    1 => ['file', $outFile, 'w'],
+                    2 => ['file', $errFile, 'w'],
+                ],
+                $pipes,
+                CF_DATA,
+                $this->environment(),
+            );
+
+            if (!is_resource($process)) {
+                throw HttpException::badRequest(
+                    'Could not start "' . $this->binary . '". Check that Claude Code is installed and that PHP may run it.'
+                );
+            }
+
+            $deadline = microtime(true) + $timeout;
+            $status = proc_get_status($process);
+
+            while ($status['running'] === true) {
+                if (microtime(true) >= $deadline) {
+                    // terminate() asks; on Windows it is a hard kill, which is
+                    // what is wanted for a child that has stopped answering.
+                    proc_terminate($process);
+                    proc_close($process);
+                    throw HttpException::badRequest(
+                        'The Claude CLI did not answer within ' . $timeout . ' seconds and was stopped.'
+                    );
+                }
+                // 200ms: fine enough that the deadline is honoured to within a
+                // fifth of a second, coarse enough to cost nothing over half an
+                // hour of waiting.
+                usleep(200000);
+                $status = proc_get_status($process);
+            }
+
+            // The exit code is only reported once, on the first call that sees
+            // the process finished; proc_close would answer -1 after that.
+            $exit = $status['exitcode'];
+            proc_close($process);
+
+            return [
+                'status' => is_int($exit) ? $exit : -1,
+                'stdout' => (string)@file_get_contents($outFile),
+                'stderr' => (string)@file_get_contents($errFile),
+                'timeout' => false,
+            ];
+        } finally {
+            foreach ([$inFile, $outFile, $errFile] as $file) {
+                @unlink($file);
+            }
+        }
     }
 
     /**
