@@ -117,13 +117,33 @@ final class Runs
         }
     }
 
-    /** Records the provider's answer, turning a reservation into a live batch. */
-    public static function activate(int $runId, string $remoteId, string $remoteState, string $remoteRef, int $expiresAt): void
-    {
+    /**
+     * Records the provider's answer, turning a reservation into a live batch.
+     *
+     * Both deadlines are written here because this is the only moment either is
+     * learned, and they are weeks apart. `expiresAt` is when the queue stops
+     * running whatever it has not reached - 24 hours nearly everywhere, 48 on
+     * Gemini, which then returns nothing at all for the pages left over.
+     * `resultsExpireAt` is when the finished answers stop being downloadable:
+     * 29 days at Anthropic, 30 at OpenAI and OpenRouter, six weeks at Gemini. A
+     * run collected after the first date has lost the pages that were still
+     * queued; a run collected after the second has lost all of them, including
+     * the ones that were answered and paid for. Neither loss is recoverable,
+     * which is the whole reason a provider is not treated as storage.
+     */
+    public static function activate(
+        int $runId,
+        string $remoteId,
+        string $remoteState,
+        string $remoteRef,
+        int $expiresAt,
+        int $resultsExpireAt = 0,
+    ): void {
         Db::run(
-            'UPDATE batch_jobs SET remote_id = ?, remote_state = ?, remote_ref = ?, status = ?, expires_at = ?, updated_at = ?
+            'UPDATE batch_jobs SET remote_id = ?, remote_state = ?, remote_ref = ?, status = ?,
+                    expires_at = ?, results_expire_at = ?, updated_at = ?
               WHERE id = ?',
-            [$remoteId, $remoteState, $remoteRef, self::SUBMITTED, $expiresAt, time(), $runId]
+            [$remoteId, $remoteState, $remoteRef, self::SUBMITTED, $expiresAt, $resultsExpireAt, time(), $runId]
         );
     }
 
@@ -167,7 +187,16 @@ final class Runs
     }
 
     /**
-     * Runs still outstanding, across every course and optionally every user.
+     * Runs still outstanding, across every course and optionally every user,
+     * nearest download deadline first.
+     *
+     * The order is the interesting part, because the scheduler works to a time
+     * budget and stops part way down this list every time an installation has
+     * more open runs than one tick can collect. Whatever is left over waits a
+     * minute, which costs nothing - unless one of those runs is a finished
+     * batch whose answers the provider is about to delete, in which case it
+     * costs the course. So a run with a known retention deadline is polled
+     * before one without, soonest first, and creation order decides the rest.
      *
      * @return array<int,array<string,mixed>>
      */
@@ -184,7 +213,10 @@ final class Runs
             $sql .= ' AND mode = ?';
             $args[] = $mode;
         }
-        $sql .= ' ORDER BY created_at';
+        // `results_expire_at = 0` sorts as 0 for a run that has a deadline and 1
+        // for one that has none, so the runs on a clock come first and a live
+        // run - which has no provider holding anything - comes after them.
+        $sql .= ' ORDER BY results_expire_at = 0, results_expire_at, created_at';
 
         return array_map(static fn(array $row): array => self::summary($row), Db::rows($sql, $args));
     }
@@ -404,7 +436,11 @@ final class Runs
             'updated_at' => (int)$row['updated_at'],
             'polled_at' => (int)$row['polled_at'],
             'finished_at' => (int)$row['finished_at'],
+            // Two deadlines, never one. The first is when the provider stops
+            // running what is still queued, the second when it stops letting
+            // the finished answers be downloaded - a day against a month.
             'expires_at' => (int)$row['expires_at'],
+            'results_expire_at' => (int)($row['results_expire_at'] ?? 0),
         ];
     }
 }

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace CourseForge\Ai\Run;
 
+use CourseForge\Ai\Batch\BatchHandle;
 use CourseForge\Ai\Batch\BatchItemRequest;
 use CourseForge\Ai\Batch\BatchItemResult;
 use CourseForge\Ai\Batch\BatchStatus;
@@ -16,6 +17,7 @@ use CourseForge\Domain\Projects;
 use CourseForge\Domain\Runs;
 use CourseForge\Support\Db;
 use CourseForge\Support\HttpException;
+use CourseForge\Support\Runtime;
 use Throwable;
 
 /**
@@ -26,9 +28,34 @@ use Throwable;
  * calls: submitting writes the remote id, polling reads it back, and either can
  * happen in a browser request or in a cron tick without knowing which did it
  * last.
+ *
+ * That is why the provider is handed a BatchHandle rather than an id. The
+ * reference a batch's results are downloaded by is not always known when the
+ * batch is created - on OpenAI it is a pair of file ids that only exist once
+ * processing finishes - so a poll can come back with something new to remember,
+ * and the run row is where it is remembered.
+ *
+ * The handle also carries the two dates a queued course can be lost on, and
+ * they are the reason this class watches a clock at all. The provider stops
+ * running a batch after its window - a day, two on Gemini - and stops serving
+ * the finished answers after its retention period, which is a month or more and
+ * a different number on every provider. Both are recorded at submission and
+ * both are read on every poll, because a run that quietly passes either one is
+ * a course that has to be written and paid for a second time.
  */
 final class BatchDriver
 {
+    /**
+     * How long past its stated deadline a batch is still given the benefit of
+     * the doubt.
+     *
+     * A queue that is assembling results as the window closes goes on
+     * reporting the batch as running for a few minutes afterwards, and the two
+     * clocks involved are not the same clock. Calling that dead on the second
+     * would write off answers that were about to arrive.
+     */
+    private const EXPIRY_GRACE_SECONDS = 900;
+
     /**
      * Builds every prompt and hands the lot to the provider.
      *
@@ -52,7 +79,14 @@ final class BatchDriver
         }
 
         $handle = $provider->submitBatch($items);
-        Runs::activate($runId, $handle->remoteId, $handle->remoteState, $handle->resultsRef, $handle->expiresAt);
+        Runs::activate(
+            $runId,
+            $handle->remoteId,
+            $handle->remoteState,
+            $handle->refJson(),
+            $handle->expiresAt ?? 0,
+            $handle->resultsExpireAt ?? 0,
+        );
     }
 
     /**
@@ -61,6 +95,14 @@ final class BatchDriver
      * Safe to call as often as you like: a run that has already ended returns
      * its stored state without a network call, and results are applied under a
      * per-page guard so two pollers cannot write the same page twice.
+     *
+     * Two deadlines end a poll before the provider is asked anything, and they
+     * are the reason the handle carries both. Past the download deadline the
+     * answers have been deleted, so there is nothing to ask about and the run
+     * is closed rather than retried once a minute for ever. Past the batch's
+     * own window the queue will not run what is left, whatever it says - and
+     * that one is not a write-off, because the pages it did answer are still
+     * there to collect.
      *
      * @return array<string,mixed>
      */
@@ -72,6 +114,12 @@ final class BatchDriver
         }
         if ((string)$run['remote_id'] === '') {
             return Runs::summary($run); // a reservation that never reached a provider
+        }
+
+        $handle = self::handle($run);
+        if ($handle->unreachable()) {
+            self::abandon($runId, self::deletedMessage($handle));
+            return Runs::summary(Runs::require($username, $runId));
         }
 
         try {
@@ -87,21 +135,38 @@ final class BatchDriver
             return Runs::summary(Runs::require($username, $runId));
         }
 
-        $status = $provider->pollBatch((string)$run['remote_id'], (string)$run['remote_ref']);
+        $status = $provider->pollBatch($handle);
+
+        // Whatever the poll learned goes back into the handle before anything
+        // else touches it: on OpenAI this is the only call that ever reports
+        // the result file ids, and a poll that discovers them and does not
+        // write them down has to be made all over again to read the results.
+        $handle->mergeRef($status->ref);
+
+        // A window that has closed does not reopen, and not every provider says
+        // so promptly - a batch can go on being reported as running well past
+        // the deadline it was given. Reading it as expired here is what stops a
+        // dead run being polled once a minute until somebody notices, and it
+        // costs nothing: everywhere except Gemini an expired batch still hands
+        // over whatever it answered inside the window, and settling is what
+        // collects that.
+        if (!$status->finished() && $handle->dead(time() - self::EXPIRY_GRACE_SECONDS)) {
+            $status = self::expired($status, $handle);
+        }
 
         Runs::update($runId, [
-            'remote_state' => $status->remoteState,
+            'remote_state' => (string)$status->rawState,
             'counts' => json_encode($status->counts, JSON_UNESCAPED_SLASHES) ?: '{}',
             'polled_at' => time(),
             'error' => $status->error,
-        ] + ($status->resultsRef !== '' ? ['remote_ref' => $status->resultsRef] : [])
+        ] + ($status->ref !== [] ? ['remote_ref' => $handle->refJson()] : [])
           + (!$status->finished() ? ['status' => Runs::RUNNING] : []));
 
         if (!$status->finished()) {
             return Runs::summary(Runs::require($username, $runId));
         }
 
-        self::settle($username, $run, $provider, $status);
+        self::settle($username, $run, $provider, $handle, $status);
         Projects::touch((int)$run['project_id']);
 
         return Runs::summary(Runs::require($username, $runId));
@@ -127,16 +192,23 @@ final class BatchDriver
 
         try {
             $provider = self::providerFor($username, $run);
-            $status = $provider->pollBatch((string)$run['remote_id'], (string)$run['remote_ref']);
+            $handle = self::handle($run);
+            $status = $provider->pollBatch($handle);
+            $handle->mergeRef($status->ref);
 
             if ($status->finished()) {
                 // Too late to cancel, and that is good news: collect it instead.
-                self::settle($username, $run, $provider, $status);
+                self::settle($username, $run, $provider, $handle, $status);
                 Projects::touch((int)$run['project_id']);
                 return Runs::summary(Runs::require($username, $runId));
             }
 
-            $provider->cancelBatch((string)$run['remote_id']);
+            // A provider with no cancel route is not asked. OpenRouter's is
+            // undocumented, and a button that answers 404 is worse than one
+            // that is not offered.
+            if ($provider->canCancel()) {
+                $provider->cancelBatch($handle);
+            }
         } catch (Throwable $e) {
             Runs::update($runId, ['error' => mb_substr($e->getMessage(), 0, 500)]);
         }
@@ -169,18 +241,27 @@ final class BatchDriver
      * run open to be tried again, and pages are only written off as unanswered
      * once a download has actually succeeded.
      *
+     * The download and the applying happen inside the same try because the
+     * results are a stream: a provider that reads a large results file line by
+     * line raises its connection errors while the lines are being consumed, not
+     * when the call is made. Pages already written before that point stay
+     * written - settling one is guarded - and the rest are collected on the
+     * next poll.
+     *
      * @param array<string,mixed> $run
      */
-    private static function settle(string $username, array $run, BatchCapable $provider, BatchStatus $status): void
-    {
+    private static function settle(
+        string $username,
+        array $run,
+        BatchCapable $provider,
+        BatchHandle $handle,
+        BatchStatus $status,
+    ): void {
         $runId = (int)$run['id'];
 
         if ($status->hasResults()) {
             try {
-                $results = $provider->fetchBatchResults(
-                    (string)$run['remote_id'],
-                    $status->resultsRef !== '' ? $status->resultsRef : (string)$run['remote_ref']
-                );
+                self::apply($username, $run, $provider->fetchBatchResults($handle));
             } catch (Throwable $e) {
                 Runs::update($runId, [
                     'error' => 'The results could not be downloaded: ' . mb_substr($e->getMessage(), 0, 400),
@@ -189,12 +270,21 @@ final class BatchDriver
                 return; // stays open; the next poll tries again
             }
 
-            self::apply($username, $run, $results);
-
             foreach (Runs::pendingItems($runId) as $item) {
                 if (Runs::settleItem($runId, (string)$item['custom_id'], 'errored', 'The provider returned no result for this page.')) {
                     PageGenerator::fail((int)$item['page_id'], 'The batch finished without an answer for this page.');
                 }
+            }
+
+            try {
+                // The answers are on this side now, so whatever the provider is
+                // still holding for us can go. An OpenAI batch input file counts
+                // against the organisation's storage until it is deleted.
+                $provider->releaseBatch($handle);
+            } catch (Throwable $e) {
+                // Housekeeping only. A course that was written and stored is not
+                // a failed run because a cleanup call came back badly.
+                Runtime::log('batch.release', $e);
             }
         } else {
             $why = $status->error !== '' ? $status->error : 'The batch failed before it ran.';
@@ -208,7 +298,7 @@ final class BatchDriver
         Runs::update($runId, [
             'status' => match ($status->state) {
                 BatchStatus::FAILED => Runs::FAILED,
-                BatchStatus::CANCELED => Runs::CANCELED,
+                BatchStatus::CANCELLED => Runs::CANCELED,
                 default => Runs::COMPLETED,
             },
             'finished_at' => time(),
@@ -216,27 +306,40 @@ final class BatchDriver
     }
 
     /**
+     * Writes the answers home.
+     *
+     * The outstanding pages are indexed up front and the answers are walked
+     * past them, rather than the other way round, because the results are an
+     * iterable that may only be traversed once - a 200 MB JSONL download is
+     * read a line at a time and never exists as an array. Anything the stream
+     * has no answer for is left pending for the caller to write off.
+     *
      * @param array<string,mixed> $run
-     * @param array<string,BatchItemResult> $results
+     * @param iterable<string,BatchItemResult> $results
      */
-    private static function apply(string $username, array $run, array $results): void
+    private static function apply(string $username, array $run, iterable $results): void
     {
         $runId = (int)$run['id'];
         $projectId = (int)$run['project_id'];
         $project = Projects::require($username, $projectId);
 
+        $outstanding = [];
         foreach (Runs::pendingItems($runId) as $item) {
-            $customId = (string)$item['custom_id'];
-            $pageId = (int)$item['page_id'];
-            $result = $results[$customId] ?? null;
+            $outstanding[(string)$item['custom_id']] = (int)$item['page_id'];
+        }
 
-            if ($result === null) {
-                continue; // settled by the caller as "no answer"
+        foreach ($results as $result) {
+            $customId = $result->customId;
+            if (!isset($outstanding[$customId])) {
+                continue; // not ours, or settled by somebody who polled first
             }
+            $pageId = $outstanding[$customId];
+            unset($outstanding[$customId]);
 
             if (!$result->succeeded()) {
-                if (Runs::settleItem($runId, $customId, $result->state, $result->error)) {
-                    PageGenerator::fail($pageId, $result->error !== '' ? $result->error : 'The batch returned no content.');
+                $why = $result->errorMessage();
+                if (Runs::settleItem($runId, $customId, $result->status, $why)) {
+                    PageGenerator::fail($pageId, $why !== '' ? $why : 'The batch returned no content.');
                 }
                 continue;
             }
@@ -263,7 +366,7 @@ final class BatchDriver
             try {
                 Db::transaction(static function () use ($runId, $customId, $project, $page, $result): void {
                     if (Runs::settleItem($runId, $customId, Runs::ITEM_DONE)) {
-                        PageGenerator::store($project, $page, $result->content);
+                        PageGenerator::store($project, $page, $result->content());
                     }
                 });
             } catch (Throwable $e) {
@@ -287,6 +390,73 @@ final class BatchDriver
             'finished_at' => time(),
             'polled_at' => time(),
         ]);
+    }
+
+    /**
+     * The same poll answer, read as expired.
+     *
+     * Everything the provider actually said is kept - its own word for the
+     * state, its counts, any error it gave - because that is what somebody
+     * diagnosing the run will want to read, and inventing a tidier story than
+     * the one the provider told would make the row useless. Only CourseForge's
+     * reading of it changes, from "still going" to "the window has closed",
+     * which is what routes the run into settling and gets the pages that were
+     * answered inside the window written before the results are deleted.
+     */
+    private static function expired(BatchStatus $status, BatchHandle $handle): BatchStatus
+    {
+        $closed = $handle->expiresAt !== null ? gmdate('Y-m-d H:i', $handle->expiresAt) . ' UTC' : 'its deadline';
+
+        return new BatchStatus(
+            BatchStatus::EXPIRED,
+            $status->rawState,
+            $status->total,
+            $status->completed,
+            $status->failed,
+            $status->ref,
+            $status->error !== ''
+                ? $status->error
+                : 'The provider\'s window closed at ' . $closed . ' with pages still queued. '
+                    . 'Whatever was answered before then has been collected; the rest were never run '
+                    . 'and have to be queued again.',
+            $status->counts,
+        );
+    }
+
+    /** Why a run that was still open has nothing left to collect. */
+    private static function deletedMessage(BatchHandle $handle): string
+    {
+        $gone = $handle->resultsExpireAt !== null
+            ? ' on ' . gmdate('Y-m-d H:i', $handle->resultsExpireAt) . ' UTC'
+            : '';
+
+        return 'The provider deleted this batch\'s results' . $gone . ', before they were downloaded. '
+            . 'They cannot be fetched again at any price, so these pages have to be written a second time. '
+            . 'Results are only kept for weeks, so a run has to be collected while the scheduler is running.';
+    }
+
+    /**
+     * The stored batch, back in the shape the provider works with.
+     *
+     * `remote_ref` holds the provider's own reference bag as JSON. A row
+     * written before that column carried JSON decodes to nothing, which is
+     * harmless: the handle comes back without a reference and the next poll
+     * supplies one. The same is true of both deadlines: a row written before
+     * `results_expire_at` existed reports zero, the handle treats that as
+     * "unknown" rather than as "expired in 1970", and such a run is polled
+     * exactly as it was before.
+     *
+     * @param array<string,mixed> $run
+     */
+    private static function handle(array $run): BatchHandle
+    {
+        return BatchHandle::fromStorage(
+            (string)$run['remote_id'],
+            (string)$run['remote_state'],
+            (string)$run['remote_ref'],
+            (int)$run['expires_at'],
+            (int)($run['results_expire_at'] ?? 0),
+        );
     }
 
     /** @param array<string,mixed> $run */

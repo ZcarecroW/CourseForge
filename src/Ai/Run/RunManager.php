@@ -61,10 +61,13 @@ final class RunManager
                     . 'or run it in the background instead.'
                 );
             }
-            if (count($pageIds) > $provider->batchLimit()) {
+            // The row count is only the first of two bounds; the byte ceiling
+            // is the chunker's business, and it is usually the one that binds.
+            $limits = $provider->batchLimits();
+            if (count($pageIds) > $limits->maxRequests) {
                 throw HttpException::unprocessable(
                     'That is more pages than ' . $provider->label() . ' accepts in one batch ('
-                    . number_format($provider->batchLimit()) . ').'
+                    . number_format($limits->maxRequests) . ').'
                 );
             }
         } elseif (!self::cronConfigured()) {
