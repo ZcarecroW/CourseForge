@@ -6,7 +6,8 @@ namespace CourseForge\Support;
 use CourseForge\Ai\Run\LiveDriver;
 use CourseForge\Ai\Run\RunManager;
 use CourseForge\Domain\Runs;
-use CourseForge\Security\Users;
+use CourseForge\Security\Session;
+use CourseForge\Update\Updater;
 use Throwable;
 
 /**
@@ -87,6 +88,15 @@ final class Cron
             $report['errors'][] = 'work: ' . $e->getMessage();
         }
 
+        // 4. The unattended half of the update feature. It runs after the work,
+        //    never before it: an update replaces the very files this tick is
+        //    executing, so anything still owed to a course is finished first.
+        try {
+            $report['update'] = Updater::scheduled();
+        } catch (Throwable $e) {
+            $report['errors'][] = 'update: ' . $e->getMessage();
+        }
+
         // Recorded last, and unconditionally: the UI uses it to tell the user
         // whether the scheduler is alive at all, which matters most precisely
         // when the tick is having trouble.
@@ -98,21 +108,54 @@ final class Cron
     }
 
     /**
-     * Everyone with courses on this installation.
+     * Everyone with a run that still needs attention.
+     *
+     * Read from the runs themselves rather than from the account list: a run
+     * that outlived the account which started it still has to be collected, and
+     * an installation with two hundred accounts should not be walked once a
+     * minute for the three that have anything queued.
      *
      * @return array<int,string>
      */
     private static function usernames(): array
     {
         try {
-            $names = array_map(
-                static fn(array $user): string => (string)($user['username'] ?? ''),
-                Users::load()['users']
+            $rows = Db::rows(
+                "SELECT DISTINCT username FROM batch_jobs
+                  WHERE status NOT IN ('completed', 'failed', 'canceled')
+                     OR finished_at > ?",
+                [time() - 86400]
             );
         } catch (Throwable) {
-            $names = [];
+            return [];
         }
-        return array_values(array_filter($names, static fn(string $n): bool => $n !== ''));
+        return array_values(array_filter(
+            array_map(static fn(array $row): string => (string)$row['username'], $rows),
+            static fn(string $n): bool => $n !== ''
+        ));
+    }
+
+    /**
+     * The URL a control-panel scheduler should be pointed at.
+     *
+     * Worked out from the current request when there is one, so the Settings
+     * screen can show something that pastes straight into a hosting panel.
+     */
+    public static function publicUrl(string $token): string
+    {
+        $base = trim(Config::str('app.public_url', ''));
+
+        if ($base === '' && isset($_SERVER['HTTP_HOST'])) {
+            $scheme = Session::isHttps() ? 'https' : 'http';
+            $dir = rtrim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
+            $dir = (string)preg_replace('#/api$#', '', $dir);
+            $base = $scheme . '://' . $_SERVER['HTTP_HOST'] . $dir;
+        }
+        if ($base === '') {
+            $base = 'https://your-install';
+        }
+
+        return rtrim($base, '/') . '/cron.php?token=' . rawurlencode($token);
     }
 
     /**

@@ -19,18 +19,32 @@ final class Projects
 
     /* -------------------------------------------------------------- basics */
 
-    /** @return array<int,array<string,mixed>> */
-    public static function all(string $username): array
+    /**
+     * Every course of one account, or of all of them.
+     *
+     * `null` lists the whole installation, which is what an administrator gets.
+     * The owner travels with each row, so a shared listing can say whose it is
+     * without a second query per course.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function all(?string $username): array
     {
+        $where = $username === null ? '' : 'WHERE p.username = ?';
+        $args = $username === null ? [] : [$username];
+
         $rows = Db::rows(
             "SELECT p.id, p.name, p.topic, p.profile_id, p.book_id, p.book_url, p.shelf_name,
-                    p.settings, p.updated_at, p.created_at,
+                    p.settings, p.updated_at, p.created_at, p.username,
                     (SELECT COUNT(*) FROM chapters WHERE project_id = p.id) AS chapter_count,
                     (SELECT COUNT(*) FROM pages    WHERE project_id = p.id) AS page_count,
                     (SELECT COUNT(*) FROM pages    WHERE project_id = p.id AND TRIM(content) <> '') AS generated_count,
-                    (SELECT COUNT(*) FROM pages    WHERE project_id = p.id AND bs_id IS NOT NULL) AS pushed_count
-               FROM projects p WHERE p.username = ? ORDER BY p.updated_at DESC",
-            [$username]
+                    (SELECT COUNT(*) FROM pages    WHERE project_id = p.id AND bs_id IS NOT NULL) AS pushed_count,
+                    (SELECT COUNT(*) FROM batch_jobs b
+                      WHERE b.project_id = p.id
+                        AND b.status NOT IN ('completed', 'failed', 'canceled')) AS open_runs
+               FROM projects p {$where} ORDER BY p.updated_at DESC",
+            $args
         );
 
         return array_map(static function (array $row): array {
@@ -39,6 +53,7 @@ final class Projects
                 'id' => (int)$row['id'],
                 'name' => (string)$row['name'],
                 'topic' => (string)$row['topic'],
+                'owner' => (string)$row['username'],
                 'profile_id' => $row['profile_id'] !== null ? (int)$row['profile_id'] : null,
                 'book_id' => $row['book_id'] !== null ? (int)$row['book_id'] : null,
                 'book_url' => (string)$row['book_url'],
@@ -47,6 +62,7 @@ final class Projects
                 'page_count' => (int)$row['page_count'],
                 'generated_count' => (int)$row['generated_count'],
                 'pushed_count' => (int)$row['pushed_count'],
+                'open_runs' => (int)$row['open_runs'],
                 'auto_links' => (bool)($effective['features']['auto_links'] ?? false),
                 'created_at' => (int)$row['created_at'],
                 'updated_at' => (int)$row['updated_at'],

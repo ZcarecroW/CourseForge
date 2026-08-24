@@ -35,15 +35,26 @@ final class Tags
         ];
     }
 
-    /** @return array<int,array<string,mixed>> */
-    public static function all(string $username): array
+    /**
+     * One account's tag library, or every tag on the installation.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function all(?string $username): array
     {
+        $where = $username === null ? '' : 'WHERE t.username = ?';
+        $args = $username === null ? [] : [$username];
+
         $rows = Db::rows(
-            'SELECT t.*, (SELECT COUNT(*) FROM tag_links l WHERE l.tag_id = t.id) AS usage_count
-               FROM tags t WHERE t.username = ? ORDER BY t.name COLLATE NOCASE',
-            [$username]
+            "SELECT t.*, (SELECT COUNT(*) FROM tag_links l WHERE l.tag_id = t.id) AS usage_count
+               FROM tags t {$where} ORDER BY t.username COLLATE NOCASE, t.name COLLATE NOCASE",
+            $args
         );
-        return array_map(static fn(array $row): array => self::shape($row), $rows);
+        return array_map(static function (array $row): array {
+            $tag = self::shape($row);
+            $tag['owner'] = (string)$row['username'];
+            return $tag;
+        }, $rows);
     }
 
     /** @return array<string,mixed>|null */

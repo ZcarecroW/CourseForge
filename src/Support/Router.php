@@ -13,25 +13,29 @@ namespace CourseForge\Support;
  */
 final class Router
 {
-    /** @var array<int,array{methods:string[],segments:string[],handler:callable,auth:bool}> */
+    /** @var array<int,array{methods:string[],segments:string[],handler:callable,auth:bool,admin:bool}> */
     private array $routes = [];
 
     /**
      * @param string $methods Space separated verbs, e.g. 'GET PUT DELETE'.
      * @param bool   $auth    false for the handful of endpoints reachable while signed out.
+     * @param bool   $admin   true for the routes only an administrator may call. The
+     *                        handler checks this again for itself; a route table is a
+     *                        convenience, never the only thing standing in the way.
      */
-    public function add(string $methods, string $pattern, callable $handler, bool $auth = true): void
+    public function add(string $methods, string $pattern, callable $handler, bool $auth = true, bool $admin = false): void
     {
         $this->routes[] = [
             'methods' => array_values(array_filter(explode(' ', strtoupper($methods)))),
             'segments' => self::split($pattern),
             'handler' => $handler,
-            'auth' => $auth,
+            'auth' => $auth || $admin,
+            'admin' => $admin,
         ];
     }
 
     /**
-     * @return array{handler:callable,request:Request,auth:bool}
+     * @return array{handler:callable,request:Request,auth:bool,admin:bool}
      * @throws HttpException 404 when nothing matches, 405 when only the verb is wrong.
      */
     public function match(Request $request): array
@@ -52,6 +56,7 @@ final class Router
                 'handler' => $route['handler'],
                 'request' => $request->withParams($params),
                 'auth' => $route['auth'],
+                'admin' => $route['admin'],
             ];
         }
 

@@ -1,0 +1,217 @@
+<?php
+declare(strict_types=1);
+
+namespace CourseForge\Api;
+
+use CourseForge\Security\Actor;
+use CourseForge\Security\Invite;
+use CourseForge\Security\Users;
+use CourseForge\Support\Audit;
+use CourseForge\Support\HttpException;
+use CourseForge\Support\Request;
+
+/**
+ * Account management, for administrators.
+ *
+ * Every route here is guarded twice: once by the router, which will not call an
+ * admin handler for a normal account, and once by `requireAdmin()` on the
+ * actor, because a handler that is safe on its own cannot be made unsafe by a
+ * routing mistake made later.
+ *
+ * The two rules worth stating out loud:
+ *
+ *   - the last enabled administrator cannot be deleted, disabled or demoted,
+ *     because an installation with no administrator can only be repaired from
+ *     the file system;
+ *   - deleting an account never silently deletes its courses. The caller has to
+ *     say whether they should be removed or handed to somebody else.
+ */
+final class UserController
+{
+    /** @return array<string,mixed> */
+    public static function index(Request $request, ?Actor $actor): array
+    {
+        $me = self::admin($actor);
+
+        $users = Users::all();
+        foreach ($users as $i => $user) {
+            $users[$i]['content'] = Users::contentSummary((string)$user['username']);
+            $users[$i]['is_you'] = strcasecmp((string)$user['username'], $me->username) === 0;
+        }
+
+        return [
+            'users' => $users,
+            'roles' => [
+                ['key' => Actor::ROLE_USER, 'label' => 'User', 'hint' => 'Own courses, profiles and tags. Cannot change the installation.'],
+                ['key' => Actor::ROLE_ADMIN, 'label' => 'Administrator', 'hint' => 'Everything a user can do, plus accounts, settings and updates.'],
+            ],
+            'min_password' => Users::MIN_PASSWORD,
+            'invite' => Invite::status(),
+        ];
+    }
+
+    public static function create(Request $request, ?Actor $actor): array
+    {
+        $me = self::admin($actor);
+
+        $password = $request->raw('password');
+        if ($password === '') {
+            $password = self::suggestPassword();
+            $generated = true;
+        }
+
+        $user = Users::create(
+            $request->requiredStr('username', 'A user name'),
+            $password,
+            $request->enum('role', [Actor::ROLE_USER, Actor::ROLE_ADMIN], Actor::ROLE_USER),
+            $request->str('display_name'),
+            $me->username,
+            $request->bool('must_change_password', true),
+        );
+
+        Audit::record($me->username, 'user.create', (string)$user['username'], 'role=' . $user['role']);
+
+        // A generated password is shown once, on the card that created it, in
+        // the same way a connection token is.
+        return ['user' => $user, 'password' => isset($generated) ? $password : ''];
+    }
+
+    public static function update(Request $request, ?Actor $actor): array
+    {
+        $me = self::admin($actor);
+        $target = self::target($request);
+
+        if ($request->has('role')) {
+            $role = $request->enum('role', [Actor::ROLE_USER, Actor::ROLE_ADMIN], Actor::ROLE_USER);
+            if (strcasecmp($target, $me->username) === 0 && $role !== Actor::ROLE_ADMIN) {
+                throw HttpException::unprocessable('You cannot take your own administrator rights away.');
+            }
+            Users::setRole($target, $role);
+            Audit::record($me->username, 'user.role', $target, 'role=' . $role);
+        }
+
+        if ($request->has('display_name')) {
+            Users::setDisplayName($target, $request->str('display_name'));
+        }
+
+        if ($request->has('disabled')) {
+            $disabled = $request->bool('disabled');
+            if ($disabled && strcasecmp($target, $me->username) === 0) {
+                throw HttpException::unprocessable('You cannot disable the account you are signed in with.');
+            }
+            Users::setDisabled($target, $disabled);
+            Audit::record($me->username, $disabled ? 'user.disable' : 'user.enable', $target);
+        }
+
+        if ($request->has('password')) {
+            $password = $request->raw('password');
+            if ($password !== '') {
+                Users::setPassword($target, $password, $request->bool('must_change_password', true));
+                Audit::record($me->username, 'user.password', $target);
+            }
+        }
+
+        return ['user' => Users::publicView(Users::require($target))];
+    }
+
+    public static function delete(Request $request, ?Actor $actor): array
+    {
+        $me = self::admin($actor);
+        $target = self::target($request);
+
+        if (strcasecmp($target, $me->username) === 0) {
+            throw HttpException::unprocessable('You cannot delete the account you are signed in with.');
+        }
+
+        $content = $request->enum('content', ['delete', 'transfer'], 'transfer');
+        $transferTo = $content === 'transfer'
+            ? ($request->str('transfer_to') !== '' ? $request->str('transfer_to') : $me->username)
+            : '';
+
+        $summary = Users::contentSummary($target);
+        Users::delete($target, $content, $transferTo);
+
+        Audit::record(
+            $me->username,
+            'user.delete',
+            $target,
+            $content === 'transfer'
+                ? 'content transferred to ' . $transferTo . ' (' . $summary['courses'] . ' course(s))'
+                : 'content deleted (' . $summary['courses'] . ' course(s), ' . $summary['pages'] . ' page(s))'
+        );
+
+        return ['users' => Users::all()];
+    }
+
+    /**
+     * Issues an invite code, written to INVITE-CODE.txt.
+     *
+     * This is the way back in when every administrator password has been lost,
+     * and the way to let somebody create their own account rather than being
+     * handed a password over a chat. Reading the file needs the same access as
+     * editing `config/`, so it grants nothing that was not already granted.
+     */
+    public static function invite(Request $request, ?Actor $actor): array
+    {
+        $me = self::admin($actor);
+
+        $issued = Invite::issue(
+            $request->enum('role', [Actor::ROLE_USER, Actor::ROLE_ADMIN], Actor::ROLE_USER),
+            max(1, min(24 * 30, (int)($request->intOrNull('ttl_hours') ?? Invite::DEFAULT_TTL_HOURS))),
+            $me->username,
+        );
+
+        Audit::record($me->username, 'user.invite', $issued['role'], 'written to ' . $issued['path']);
+
+        // The code goes back once, so the administrator can pass it on without
+        // having to open a file on the server.
+        return ['invite' => $issued];
+    }
+
+    /** @return array<string,mixed> */
+    public static function audit(Request $request, ?Actor $actor): array
+    {
+        self::admin($actor);
+        return ['entries' => Audit::recent($request->queryInt('limit', 300), $request->query('action'))];
+    }
+
+    /* -------------------------------------------------------------- helpers */
+
+    private static function admin(?Actor $actor): Actor
+    {
+        $me = $actor ?? throw HttpException::unauthorized();
+        $me->requireAdmin();
+        return $me;
+    }
+
+    /**
+     * The account a route points at, by row id.
+     *
+     * The user name would read better in the URL, but it may hold a space, a
+     * plus sign or an at sign, all of which mean something else by the time a
+     * query string has been decoded. The id means exactly one thing.
+     */
+    private static function target(Request $request): string
+    {
+        $user = Users::byId($request->id('id'));
+        if ($user === null) {
+            throw HttpException::notFound('There is no such account.');
+        }
+        return (string)$user['username'];
+    }
+
+    /** Four groups of four from an unambiguous alphabet - long enough, typable. */
+    private static function suggestPassword(): string
+    {
+        $alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $groups = [];
+        for ($g = 0; $g < 4; $g++) {
+            $chunk = '';
+            for ($i = 0; $i < 4; $i++) {
+                $chunk .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
+            $groups[] = $chunk;
+        }
+        return implode('-', $groups);
+    }
+}

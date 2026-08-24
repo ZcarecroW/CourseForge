@@ -9,28 +9,50 @@ use CourseForge\Support\HttpException;
 /** Sign in, sign out and "who is asking?". */
 final class Auth
 {
-    /** @return array{username:string,display_name:string}|null */
-    public static function current(): ?array
+    /**
+     * The signed-in account, re-read from the database on every request.
+     *
+     * The session holds the user name and nothing else that matters. Role,
+     * display name and whether the account still exists are looked up each
+     * time, so a demotion, a rename or a deletion takes effect at once instead
+     * of when the session happens to expire.
+     */
+    public static function current(): ?Actor
     {
-        if (empty($_SESSION['user'])) {
+        $username = trim((string)($_SESSION['user'] ?? ''));
+        if ($username === '') {
             return null;
         }
-        return [
-            'username' => (string)$_SESSION['user'],
-            'display_name' => (string)($_SESSION['display_name'] ?? $_SESSION['user']),
-        ];
+
+        $user = Users::find($username);
+        if ($user === null || (int)$user['disabled'] === 1) {
+            return null;
+        }
+
+        return Actor::make(
+            (string)$user['username'],
+            (string)($user['display_name'] ?: $user['username']),
+            (string)$user['role']
+        );
     }
 
-    public static function requireUser(): string
+    public static function require(): Actor
     {
-        $user = self::current();
-        if ($user === null) {
+        $actor = self::current();
+        if ($actor === null) {
             throw HttpException::unauthorized();
         }
-        return $user['username'];
+        return $actor;
     }
 
-    /** @return array{ok:bool,error?:string,locked_for?:int,user?:array<string,string>} */
+    public static function requireAdmin(): Actor
+    {
+        $actor = self::require();
+        $actor->requireAdmin();
+        return $actor;
+    }
+
+    /** @return array{ok:bool,error?:string,locked_for?:int,user?:array<string,mixed>} */
     public static function login(string $username, string $password): array
     {
         $ip = LoginThrottle::ip();
@@ -44,7 +66,14 @@ final class Auth
             ];
         }
 
-        $user = Users::verify($username, $password);
+        try {
+            $user = Users::verify($username, $password);
+        } catch (HttpException $e) {
+            // A disabled account is a real answer, not a throttled guess.
+            LoginThrottle::record($ip, $username, false);
+            return ['ok' => false, 'error' => $e->getMessage(), 'locked_for' => 0];
+        }
+
         LoginThrottle::record($ip, $username, $user !== null);
 
         if ($user === null) {
@@ -56,13 +85,35 @@ final class Auth
             ];
         }
 
-        session_regenerate_id(true);
-        $_SESSION['user'] = (string)$user['username'];
-        $_SESSION['display_name'] = (string)($user['display_name'] ?? $user['username']);
-        $_SESSION['last_seen'] = time();
+        self::establish((string)$user['username']);
         LoginThrottle::clear($ip);
 
-        return ['ok' => true, 'user' => self::current()];
+        return ['ok' => true, 'user' => self::describe()];
+    }
+
+    /** Puts an account into the current session. Also used right after setup. */
+    public static function establish(string $username): void
+    {
+        session_regenerate_id(true);
+        $_SESSION['user'] = $username;
+        $_SESSION['last_seen'] = time();
+    }
+
+    /**
+     * The signed-in account as the SPA wants it.
+     *
+     * @return array<string,mixed>|null
+     */
+    public static function describe(): ?array
+    {
+        $actor = self::current();
+        if ($actor === null) {
+            return null;
+        }
+        $row = Users::find($actor->username);
+        $view = $actor->toArray();
+        $view['must_change_password'] = $row !== null && (int)($row['must_change_password'] ?? 0) === 1;
+        return $view;
     }
 
     public static function logout(): void

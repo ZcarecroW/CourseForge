@@ -40,11 +40,26 @@ final class Profiles
         ];
     }
 
-    /** @return array<int,array<string,mixed>> */
-    public static function all(string $username): array
+    /**
+     * One account's profiles, or every profile on the installation.
+     *
+     * Secrets are redacted here as they are everywhere else, so an
+     * administrator listing all of them learns that an account exists and what
+     * it points at - never a key.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function all(?string $username): array
     {
-        $rows = Db::rows('SELECT * FROM profiles WHERE username = ? ORDER BY name COLLATE NOCASE', [$username]);
-        return array_map(static fn(array $row): array => self::redact(self::hydrate($row)), $rows);
+        $rows = $username === null
+            ? Db::rows('SELECT * FROM profiles ORDER BY username COLLATE NOCASE, name COLLATE NOCASE')
+            : Db::rows('SELECT * FROM profiles WHERE username = ? ORDER BY name COLLATE NOCASE', [$username]);
+
+        return array_map(static function (array $row): array {
+            $profile = self::redact(self::hydrate($row));
+            $profile['owner'] = (string)$row['username'];
+            return $profile;
+        }, $rows);
     }
 
     /** @return array<string,mixed>|null */

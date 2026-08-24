@@ -83,6 +83,33 @@ final class Request
         return (string)($this->params[$name] ?? '');
     }
 
+    /* --------------------------------------------------------- query string */
+
+    /**
+     * A value from the query string.
+     *
+     * GET routes have no body to read, and a filter such as "whose courses" or
+     * "which kind of audit entry" belongs in the URL anyway - it is part of what
+     * is being asked for, not a change being made.
+     */
+    public function query(string $name, string $default = ''): string
+    {
+        $value = $_GET[$name] ?? null;
+        return is_scalar($value) ? trim((string)$value) : $default;
+    }
+
+    public function queryBool(string $name, bool $default = false): bool
+    {
+        $value = $_GET[$name] ?? null;
+        return $value === null ? $default : filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    public function queryInt(string $name, int $default = 0): int
+    {
+        $value = $this->query($name);
+        return preg_match('/^-?\d+$/', $value) === 1 ? (int)$value : $default;
+    }
+
     /* --------------------------------------------------------- body fields */
 
     public function has(string $key): bool

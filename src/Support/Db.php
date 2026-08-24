@@ -15,7 +15,7 @@ use RuntimeException;
  */
 final class Db
 {
-    public const SCHEMA_VERSION = 5;
+    public const SCHEMA_VERSION = 6;
 
     private static ?PDO $pdo = null;
 
@@ -270,6 +270,72 @@ final class Db
             );
             CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_token ON mcp_clients(token_hash);
             CREATE INDEX IF NOT EXISTS idx_mcp_user ON mcp_clients(username);
+
+            -- Accounts. CourseForge 3.x kept a single administrator in
+            -- data/users.json; 4.0 has roles, so they belong in a table with
+            -- everything else that can be edited from the application itself.
+            CREATE TABLE IF NOT EXISTS users (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                username             TEXT NOT NULL,
+                display_name         TEXT NOT NULL DEFAULT '',
+                password_hash        TEXT NOT NULL,
+                role                 TEXT NOT NULL DEFAULT 'user',
+                disabled             INTEGER NOT NULL DEFAULT 0,
+                must_change_password INTEGER NOT NULL DEFAULT 0,
+                created_at           INTEGER NOT NULL,
+                updated_at           INTEGER NOT NULL,
+                last_login_at        INTEGER NOT NULL DEFAULT 0,
+                created_by           TEXT NOT NULL DEFAULT ''
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_name ON users(username COLLATE NOCASE);
+
+            -- Invite codes. Only the hash is here; the code itself lives in
+            -- INVITE-CODE.txt on the file system and nowhere else.
+            CREATE TABLE IF NOT EXISTS invites (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                code_hash  TEXT NOT NULL,
+                role       TEXT NOT NULL DEFAULT 'admin',
+                file_path  TEXT NOT NULL DEFAULT '',
+                issued_by  TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL DEFAULT 0,
+                used_at    INTEGER NOT NULL DEFAULT 0,
+                used_by    TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS idx_invites_open ON invites(used_at, expires_at);
+
+            -- What was done to the installation rather than to a course. An
+            -- install with several accounts has to be able to answer "who
+            -- deleted that?" and "when did this update run?".
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts      INTEGER NOT NULL,
+                actor   TEXT NOT NULL DEFAULT '',
+                action  TEXT NOT NULL,
+                subject TEXT NOT NULL DEFAULT '',
+                detail  TEXT NOT NULL DEFAULT '',
+                ip      TEXT NOT NULL DEFAULT '',
+                source  TEXT NOT NULL DEFAULT 'web'
+            );
+            CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts);
+
+            -- Every update this installation has attempted, so a failed one is
+            -- visible in the application rather than only in a server log.
+            CREATE TABLE IF NOT EXISTS update_history (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                started_at   INTEGER NOT NULL,
+                finished_at  INTEGER NOT NULL DEFAULT 0,
+                from_version TEXT NOT NULL DEFAULT '',
+                to_version   TEXT NOT NULL DEFAULT '',
+                channel      TEXT NOT NULL DEFAULT 'stable',
+                status       TEXT NOT NULL DEFAULT 'running',
+                trigger      TEXT NOT NULL DEFAULT 'manual',
+                actor        TEXT NOT NULL DEFAULT '',
+                backup_path  TEXT NOT NULL DEFAULT '',
+                log          TEXT NOT NULL DEFAULT '',
+                error        TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS idx_update_history_ts ON update_history(started_at);
             SQL
         );
 
@@ -303,10 +369,24 @@ final class Db
         $pdo->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_batch_items_active
                         ON batch_items(page_id) WHERE status IN ('pending', 'working')");
 
+        // Version 6: accounts, and a run that knows which quality pass it is.
+        self::ensureColumn($pdo, 'mcp_clients', 'scopes', "TEXT NOT NULL DEFAULT ''");
+        self::ensureColumn($pdo, 'mcp_clients', 'expires_at', 'INTEGER NOT NULL DEFAULT 0');
+        self::ensureColumn($pdo, 'mcp_clients', 'note', "TEXT NOT NULL DEFAULT ''");
+        self::ensureColumn($pdo, 'batch_jobs', 'pass', 'INTEGER NOT NULL DEFAULT 1');
+        self::ensureColumn($pdo, 'batch_jobs', 'passes', 'INTEGER NOT NULL DEFAULT 1');
+        self::ensureColumn($pdo, 'batch_jobs', 'parent_id', 'INTEGER');
+        self::ensureColumn($pdo, 'batch_jobs', 'label', "TEXT NOT NULL DEFAULT ''");
+        self::ensureColumn($pdo, 'batch_jobs', 'options', "TEXT NOT NULL DEFAULT '{}'");
+        self::ensureColumn($pdo, 'batch_jobs', 'usage', "TEXT NOT NULL DEFAULT '{}'");
+        self::ensureColumn($pdo, 'batch_jobs', 'created_by', "TEXT NOT NULL DEFAULT ''");
+        self::ensureColumn($pdo, 'batch_items', 'pass', 'INTEGER NOT NULL DEFAULT 1');
+        self::ensureColumn($pdo, 'batch_items', 'usage', "TEXT NOT NULL DEFAULT '{}'");
+
         if (self::schemaVersion($pdo) < 3) {
             self::upgradeToV3($pdo);
         }
-        // Versions 4 and 5 only add tables and columns, which the statements
+        // Versions 4, 5 and 6 only add tables and columns, which the statements
         // above have already made - there is no data to move.
         if (self::schemaVersion($pdo) < self::SCHEMA_VERSION) {
             self::setMeta($pdo, 'schema_version', (string)self::SCHEMA_VERSION);

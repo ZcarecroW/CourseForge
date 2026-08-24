@@ -1,10 +1,10 @@
 <?php
 /**
- * CourseForge 3 – the single API front controller.
+ * CourseForge 4 - the single API front controller.
  *
  * Reading this file top to bottom gives you the complete HTTP surface of the
- * application: every route, the verbs it answers and which of them are
- * reachable without a session.
+ * application: every route, the verbs it answers, which of them are reachable
+ * without a session, and which need an administrator.
  */
 declare(strict_types=1);
 
@@ -15,10 +15,14 @@ use CourseForge\Api\ConnectController;
 use CourseForge\Api\PageController;
 use CourseForge\Api\ProfileController;
 use CourseForge\Api\ProjectController;
-use CourseForge\Api\RunController;
 use CourseForge\Api\PublishController;
+use CourseForge\Api\RunController;
 use CourseForge\Api\SessionController;
+use CourseForge\Api\SettingsController;
+use CourseForge\Api\SetupController;
 use CourseForge\Api\TagController;
+use CourseForge\Api\UpdateController;
+use CourseForge\Api\UserController;
 use CourseForge\Security\Auth;
 use CourseForge\Security\Session;
 use CourseForge\Support\HttpException;
@@ -36,7 +40,7 @@ error_reporting(E_ALL);
 
 set_error_handler(static function (int $severity, string $message, string $file, int $line): bool {
     if (!(error_reporting() & $severity)) {
-        return false; // @-suppressed or masked – keep the default behaviour
+        return false; // @-suppressed or masked - keep the default behaviour
     }
     if ($severity === E_DEPRECATED || $severity === E_USER_DEPRECATED) {
         error_log(sprintf('[CourseForge][deprecated] %s in %s:%d', $message, $file, $line));
@@ -56,12 +60,17 @@ try {
 /* ------------------------------------------------------------------- routes */
 $router = new Router();
 
-// Reachable while signed out.
+// Reachable while signed out. `setup` exists only until the first account does.
+$router->add('GET', 'setup', [SetupController::class, 'status'], auth: false);
+$router->add('POST', 'setup', [SetupController::class, 'create'], auth: false);
+
 $router->add('GET', 'session', [SessionController::class, 'show'], auth: false);
 $router->add('POST', 'session', [SessionController::class, 'login'], auth: false);
 $router->add('DELETE', 'session', [SessionController::class, 'logout'], auth: false);
 
+// Any signed-in account.
 $router->add('GET', 'config', [ConfigController::class, 'show']);
+$router->add('PUT', 'account', [SessionController::class, 'updateProfile']);
 $router->add('POST', 'account/password', [SessionController::class, 'changePassword']);
 
 $router->add('GET', 'profiles', [ProfileController::class, 'index']);
@@ -74,7 +83,9 @@ $router->add('POST', 'profiles/{id}/shelves', [ProfileController::class, 'shelve
 
 $router->add('GET', 'connect', [ConnectController::class, 'index']);
 $router->add('POST', 'connect', [ConnectController::class, 'create']);
+$router->add('PUT', 'connect/{id}', [ConnectController::class, 'update']);
 $router->add('DELETE', 'connect', [ConnectController::class, 'delete']);
+$router->add('DELETE', 'connect/{id}', [ConnectController::class, 'delete']);
 
 $router->add('GET', 'tags', [TagController::class, 'index']);
 $router->add('POST', 'tags', [TagController::class, 'create']);
@@ -90,6 +101,7 @@ $router->add('DELETE', 'projects/{id}', [ProjectController::class, 'delete']);
 $router->add('POST', 'projects/{id}/structure', [ProjectController::class, 'generateStructure']);
 $router->add('PUT', 'projects/{id}/structure', [ProjectController::class, 'applyStructure']);
 $router->add('PUT', 'projects/{id}/details', [ProjectController::class, 'updateDetails']);
+$router->add('POST', 'projects/{id}/transfer', [ProjectController::class, 'transfer']);
 
 $router->add('POST', 'projects/{id}/tags', [ProjectController::class, 'attachTag']);
 $router->add('PUT', 'projects/{id}/tags', [ProjectController::class, 'updateTag']);
@@ -100,14 +112,38 @@ $router->add('GET', 'projects/{id}/pages/{pageId}', [PageController::class, 'sho
 $router->add('PUT', 'projects/{id}/pages/{pageId}', [PageController::class, 'update']);
 $router->add('POST', 'projects/{id}/pages/{pageId}/generate', [PageController::class, 'generate']);
 
+$router->add('GET', 'runs', [RunController::class, 'all']);
 $router->add('GET', 'projects/{id}/runs', [RunController::class, 'index']);
 $router->add('POST', 'projects/{id}/runs', [RunController::class, 'create']);
 $router->add('PUT', 'projects/{id}/runs', [RunController::class, 'poll']);
+$router->add('POST', 'projects/{id}/runs/estimate', [RunController::class, 'estimate']);
 $router->add('POST', 'projects/{id}/runs/cancel', [RunController::class, 'cancel']);
 $router->add('DELETE', 'projects/{id}/runs', [RunController::class, 'delete']);
 
 $router->add('POST', 'projects/{id}/push', [PublishController::class, 'push']);
 $router->add('POST', 'projects/{id}/links', [PublishController::class, 'resolveLinks']);
+
+// Administrators only. Every handler checks the role again for itself.
+$router->add('GET', 'admin/users', [UserController::class, 'index'], admin: true);
+$router->add('POST', 'admin/users', [UserController::class, 'create'], admin: true);
+$router->add('PUT', 'admin/users/{id}', [UserController::class, 'update'], admin: true);
+$router->add('DELETE', 'admin/users/{id}', [UserController::class, 'delete'], admin: true);
+$router->add('POST', 'admin/invite', [UserController::class, 'invite'], admin: true);
+$router->add('GET', 'admin/audit', [UserController::class, 'audit'], admin: true);
+
+$router->add('GET', 'admin/settings', [SettingsController::class, 'show'], admin: true);
+$router->add('PUT', 'admin/settings', [SettingsController::class, 'update'], admin: true);
+$router->add('POST', 'admin/settings/reset', [SettingsController::class, 'reset'], admin: true);
+$router->add('POST', 'admin/settings/cron-token', [SettingsController::class, 'cronToken'], admin: true);
+$router->add('GET', 'admin/prompts', [SettingsController::class, 'prompts'], admin: true);
+$router->add('PUT', 'admin/prompts', [SettingsController::class, 'savePrompts'], admin: true);
+$router->add('GET', 'admin/diagnostics', [SettingsController::class, 'diagnostics'], admin: true);
+
+$router->add('GET', 'admin/update', [UpdateController::class, 'status'], admin: true);
+$router->add('POST', 'admin/update/check', [UpdateController::class, 'check'], admin: true);
+$router->add('POST', 'admin/update/install', [UpdateController::class, 'install'], admin: true);
+$router->add('POST', 'admin/update/rollback', [UpdateController::class, 'rollback'], admin: true);
+$router->add('GET', 'admin/update/history', [UpdateController::class, 'history'], admin: true);
 
 /* ----------------------------------------------------------------- dispatch */
 try {
@@ -121,15 +157,19 @@ try {
         // Ship the current token so the SPA can self-heal on its retry.
         Response::send([
             'ok' => false,
-            'error' => 'Your security token was out of date – please try again.',
+            'error' => 'Your security token was out of date - please try again.',
             'csrf' => Session::csrf(),
         ], 419);
     }
 
     $route = $router->match($request);
-    $username = $route['auth'] ? Auth::requireUser() : (Auth::current()['username'] ?? '');
 
-    Response::ok($route['handler']($route['request'], $username));
+    $actor = $route['auth'] ? Auth::require() : Auth::current();
+    if ($route['admin']) {
+        $actor?->requireAdmin();
+    }
+
+    Response::ok($route['handler']($route['request'], $actor));
 } catch (HttpException $e) {
     Response::fail($e->getMessage(), $e->status(), $e->extra());
 } catch (RuntimeException $e) {
