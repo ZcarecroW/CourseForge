@@ -41,17 +41,43 @@ final class Request
             $path = trim((string)($_GET['r'] ?? ''), '/');
         }
 
-        $raw = (string)file_get_contents('php://input');
-        $body = [];
-        if (trim($raw) !== '') {
-            $decoded = json_decode($raw, true);
-            if (!is_array($decoded)) {
-                throw HttpException::badRequest('Request body must be a JSON object.');
-            }
-            $body = $decoded;
+        return new self($method, $path, self::decodeBody((string)file_get_contents('php://input')));
+    }
+
+    /**
+     * Turns a raw request body into the field map the accessors read.
+     *
+     * Separate from capture() because capture() can only be reached through a
+     * live web request - it reads php://input and $_SERVER - and this rule is
+     * worth being able to test on its own.
+     *
+     * @return array<string,mixed>
+     */
+    public static function decodeBody(string $raw): array
+    {
+        if (trim($raw) === '') {
+            return [];
         }
 
-        return new self($method, $path, $body);
+        $decoded = json_decode($raw, true);
+
+        // is_array() alone does not enforce what the message promises: PHP
+        // decodes a JSON array into a PHP array just as it does an object, so a
+        // body of [1,2,3] used to sail through and then read as a set of absent
+        // fields. POST /projects answered that with a cheerful "Untitled course"
+        // rather than a 400 - a client sending the wrong shape got a success and
+        // a junk row instead of being told.
+        //
+        // An empty body decodes to [] whichever brace it was written with, and
+        // {} is a legitimate "use every default", so [] stays allowed. Only a
+        // populated list is refused. Note this is the REST parser only; JSON-RPC
+        // batches arrive at api/mcp.php, which parses its own body and must keep
+        // accepting a top-level array.
+        if (!is_array($decoded) || ($decoded !== [] && array_is_list($decoded))) {
+            throw HttpException::badRequest('Request body must be a JSON object.');
+        }
+
+        return $decoded;
     }
 
     /** @param array<string,string> $params */

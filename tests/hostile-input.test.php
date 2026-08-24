@@ -22,6 +22,7 @@ if (PHP_SAPI !== 'cli') {
 
 use CourseForge\Domain\Details;
 use CourseForge\Mcp\Args;
+use CourseForge\Support\Request;
 use CourseForge\Security\Users;
 use CourseForge\Support\Settings;
 
@@ -162,4 +163,48 @@ test('install and rollback take a user name, which is what the tools now pass', 
         $first = (new ReflectionMethod('CourseForge\\Update\\Updater', $method))->getParameters()[0];
         same('string', (string)$first->getType(), $method . '() takes a string, not an Actor');
     }
+});
+
+/* --------------------------------------------- a body of the wrong shape */
+
+test('a request body that is a populated JSON list is refused', function () {
+    // PHP decodes a JSON array and a JSON object into the same PHP type, so the
+    // old is_array() check accepted both while its message said "must be a JSON
+    // object". A client that sent a list got a 200 and a junk row.
+    raises(
+        static fn() => Request::decodeBody('[1,2,3]'),
+        'a list is not an object, whatever PHP decodes it into'
+    );
+
+    raises(
+        static fn() => Request::decodeBody('["name", "Vue"]'),
+        'including one that looks like it was meant to be a pair'
+    );
+});
+
+test('an empty body is still allowed, whichever brace it was written with', function () {
+    same([], Request::decodeBody(''), 'no body at all');
+    same([], Request::decodeBody('   '), 'whitespace only');
+    same([], Request::decodeBody('{}'), 'an explicit empty object means use every default');
+    same([], Request::decodeBody('[]'), 'and an empty list is indistinguishable from it once decoded');
+});
+
+test('an ordinary object body still reaches the accessors', function () {
+    same(
+        ['name' => 'Vue.js from scratch', 'topic' => 'A complete Vue 3 course.'],
+        Request::decodeBody('{"name":"Vue.js from scratch","topic":"A complete Vue 3 course."}'),
+        'the fields arrive as sent'
+    );
+});
+
+test('a body that is not JSON at all is refused', function () {
+    raises(
+        static fn() => Request::decodeBody('name=Vue&topic=x'),
+        'a form-encoded body sent with a JSON content type'
+    );
+
+    raises(
+        static fn() => Request::decodeBody('42'),
+        'and a bare scalar'
+    );
 });
