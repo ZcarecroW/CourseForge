@@ -161,7 +161,16 @@ final class ProjectController
 
     /* ------------------------------------------------------------ structure */
 
-    /** Designs a new outline, or revises the current one when feedback is given. */
+    /**
+     * Designs a new outline, or revises the current one when feedback is given.
+     *
+     * The model has already been paid for by the time the answer arrives, so an
+     * outline that would delete pages somebody has written is handed back
+     * instead of being thrown away: `applied` false, the Markdown in
+     * `structure_md`, and the pages at stake in `at_risk`. The client can put it
+     * in front of the person, who applies it - or does not - through the apply
+     * route, which costs nothing either way.
+     */
     public static function generateStructure(Request $request, ?Actor $actor): array
     {
         $me = $actor ?? throw HttpException::unauthorized();
@@ -183,12 +192,31 @@ final class ProjectController
         Runtime::beginLongRequest();
 
         $markdown = StructureGenerator::run($profile, $project, $request->str('feedback'));
-        Projects::applyStructure($project, $markdown);
 
-        return ['project' => Projects::tree($owner, $id)];
+        $atRisk = Projects::pagesLosingContent($project, $markdown);
+        if ($atRisk !== [] && !$request->bool('confirm_removals')) {
+            return [
+                'project' => Projects::tree($owner, $id),
+                'applied' => false,
+                'structure_md' => trim($markdown),
+                'at_risk' => $atRisk,
+            ];
+        }
+
+        Projects::applyStructure($project, $markdown, $request->bool('confirm_removals'));
+
+        return ['project' => Projects::tree($owner, $id), 'applied' => true];
     }
 
-    /** Parses the edited Markdown into chapters and pages. */
+    /**
+     * Parses the edited Markdown into chapters and pages.
+     *
+     * `confirm_removals` is the caller saying it knows the apply deletes pages
+     * that have text on them. Without it the domain refuses and answers 422
+     * with those page titles in `at_risk`, which is the same refusal the MCP
+     * tool gets - one rule, so the two front doors cannot disagree about when
+     * written work may be destroyed.
+     */
     public static function applyStructure(Request $request, ?Actor $actor): array
     {
         $me = $actor ?? throw HttpException::unauthorized();
@@ -201,7 +229,7 @@ final class ProjectController
             throw HttpException::unprocessable('The structure must not be empty.');
         }
 
-        $result = Projects::applyStructure($project, $markdown);
+        $result = Projects::applyStructure($project, $markdown, $request->bool('confirm_removals'));
         return [
             'project' => Projects::tree($owner, $id),
             'removed' => ['pages' => $result['removed_pages'], 'chapters' => $result['removed_chapters']],

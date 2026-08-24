@@ -28,6 +28,22 @@ use CourseForge\Support\HttpException;
  */
 final class CourseTools
 {
+    /**
+     * How much page Markdown one `get_course` answer will carry.
+     *
+     * Kept below the 400,000 characters the tool asks a client to budget for
+     * it, with room left over for the outline itself, which is never truncated
+     * - a caller has to be able to see every page that exists in order to ask
+     * for the ones this answer did not bring.
+     *
+     * A course is not bounded by anything: five hundred pages of eight
+     * kilobytes is an ordinary finished one and is already twenty times what a
+     * client will keep. Without a stop the answer was however large the course
+     * was, the client cut it off mid-JSON with no marker, and on a small host
+     * PHP ran out of memory building a string nobody could read.
+     */
+    private const CONTENT_BUDGET = 300000;
+
     /** @return array<int,Tool> */
     public static function tools(): array
     {
@@ -58,16 +74,27 @@ final class CourseTools
                 properties: [
                     'course_id' => Schema::courseId(),
                     'include_content' => Schema::bool(
-                        'Include the Markdown of every written page. This can be very large on a finished course; '
-                        . 'leave it off unless you need the text.'
+                        'Include the Markdown of the written pages. A finished course holds far more text than one '
+                        . 'answer can carry, so this fills up to about '
+                        . number_format(self::CONTENT_BUDGET) . ' characters of it and then stops, whole pages at '
+                        . 'a time; the outline always comes back complete either way. Leave it off unless you need '
+                        . 'the text.'
+                    ),
+                    'content_from_page_id' => Schema::int(
+                        'Where the text should start. Omit it for the beginning of the course; to read on past a '
+                        . 'previous answer, pass the page id that answer returned as content.next_page_id. Only '
+                        . 'meaningful together with include_content.'
                     ),
                 ],
                 required: ['course_id'],
                 handler: static fn(Actor $actor, array $args): array => self::getCourse($actor, Args::of($args)),
                 readOnly: true,
                 idempotent: true,
-                // With include_content this is a whole book. Without the hint a
-                // client truncates it silently, half way through a page.
+                // What this asks the client for, not what the server promises:
+                // the annotation raises the size at which a client truncates a
+                // tool result, and the answer is built to fit inside it. Whole
+                // pages are dropped rather than the last one being cut in half,
+                // and `content` says which and where to carry on from.
                 maxResultChars: 400000,
             ),
 
@@ -196,12 +223,35 @@ final class CourseTools
         ];
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * One course, and as much of its text as an answer can hold.
+     *
+     * The outline is always whole: every chapter and every page, whatever was
+     * asked for. Only the Markdown is windowed, because only the Markdown has
+     * no ceiling - and it is windowed a page at a time, never mid-page, so
+     * nothing a caller reads is half a sentence with no sign that it stopped.
+     * When the window closes early the answer says so and names the page to
+     * carry on from, which is the difference between an incomplete result and
+     * a misleading one.
+     *
+     * @return array<string,mixed>
+     */
     private static function getCourse(Actor $actor, Args $args): array
     {
         ['project' => $project, 'owner' => $owner] = Resolve::course($actor, $args->id());
         $tree = Projects::tree($owner, (int)$project['id']);
         $withContent = $args->bool('include_content');
+        $from = $args->optionalId('content_from_page_id');
+
+        // False until the window opens, so a `content_from_page_id` naming a
+        // page this course does not have shows up in the answer as "nothing
+        // matched" rather than quietly reading as "start at the beginning".
+        $started = $withContent && $from === null;
+        $used = 0;
+        $included = 0;
+        $before = 0;
+        $after = 0;
+        $nextPageId = null;
 
         $chapters = [];
         foreach ($tree['chapters'] as $chapter) {
@@ -215,9 +265,37 @@ final class CourseTools
                     'words' => $page['word_count'],
                     'published' => $page['pushed'],
                 ];
-                if ($withContent && $page['has_content']) {
-                    $row['content'] = (string)(Resolve::page($project, (int)$page['id'])['content'] ?? '');
+
+                if ($withContent && (int)$page['id'] === $from) {
+                    $started = true;
                 }
+
+                if ($withContent && $page['has_content']) {
+                    if (!$started) {
+                        $row['content_omitted'] = 'before the window';
+                        $before++;
+                    } else {
+                        // Read only once the window is open: the whole point of
+                        // the window is that the pages outside it are never
+                        // fetched, let alone serialised.
+                        $text = (string)(Resolve::page($project, (int)$page['id'])['content'] ?? '');
+
+                        // The first page of a window always goes in, however
+                        // long it is. An answer that carried no text at all and
+                        // named itself as the place to resume would leave a
+                        // caller looping over the same page for ever.
+                        if ($used === 0 || $used + strlen($text) <= self::CONTENT_BUDGET) {
+                            $row['content'] = $text;
+                            $used += strlen($text);
+                            $included++;
+                        } else {
+                            $row['content_omitted'] = 'no room left in this answer';
+                            $after++;
+                            $nextPageId ??= (int)$page['id'];
+                        }
+                    }
+                }
+
                 $pages[] = $row;
             }
             $chapters[] = [
@@ -228,7 +306,7 @@ final class CourseTools
             ];
         }
 
-        return [
+        $result = [
             'course_id' => $tree['id'],
             'name' => $tree['name'],
             'topic' => $tree['topic'],
@@ -240,6 +318,71 @@ final class CourseTools
             'details' => Details::resolve(Details::decode((string)$project['settings'])),
             'chapters' => $chapters,
         ];
+
+        if ($withContent) {
+            $result['content'] = self::contentWindow($started, $from, $used, $included, $before, $after, $nextPageId);
+        }
+        return $result;
+    }
+
+    /**
+     * What the caller got, what it did not, and how to ask for the rest.
+     *
+     * Present on every answer that asked for text, complete or not. A block
+     * that only appeared when something had been left out would be one a
+     * caller learns to stop looking for.
+     *
+     * @return array<string,mixed>
+     */
+    private static function contentWindow(
+        bool $started,
+        ?int $from,
+        int $characters,
+        int $included,
+        int $before,
+        int $after,
+        ?int $nextPageId,
+    ): array {
+        if (!$started) {
+            return [
+                'complete' => false,
+                'pages_included' => 0,
+                'characters' => 0,
+                'note' => 'No page in this course has the id ' . (int)$from . ', so no text was included. '
+                    . 'Call get_course again without content_from_page_id to start at the beginning.',
+            ];
+        }
+
+        $window = [
+            'complete' => $after === 0,
+            'pages_included' => $included,
+            'characters' => $characters,
+            'limit' => self::CONTENT_BUDGET,
+            'pages_before_window' => $before,
+            'pages_after_window' => $after,
+            'next_page_id' => $nextPageId,
+        ];
+
+        if ($after > 0) {
+            $window['note'] = 'This answer holds ' . $included . ' written page(s) and stopped there - '
+                . $after . ' more have text that did not fit. Every page is still listed in the outline above, '
+                . 'marked content_omitted. Call get_course again with content_from_page_id ' . (int)$nextPageId
+                . ' to carry on, or get_page for one page on its own.';
+        } elseif ($characters > self::CONTENT_BUDGET) {
+            // Only the first page of a window can push the count past the
+            // limit, and it is let through on purpose - see getCourse(). Saying
+            // so beats leaving a caller to wonder which of the two numbers is
+            // wrong.
+            $window['note'] = 'Every written page in this course, in full. This one is over the usual limit '
+                . 'because a single page is larger than the whole of it, and half a page is worse than a long '
+                . 'one - your client may cut the end of this answer off.';
+        } elseif ($before > 0) {
+            $window['note'] = 'The last ' . $included . ' written page(s) of this course, starting at the page '
+                . 'asked for. The ' . $before . ' before it are marked content_omitted and were not read.';
+        } else {
+            $window['note'] = 'Every written page in this course, in full.';
+        }
+        return $window;
     }
 
     /** @return array<string,mixed> */

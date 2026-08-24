@@ -5,6 +5,11 @@
  * app has a handful of destinations and no shareable URLs - adding history
  * handling would only buy back-button semantics nobody asked for.
  *
+ * Because the shell owns navigation it is also what stands between somebody
+ * and their unsaved work: the store stops a move away from a screen that has
+ * declared unsaved edits, and the dialog below asks whether to make it anyway.
+ * A screen never has to guard its own exits, and no screen can forget to.
+ *
  * The shell also owns the four gates a person passes through before they see
  * anything: the splash while the first requests are in flight, the setup screen
  * on an installation that has no accounts yet, the sign-in form, and finally
@@ -16,17 +21,17 @@
  * present at all in a partial checkout, which is why each has a loading state
  * and a failure state instead of taking the whole shell down with it.
  */
-import { ref, reactive, computed, watch, onMounted, defineAsyncComponent } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue';
 import {
   state, isSignedIn, isAdmin, minPassword, mustChangePassword, ADMIN_VIEWS,
-  loadSetup, loadSession, loadWorkspace, probeUpdate, go, signOut,
+  loadSetup, loadSession, loadWorkspace, probeUpdate, go, stayPut, signOut,
 } from '@/core/store.js';
 import { toast, attempt, toasts, dismiss } from '@/core/toast.js';
 import { post, put } from '@/core/api.js';
 import { resolvedTheme, toggleTheme } from '@/core/theme.js';
 
 import AppIcon from '@/components/AppIcon.js';
-import AppModal from '@/components/AppModal.js';
+import AppModal, { anyDialogOpen } from '@/components/AppModal.js';
 import LoginView from '@/views/LoginView.js';
 import SetupView from '@/views/SetupView.js';
 import ProjectsView from '@/views/ProjectsView.js';
@@ -115,6 +120,13 @@ const COMPONENT_FOR = {
   updates: 'updates-view',
 };
 
+/* What a destination is called when it has to be named in a sentence. The
+   store holds the view a held-up move was heading for; the words for it are
+   the sidebar's, and the sidebar is here. */
+const NAME_OF = Object.fromEntries(
+  [...NAV, ...ADMIN_NAV].map((item) => [item.view, item.label]).concat([['project', 'the course']]),
+);
+
 export const App = {
   name: 'CourseForge',
   components: {
@@ -135,10 +147,25 @@ export const App = {
         // invite code the setup screen then asks for.
         await loadSetup();
         await loadSession();
+        // Unguarded on purpose: loadWorkspace() knows to fetch nothing for an
+        // account that owes a password change, so the refusals that would
+        // otherwise turn into a "Startup" toast never happen.
         if (state.user) await loadWorkspace();
       }, 'Startup');
       state.ready = true;
     });
+
+    /* On a narrow screen the navigation is a drawer over the page, with a
+       scrim of its own - the same shape as a dialog, so it closes the same way
+       a dialog does. A dialog on top of it answers Escape first, because that
+       is the layer somebody is looking at. */
+    const onEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      if (!state.sidebarOpen || anyDialogOpen()) return;
+      state.sidebarOpen = false;
+    };
+    onMounted(() => document.addEventListener('keydown', onEscape));
+    onBeforeUnmount(() => document.removeEventListener('keydown', onEscape));
 
     /* The update badge: one request, the first time an administrator is here,
        and never again. Deliberately not a poll - an installation that checks
@@ -212,6 +239,20 @@ export const App = {
 
     const roleLabel = computed(() => (isAdmin.value ? 'Administrator' : 'User'));
 
+    /* ------------------------------------------------------ unsaved work */
+
+    /* The store stops a move away from a screen that is holding unsaved edits
+       and puts the destination aside; the shell is what asks about it, because
+       asking is a dialog and the store never renders one. Leaving is still the
+       person's decision - this only makes sure it is one they made. */
+
+    const leavingFor = computed(() => NAME_OF[state.leaving?.view] ?? 'another screen');
+
+    const leaveAnyway = () => {
+      const view = state.leaving?.view;
+      if (view) go(view, { discard: true });
+    };
+
     /* ------------------------------------------------------------ account */
 
     function openAccount() {
@@ -249,6 +290,11 @@ export const App = {
         return;
       }
 
+      // Whether this is the change the account owed decides what happens after
+      // it: an account that owed one has been refused every other route since
+      // it signed in, so there is an empty workspace waiting behind this dialog.
+      const owed = mustChangePassword.value;
+
       account.savingPassword = true;
       try {
         const data = await post('account/password', { old: account.old, new: account.next });
@@ -258,6 +304,9 @@ export const App = {
         account.old = '';
         account.next = '';
         account.confirm = '';
+        // Fetched before the dialog goes, so that what is uncovered is the
+        // real workspace rather than an empty one that fills in a moment later.
+        if (owed) await loadWorkspace();
         showAccount.value = false;
         toast.success('Password changed.');
       } finally {
@@ -273,6 +322,7 @@ export const App = {
     return {
       state, isSignedIn, isAdmin, minPassword, mustChangePassword,
       activeView, navItems, adminItems, updateAvailable, roleLabel, go, installationName,
+      leavingFor, leaveAnyway, stayPut,
       toasts, dismiss,
       showAccount, account, openAccount, closeAccount, saveDisplayName, changePassword, logout,
       resolvedTheme, toggleTheme,
@@ -286,7 +336,13 @@ export const App = {
 
     <setup-view v-else-if="state.needsSetup"/>
 
-    <login-view v-else-if="!isSignedIn"/>
+    <!-- Signed out, which is two screens rather than one: the sign-in form, and
+         the same form the first run uses, for somebody who was sent an invite
+         code and so has no account to sign in to yet. -->
+    <template v-else-if="!isSignedIn">
+      <setup-view v-if="state.redeeming" mode="redeem"/>
+      <login-view v-else/>
+    </template>
 
     <div v-else class="shell">
       <div v-if="state.sidebarOpen" class="scrim" @click="state.sidebarOpen = false"></div>
@@ -409,6 +465,22 @@ export const App = {
                   @click="changePassword">
             {{ account.savingPassword ? 'Saving…' : 'Change password' }}
           </button>
+        </template>
+      </app-modal>
+
+      <!-- Raised by the store when a screen holding unsaved edits is about to
+           be left. "Stay" comes first, so it is what has the focus and what
+           Enter does. -->
+      <app-modal v-if="state.leaving" title="Leave without saving?" icon="alert" @close="stayPut">
+        <p class="hint">
+          This screen is holding <strong>{{ state.leaving.summary }}</strong>. Going to
+          {{ leavingFor }} now throws that work away, and there is no way to get it back.
+        </p>
+        <p class="hint">Staying brings you back to it exactly as you left it.</p>
+
+        <template #footer>
+          <button class="btn" @click="stayPut">Stay on this screen</button>
+          <button class="btn btn--danger" @click="leaveAnyway">Leave and discard</button>
         </template>
       </app-modal>
     </div>

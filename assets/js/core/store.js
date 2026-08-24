@@ -4,10 +4,35 @@
  * Rule of thumb: anything two views need lives here, anything one view needs
  * stays in that view's setup(). The store never renders and never imports a
  * component, which keeps the dependency graph one-directional.
+ *
+ * How fresh the data is
+ * ---------------------
+ * The three workspace lists - courses, tags, profiles - arrive in one batch at
+ * sign-in, which is what makes the counts in the sidebar possible before any
+ * screen has been opened. That batch is a starting point, not the truth. A
+ * second administrator, a connected MCP client, a scheduled run or another
+ * browser tab can change any of it a second later, and this application is
+ * built to be driven by all of those at once.
+ *
+ * So the rule is: opening a screen refetches what that screen shows. Not on a
+ * timer, and not after every keystroke - on the one event that means somebody
+ * is about to read it. A screen drawing from a snapshot taken twenty minutes
+ * ago states things that are no longer so, and the sentence above a delete
+ * button ("is not attached to anything") is the worst possible place to be
+ * wrong. Screens whose data was never in that batch - Connect and the four
+ * administration screens - already fetch when they mount, and so are not
+ * listed in VIEW_DATA below.
+ *
+ * Unsaved work
+ * ------------
+ * Navigation is a function here rather than a router, so this is also the
+ * place where leaving a screen can be refused. Two things refuse it: a
+ * generation run still in flight, and a screen that has said it is holding
+ * edits nobody has saved. See generationBlocks() and declareUnsaved().
  */
-import { reactive, computed } from 'vue';
+import { reactive, computed, onBeforeUnmount } from 'vue';
 import { api, get, setCsrf, setUnauthorizedHandler } from './api.js';
-import { toast } from './toast.js';
+import { toast, attempt } from './toast.js';
 
 export const state = reactive({
   /* session */
@@ -21,6 +46,17 @@ export const state = reactive({
   /** What the setup screen needs before anybody is signed in: where the invite
    *  file was written, whether an invite is open, how long a password must be. */
   setupInfo: { min_password: 10, invite_file: '', invite_open: false },
+
+  /**
+   * True while the sign-in screen has stood aside for the form that turns an
+   * invite code into an account.
+   *
+   * Somebody holding a code has no account, so the only screen they can reach
+   * is the one asking them to sign in, and the way to the redemption form has
+   * to start there. It lives here rather than in a view because the shell is
+   * what chooses between the signed-out screens.
+   */
+  redeeming: false,
 
   /* administration - fetched when an admin screen opens, never at sign-in */
   settings: [],
@@ -51,6 +87,13 @@ export const state = reactive({
   /* navigation */
   view: 'projects',
   projectTab: 'structure',
+
+  /**
+   * A move to another screen that unsaved work has held up: where it was
+   * heading, and what would be lost. The shell draws the dialog that asks.
+   * Null whenever nothing is being asked.
+   */
+  leaving: null,
 
   /* chrome */
   sidebarOpen: false,
@@ -96,9 +139,20 @@ export const minPassword = computed(() => Number(state.setupInfo.min_password) |
 /**
  * True when the account was handed its password by somebody else and has not
  * chosen its own yet. The shell refuses to let the dialog be dismissed until
- * that is done.
+ * that is done, and the server refuses every route but sign-in, sign-out and
+ * the change itself - see loadWorkspace().
  */
 export const mustChangePassword = computed(() => state.user?.must_change_password === true);
+
+/**
+ * Whether there is an invite waiting to be turned into an account.
+ *
+ * The sign-in screen offers its redemption form only while this holds, so
+ * nobody is ever shown a box asking for a code that could not exist. The setup
+ * endpoint answers it whether or not the installation still needs setting up,
+ * which is what makes the question askable by somebody with no session.
+ */
+export const inviteOpen = computed(() => state.setupInfo.invite_open === true);
 
 export const currentProfile = computed(() =>
   state.profiles.find((p) => p.id === state.project?.profile_id) ?? null
@@ -176,7 +230,20 @@ export const loadProfiles = async () => { state.profiles = (await get('profiles'
 export const loadProjects = async () => { state.projects = (await get('projects')).projects ?? []; };
 export const loadTags = async () => { state.tags = (await get('tags')).tags ?? []; };
 
+/**
+ * Everything a signed-in account needs before a screen can be drawn.
+ *
+ * Nothing in here is fetchable while the account still owes a password change:
+ * the server refuses every route but sign-in, sign-out and the change itself,
+ * so asking anyway would answer four requests with 403 and put an error toast
+ * over the very dialog that fixes it. The three doors into the workspace -
+ * boot, sign-in and a redeemed invite - all pass through here, which is why the
+ * rule is stated once, here, rather than at each of them. The dialog calls this
+ * again the moment the password is chosen, and that is when the workspace fills
+ * in.
+ */
 export async function loadWorkspace() {
+  if (mustChangePassword.value) return;
   await loadCatalogue();
   await Promise.all([loadProfiles(), loadProjects(), loadTags()]);
 }
@@ -252,6 +319,56 @@ export async function probeUpdate() {
   }
 }
 
+/* ----------------------------------------------------------- unsaved work */
+
+/**
+ * The screen currently on show says here whether it is holding edits nobody
+ * has saved, and what they are.
+ *
+ * One screen is mounted at a time, so there is only ever one of these. It is a
+ * function rather than a flag because the shell has to be able to name what
+ * would be lost: "2 unsaved changes" is a question somebody can answer, and
+ * "you may have unsaved changes" is not.
+ *
+ * A screen calls this once from setup(), passing a function that returns a
+ * short phrase while there is something to lose and an empty string otherwise:
+ *
+ *     declareUnsaved(() => (dirtyCount.value ? plural(dirtyCount.value, 'unsaved change') : ''));
+ *
+ * There is nothing to remember and nothing to undo - the registration ends
+ * with the screen.
+ */
+let unsavedProbe = null;
+
+export function declareUnsaved(probe) {
+  unsavedProbe = probe;
+  onBeforeUnmount(() => {
+    if (unsavedProbe === probe) unsavedProbe = null;
+  });
+}
+
+/** What would be lost right now, as a phrase, or '' when nothing would be. */
+export function unsavedWork() {
+  try {
+    return String(unsavedProbe?.() ?? '').trim();
+  } catch {
+    // A probe that throws must never be able to trap somebody on a screen.
+    return '';
+  }
+}
+
+/**
+ * Closing the tab or reloading throws the same work away, and the browser is
+ * the only thing that can ask about that - so it is asked here, in the one
+ * place that knows whether there is anything to ask about.
+ */
+window.addEventListener('beforeunload', (event) => {
+  if (!unsavedWork()) return;
+  event.preventDefault();
+  // Chrome still wants the legacy assignment before it shows its own prompt.
+  event.returnValue = '';
+});
+
 /* ------------------------------------------------------------- navigation */
 
 /** Leaving mid-generation would orphan the requests still in flight. */
@@ -261,17 +378,66 @@ function generationBlocks() {
   return true;
 }
 
+/**
+ * Leaving with unsaved edits would throw them away without saying so. Unlike a
+ * generation run this is not a refusal: it is a question, so it puts the
+ * destination aside and lets the shell ask it.
+ */
+function unsavedBlocks(view) {
+  const summary = unsavedWork();
+  if (!summary) return false;
+  state.leaving = { view, summary };
+  return true;
+}
+
 /** The screens the second navigation group in App.js leads to. Keep in step. */
 export const ADMIN_VIEWS = new Set(['users', 'settings', 'prompts', 'updates']);
 
-export function go(view) {
-  if (view !== state.view && generationBlocks()) return;
+/**
+ * What each screen shows, and how to ask the server for it again. See the note
+ * on freshness at the top of this file.
+ */
+const VIEW_DATA = {
+  projects: () => loadProjects(),
+  tags: () => loadTags(),
+  profiles: () => loadProfiles(),
+};
+
+/**
+ * Refetches what a screen shows, as the screen opens.
+ *
+ * Quietly: the screen is already drawn from the previous answer, so a failure
+ * leaves that on show and says so in a toast, rather than blanking a working
+ * screen because one request did not come back.
+ */
+function refresh(view) {
+  const load = VIEW_DATA[view];
+  if (load && state.user) attempt(load, 'Reload');
+}
+
+/**
+ * @param {string} view
+ * @param {object} [options]
+ * @param {boolean} [options.discard=false]  the person has been asked about
+ *   unsaved work on the screen being left, and chose to lose it
+ */
+export function go(view, { discard = false } = {}) {
+  const leaving = view !== state.view;
+  if (leaving && generationBlocks()) return;
+  if (leaving && !discard && unsavedBlocks(view)) return;
   // A demotion takes effect on the next request, so the client refuses the
   // destination as well rather than drawing a screen that cannot load.
   if (ADMIN_VIEWS.has(view) && !isAdmin.value) return;
+  state.leaving = null;
   state.view = view;
   state.sidebarOpen = false;
   if (view !== 'project') state.project = null;
+  refresh(view);
+}
+
+/** Called by the shell when the question about unsaved work is answered "stay". */
+export function stayPut() {
+  state.leaving = null;
 }
 
 export async function openProject(id) {
@@ -286,6 +452,7 @@ export function closeProject() {
   if (generationBlocks()) return;
   state.project = null;
   state.view = 'projects';
+  refresh('projects');
 }
 
 export async function refreshProject() {
@@ -337,11 +504,18 @@ export async function signOut() {
   await api('session', { method: 'DELETE', soft: true });
   resetSession();
   await loadSession();
+  // What the sign-in screen may offer has changed underneath it while somebody
+  // was signed in: an administrator who issues an invite and then signs out has
+  // to find the way to redeem it waiting for them.
+  await loadSetup();
 }
 
 function resetSession() {
   state.user = null;
   state.project = null;
+  state.leaving = null;
+  // Whoever arrives at the sign-in screen next starts at the sign-in form.
+  state.redeeming = false;
   state.projects = [];
   state.profiles = [];
   state.tags = [];
@@ -360,9 +534,17 @@ function resetSession() {
   updateProbed = false;
 }
 
+/**
+ * A refused request means the session is gone. Say so once, in words that say
+ * what to do about it, and return true so that api.js can mark the error as
+ * already announced - the server's own wording for the same refusal is written
+ * for a log, and a second toast repeating it in developer language helps
+ * nobody. When there was no session to lose there is nothing to announce, and
+ * the caller's own message is the only one there is.
+ */
 setUnauthorizedHandler(() => {
-  if (state.user) {
-    resetSession();
-    toast.error('Your session expired. Please sign in again.');
-  }
+  if (!state.user) return false;
+  resetSession();
+  toast.error('Your session expired. Please sign in again.');
+  return true;
 });

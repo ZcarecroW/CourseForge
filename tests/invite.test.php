@@ -71,9 +71,11 @@ test('a consumed code cannot be used a second time', static function (): void {
     [$code, $id] = openInvite();
     $invite = Invite::verify($code);
 
-    // consume() deletes the installation's own INVITE-CODE.txt by design - the
-    // plain code must not outlive the account it created - and this suite runs
-    // inside a real installation, so the file is put back afterwards.
+    // Spending a code is meant to take its file with it - the plain code must
+    // not outlive the account it created - and this suite runs inside a real
+    // installation, so the file is put back if anything removes it. These days
+    // that is Invite::discard(), called once the account is certain, rather
+    // than consume() itself, which is inside the transaction.
     $rootFile = CF_ROOT . '/' . Invite::FILE;
     $saved = is_file($rootFile) ? (string)file_get_contents($rootFile) : null;
 

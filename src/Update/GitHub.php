@@ -232,7 +232,7 @@ final class GitHub
     private static function fetch(string $repository, string $channel): ?Release
     {
         if ($channel !== 'prerelease') {
-            $body = self::call('/repos/' . $repository . '/releases/latest');
+            $body = self::call('/repos/' . $repository . '/releases/latest', $repository);
 
             return is_array($body) ? Release::fromApi($body) : null;
         }
@@ -262,24 +262,17 @@ final class GitHub
     /**
      * One GET against the GitHub API.
      *
-     * @return array<mixed>|null the decoded body, or null for 404
+     * @param string $askAbout a repository to ask about should this call 404,
+     *                         so an endpoint with nothing behind it can be told
+     *                         apart from a repository that is not there
+     * @return array<mixed>|null the decoded body, or null for a 404 the
+     *                           repository itself survived
      * @throws RuntimeException for anything else that is not a 2xx
      */
-    private static function call(string $path): ?array
+    private static function call(string $path, string $askAbout = ''): ?array
     {
         $token = self::token();
-        $headers = [
-            // GitHub answers 403 to a request without a User-Agent, with a body
-            // that does not mention the User-Agent. It is not optional.
-            'User-Agent: CourseForge/' . CF_VERSION . ' (+PHP ' . PHP_VERSION . ')',
-            'Accept: application/vnd.github+json',
-            'X-GitHub-Api-Version: 2022-11-28',
-        ];
-        if ($token !== '') {
-            $headers[] = 'Authorization: Bearer ' . $token;
-        }
-
-        [$status, $responseHeaders, $body, $error, $errno] = self::curl(self::API . $path, $headers);
+        [$status, $responseHeaders, $body, $error, $errno] = self::curl(self::API . $path, self::headers($token));
 
         if ($status === 0) {
             throw new RuntimeException('GitHub could not be reached: ' . ($error !== '' ? $error : 'no response') . '.');
@@ -288,6 +281,18 @@ final class GitHub
             throw new RuntimeException('The answer from GitHub did not arrive in full: ' . $error . '.');
         }
         if ($status === 404) {
+            // /releases/latest answers 404 both for a repository GitHub has
+            // never heard of and for one that has simply not published a
+            // release, and the two bodies are byte-identical - so the only way
+            // to tell them apart is to ask about the repository itself. That
+            // second call is made only on this failing path, and the two cases
+            // are worth one extra call: a fork that has not cut its first
+            // release is the ordinary first state of the one thing the
+            // repository setting exists for, and telling its owner the name is
+            // wrong sends them to fix something that is already right.
+            if ($askAbout !== '' && self::exists($askAbout, $token)) {
+                return null;
+            }
             throw new RuntimeException(
                 $token === ''
                     ? 'GitHub does not know that repository, or it is private and no token is configured.'
@@ -310,6 +315,45 @@ final class GitHub
         }
 
         return $decoded;
+    }
+
+    /**
+     * Whether GitHub will admit to a repository existing.
+     *
+     * Deliberately one-sided: only a clean 2xx counts as yes, and everything
+     * else - a rate limit, a dead network, a token that cannot see the
+     * repository - counts as no, which sends the caller back to its own 404
+     * message. The alternative is worse than a slightly wrong sentence: a
+     * second call that fails for its own unrelated reason would otherwise turn
+     * a genuinely missing repository into "it has no releases yet", which is
+     * the one answer that tells an administrator there is nothing to fix.
+     */
+    private static function exists(string $repository, string $token): bool
+    {
+        [$status] = self::curl(self::API . '/repos/' . $repository, self::headers($token));
+
+        return $status >= 200 && $status < 300;
+    }
+
+    /**
+     * The headers every call here sends.
+     *
+     * @return array<int,string>
+     */
+    private static function headers(string $token): array
+    {
+        $headers = [
+            // GitHub answers 403 to a request without a User-Agent, with a body
+            // that does not mention the User-Agent. It is not optional.
+            'User-Agent: CourseForge/' . CF_VERSION . ' (+PHP ' . PHP_VERSION . ')',
+            'Accept: application/vnd.github+json',
+            'X-GitHub-Api-Version: 2022-11-28',
+        ];
+        if ($token !== '') {
+            $headers[] = 'Authorization: Bearer ' . $token;
+        }
+
+        return $headers;
     }
 
     /**

@@ -155,14 +155,31 @@ final class Projects
 
     /**
      * Writes a parsed outline into the database while preserving everything
-     * that was already generated. Chapters and pages are matched by title, so a
-     * refinement that leaves a title untouched keeps its content, its tags and
-     * its detail overrides.
+     * that was already generated.
+     *
+     * Chapters and pages are matched by title, so a refinement that leaves a
+     * title untouched keeps its content, its tags and its detail overrides.
+     * Titles are not unique, though - two chapters called "Exercises" are a
+     * perfectly ordinary outline - so the match is made by position among the
+     * entries that share a title: the first "Exercises" of the outline takes
+     * the first stored one, the second takes the second. A page is offered the
+     * row already sitting in the chapter it is being written into before any
+     * other, which is what lets a page that moved chapters keep its text
+     * without stealing the place of one that did not move. Applying an
+     * unchanged outline therefore matches every row to itself and changes
+     * nothing at all.
+     *
+     * A page the outline stops naming is deleted, and the text on it goes with
+     * it, with nothing left holding it afterwards. So when such a page has text,
+     * the caller has to say it means it: `$confirmRemovals` false refuses the
+     * whole apply and names the pages. Both front doors - the browser and the
+     * MCP tool - come through this one guard, so neither of them can delete
+     * written work that the other would have refused to touch.
      *
      * @param array<string,mixed> $project
      * @return array{removed_pages:int,removed_chapters:int}
      */
-    public static function applyStructure(array $project, string $structureMd): array
+    public static function applyStructure(array $project, string $structureMd, bool $confirmRemovals = false): array
     {
         $parsed = Structure::parse($structureMd);
         // An unparsable answer must never delete existing work.
@@ -175,73 +192,221 @@ final class Projects
         $projectId = (int)$project['id'];
         $username = (string)$project['username'];
 
+        // Worked out before anything is written, because afterwards the only
+        // honest thing left to say is which pages have already been lost.
+        $atRisk = self::pagesLosingContent($project, $structureMd);
+        if ($atRisk !== [] && !$confirmRemovals) {
+            throw new HttpException(self::removalRefusal($atRisk), 422, ['at_risk' => $atRisk]);
+        }
+
         return Db::transaction(static function () use ($parsed, $project, $projectId, $username, $structureMd): array {
-            $chapterByTitle = [];
-            foreach (Chapters::ordered($projectId) as $row) {
-                $chapterByTitle[mb_strtolower((string)$row['title'])] = $row;
-            }
-
-            $pageByChapterTitle = []; // "chapter_id|title" – the exact spot
-            $pageByTitle = [];        // "title"            – the page moved chapters
-            foreach (Db::rows('SELECT * FROM pages WHERE project_id = ?', [$projectId]) as $row) {
-                $title = mb_strtolower((string)$row['title']);
-                $pageByChapterTitle[$row['chapter_id'] . '|' . $title] = $row;
-                $pageByTitle[$title] ??= $row;
-            }
-
-            $keptChapters = [];
-            $keptPages = [];
+            $plan = self::matchOutline($projectId, $parsed['chapters']);
             $autoTags = ['project' => [$projectId => $parsed['tags']], 'chapter' => [], 'page' => []];
 
             foreach ($parsed['chapters'] as $ci => $chapter) {
-                $key = mb_strtolower($chapter['title']);
-                if (isset($chapterByTitle[$key])) {
-                    $chapterId = (int)$chapterByTitle[$key]['id'];
+                $existingChapter = $plan['chapters'][$ci];
+                if ($existingChapter !== null) {
+                    $chapterId = (int)$existingChapter['id'];
                     Chapters::update($chapterId, ['idx' => $ci, 'description' => $chapter['description']]);
                 } else {
                     Db::run('INSERT INTO chapters (project_id, idx, title, description) VALUES (?,?,?,?)',
                         [$projectId, $ci, $chapter['title'], $chapter['description']]);
                     $chapterId = Db::lastId();
                 }
-                $keptChapters[] = $chapterId;
                 $autoTags['chapter'][$chapterId] = $chapter['tags'];
 
                 foreach ($chapter['pages'] as $pi => $page) {
-                    $title = (string)$page['title'];
-                    $key = mb_strtolower($title);
-                    $existing = $pageByChapterTitle[$chapterId . '|' . $key] ?? $pageByTitle[$key] ?? null;
-
-                    if ($existing !== null && !in_array((int)$existing['id'], $keptPages, true)) {
-                        $pageId = (int)$existing['id'];
+                    $existingPage = $plan['pages'][$ci][$pi];
+                    if ($existingPage !== null) {
+                        $pageId = (int)$existingPage['id'];
                         Pages::update($pageId, ['idx' => $pi, 'chapter_id' => $chapterId]);
                     } else {
                         Db::run('INSERT INTO pages (project_id, chapter_id, idx, title, status, updated_at) VALUES (?,?,?,?,?,?)',
-                            [$projectId, $chapterId, $pi, $title, 'pending', time()]);
+                            [$projectId, $chapterId, $pi, (string)$page['title'], 'pending', time()]);
                         $pageId = Db::lastId();
                     }
-                    $keptPages[] = $pageId;
                     $autoTags['page'][$pageId] = $page['tags'];
                 }
             }
 
-            $removedPages = self::deleteMissing('pages', $projectId, $keptPages);
-            $removedChapters = self::deleteMissing('chapters', $projectId, $keptChapters);
+            // Pages before chapters: a chapter row takes its pages with it, and
+            // every page worth keeping has already been moved off it.
+            $removedPages = self::deleteRows('pages', $projectId, self::rowIds($plan['removed_pages']));
+            $removedChapters = self::deleteRows('chapters', $projectId, self::rowIds($plan['removed_chapters']));
             Tags::prune($projectId);
 
             if ((int)($project['auto_tags'] ?? 0) === 1) {
                 Tags::syncAuto($username, $project, $autoTags);
             }
 
+            $title = $parsed['title'];
             $name = (string)$project['name'];
-            self::update($username, $projectId, [
+            $fields = [
                 'structure_md' => $structureMd,
-                'book_title' => $parsed['title'],
                 'book_desc' => $parsed['description'],
-                'name' => ($name !== '' && $name !== 'Untitled course') ? $name : $parsed['title'],
-            ]);
+            ];
+            // An outline with no "# " line says nothing about what the book is
+            // called, so it must not stamp a placeholder over a real title.
+            if ($title !== '') {
+                $fields['book_title'] = $title;
+                // A course still carrying the placeholder name takes the title
+                // the outline gives it; one somebody has named keeps that name.
+                if ($name === '' || $name === 'Untitled course') {
+                    $fields['name'] = $title;
+                }
+            }
+            self::update($username, $projectId, $fields);
 
             return ['removed_pages' => $removedPages, 'removed_chapters' => $removedChapters];
         });
+    }
+
+    /**
+     * The written pages an outline would delete, worked out before it is applied.
+     *
+     * This runs the very matching applyStructure() is about to run, so what it
+     * names is exactly what would be lost - not a title-counting approximation
+     * that could warn about a page which in fact survives, or stay quiet about
+     * one that does not.
+     *
+     * @param array<string,mixed> $project
+     * @return string[] the titles of the pages that have text and would go
+     */
+    public static function pagesLosingContent(array $project, string $structureMd): array
+    {
+        $parsed = Structure::parse($structureMd);
+        if ($parsed['chapters'] === []) {
+            return []; // refused as unparsable, so nothing is at risk
+        }
+
+        $lost = [];
+        foreach (self::matchOutline((int)$project['id'], $parsed['chapters'])['removed_pages'] as $row) {
+            if (trim((string)$row['content']) !== '') {
+                $lost[] = (string)$row['title'];
+            }
+        }
+        return $lost;
+    }
+
+    /**
+     * Why an outline was refused, for whoever is reading the 422.
+     *
+     * The MCP tool says the same thing in the words a model can act on, and
+     * the browser turns the `at_risk` list into a dialog naming the pages.
+     * This is what is left for a client that does neither.
+     *
+     * @param string[] $atRisk
+     */
+    private static function removalRefusal(array $atRisk): string
+    {
+        $named = array_slice($atRisk, 0, 10);
+        $rest = count($atRisk) - count($named);
+
+        return 'Nothing was changed. This outline no longer names ' . count($atRisk) . ' page(s) that have text on '
+            . 'them, and applying it would delete that text with no way back: "' . implode('", "', $named) . '"'
+            . ($rest > 0 ? ' and ' . $rest . ' more' : '') . '. Put those titles back into the outline exactly as '
+            . 'they are, or confirm the removal to apply it anyway.';
+    }
+
+    /**
+     * Which stored row each outline entry claims, and which rows nothing claims.
+     *
+     * The one place that decides what "the same chapter" and "the same page"
+     * mean, so that the write and the warning about what the write would cost
+     * can never be answered differently. Rows are queued per lowercased title
+     * in the order they are shown, and taken from the front, which is what
+     * makes duplicate titles behave: entry n of a title takes stored row n of
+     * it. Pages get two passes - everything that can stay where it is takes its
+     * place first, and only the leftovers are offered to entries elsewhere in
+     * the outline, so a page that moved chapters cannot displace one that did
+     * not.
+     *
+     * @param array<int,array{title:string,pages:array<int,array{title:string}>}> $chapters
+     * @return array{
+     *   chapters:array<int,array<string,mixed>|null>,
+     *   pages:array<int,array<int,array<string,mixed>|null>>,
+     *   removed_chapters:array<int,array<string,mixed>>,
+     *   removed_pages:array<int,array<string,mixed>>
+     * }
+     */
+    private static function matchOutline(int $projectId, array $chapters): array
+    {
+        $chapterQueue = [];
+        foreach (Chapters::ordered($projectId) as $row) {
+            $chapterQueue[mb_strtolower((string)$row['title'])][] = $row;
+        }
+
+        // LEFT JOIN, so a page whose chapter has gone missing is still seen -
+        // and therefore still counted as removed rather than left behind.
+        $pageQueue = [];
+        $rows = Db::rows(
+            'SELECT p.* FROM pages p LEFT JOIN chapters c ON c.id = p.chapter_id
+              WHERE p.project_id = ? ORDER BY c.idx, p.idx, p.id',
+            [$projectId]
+        );
+        foreach ($rows as $row) {
+            $pageQueue[mb_strtolower((string)$row['title'])][] = $row;
+        }
+
+        $matchedChapters = [];
+        foreach ($chapters as $ci => $chapter) {
+            $key = mb_strtolower((string)$chapter['title']);
+            $matchedChapters[$ci] = ($chapterQueue[$key] ?? []) === [] ? null : array_shift($chapterQueue[$key]);
+        }
+
+        // Pass one: a page that is still in the chapter it was in keeps its row.
+        $matchedPages = [];
+        foreach ($chapters as $ci => $chapter) {
+            $chapterId = $matchedChapters[$ci] === null ? 0 : (int)$matchedChapters[$ci]['id'];
+            foreach ($chapter['pages'] as $pi => $page) {
+                $matchedPages[$ci][$pi] = null;
+                $key = mb_strtolower((string)$page['title']);
+                foreach ($pageQueue[$key] ?? [] as $slot => $row) {
+                    if ((int)$row['chapter_id'] === $chapterId) {
+                        $matchedPages[$ci][$pi] = $row;
+                        unset($pageQueue[$key][$slot]);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Pass two: what is left goes to the entries that found nothing, which
+        // is how a renamed chapter keeps the pages that came with it.
+        foreach ($chapters as $ci => $chapter) {
+            foreach ($chapter['pages'] as $pi => $page) {
+                $key = mb_strtolower((string)$page['title']);
+                if ($matchedPages[$ci][$pi] === null && ($pageQueue[$key] ?? []) !== []) {
+                    $matchedPages[$ci][$pi] = array_shift($pageQueue[$key]);
+                }
+            }
+        }
+
+        $leftover = static function (array $queue): array {
+            $left = [];
+            foreach ($queue as $rows) {
+                foreach ($rows as $row) {
+                    $left[] = $row;
+                }
+            }
+            return $left;
+        };
+
+        return [
+            'chapters' => $matchedChapters,
+            'pages' => $matchedPages,
+            'removed_chapters' => $leftover($chapterQueue),
+            'removed_pages' => $leftover($pageQueue),
+        ];
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $rows
+     * @return int[]
+     */
+    private static function rowIds(array $rows): array
+    {
+        return array_map(static fn(array $row): int => (int)$row['id'], $rows);
     }
 
     /**
@@ -281,16 +446,20 @@ final class Projects
         ]);
     }
 
-    /** @param int[] $keepIds */
-    private static function deleteMissing(string $table, int $projectId, array $keepIds): int
+    /**
+     * Deletes exactly the rows named, and only within this course.
+     *
+     * @param int[] $ids
+     */
+    private static function deleteRows(string $table, int $projectId, array $ids): int
     {
-        if ($keepIds === []) {
-            return Db::run('DELETE FROM ' . $table . ' WHERE project_id = ?', [$projectId])->rowCount();
+        if ($ids === []) {
+            return 0;
         }
-        $placeholders = implode(',', array_fill(0, count($keepIds), '?'));
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
         return Db::run(
-            'DELETE FROM ' . $table . ' WHERE project_id = ? AND id NOT IN (' . $placeholders . ')',
-            [$projectId, ...$keepIds]
+            'DELETE FROM ' . $table . ' WHERE project_id = ? AND id IN (' . $placeholders . ')',
+            [$projectId, ...$ids]
         )->rowCount();
     }
 

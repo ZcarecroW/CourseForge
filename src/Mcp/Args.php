@@ -110,7 +110,7 @@ final class Args
     public function int(string $key, int $default): int
     {
         $value = $this->args[$key] ?? null;
-        return is_numeric($value) ? (int)$value : $default;
+        return is_numeric($value) && is_finite((float)$value) ? (int)$value : $default;
     }
 
     public function intOrNull(string $key): ?int
@@ -119,7 +119,7 @@ final class Args
         if ($value === null || $value === '') {
             return null;
         }
-        if (!is_numeric($value)) {
+        if (!is_numeric($value) || !is_finite((float)$value)) {
             throw HttpException::unprocessable($key . ' must be a whole number.');
         }
         return (int)$value;
@@ -149,7 +149,7 @@ final class Args
         }
         $out = [];
         foreach ($value as $item) {
-            if (!is_numeric($item) || (int)$item <= 0) {
+            if (!is_numeric($item) || !is_finite((float)$item) || (int)$item <= 0) {
                 throw HttpException::unprocessable($key . ' must hold positive whole numbers only.');
             }
             $out[] = (int)$item;

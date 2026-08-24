@@ -31,6 +31,10 @@ use CourseForge\Support\HttpException;
  *     the token. Demote somebody and their connections stop being able to
  *     administer the installation on the next request, not whenever they happen
  *     to make a new one.
+ *   - **an administrator's password reset revokes what predates it.** Resetting
+ *     a password says the old one is in somebody else's hands; a connection
+ *     made under it stops resolving on its next request, without anybody having
+ *     to remember which machines that account had connected.
  */
 final class McpClients
 {
@@ -38,6 +42,22 @@ final class McpClients
 
     /** Tokens issued by CourseForge 3, which stay valid until they are revoked. */
     private const LEGACY_PREFIX = 'cf3_';
+
+    /**
+     * Every listing reads the same columns, and the account is joined for one
+     * of them: a connection made before its owner's password was last reset no
+     * longer resolves, and a screen that showed it as an ordinary connection
+     * would be describing something that does not work. Written once so the
+     * three listings cannot come to disagree about what a connection is.
+     *
+     * A LEFT join, because a row whose account has gone is still a row, and a
+     * listing that dropped it would hide the very thing somebody tidying up is
+     * looking for.
+     */
+    private const COLUMNS =
+        'c.id, c.username, c.name, c.note, c.scopes, c.expires_at, c.created_at, c.last_used_at, c.uses,
+         u.password_reset_at
+           FROM mcp_clients c LEFT JOIN users u ON u.username = c.username COLLATE NOCASE';
 
     /**
      * Issues a token and returns it in the clear, once.
@@ -80,12 +100,11 @@ final class McpClients
      */
     public static function all(?string $username): array
     {
-        $where = $username === null ? '' : 'WHERE username = ?';
+        $where = $username === null ? '' : 'WHERE c.username = ?';
         $args = $username === null ? [] : [$username];
 
         $rows = Db::rows(
-            "SELECT id, username, name, note, scopes, expires_at, created_at, last_used_at, uses
-               FROM mcp_clients {$where} ORDER BY created_at DESC",
+            'SELECT ' . self::COLUMNS . " {$where} ORDER BY c.created_at DESC",
             $args
         );
         return array_map(static fn(array $row): array => self::shape($row), $rows);
@@ -94,10 +113,7 @@ final class McpClients
     /** @return array<string,mixed> */
     public static function byId(int $id): array
     {
-        $row = Db::row(
-            'SELECT id, username, name, note, scopes, expires_at, created_at, last_used_at, uses FROM mcp_clients WHERE id = ?',
-            [$id]
-        );
+        $row = Db::row('SELECT ' . self::COLUMNS . ' WHERE c.id = ?', [$id]);
         if ($row === null) {
             throw HttpException::notFound('Connection not found.');
         }
@@ -107,11 +123,7 @@ final class McpClients
     /** @return array<string,mixed> */
     public static function require(string $username, int $id): array
     {
-        $row = Db::row(
-            'SELECT id, username, name, note, scopes, expires_at, created_at, last_used_at, uses
-               FROM mcp_clients WHERE username = ? AND id = ?',
-            [$username, $id]
-        );
+        $row = Db::row('SELECT ' . self::COLUMNS . ' WHERE c.username = ? AND c.id = ?', [$username, $id]);
         if ($row === null) {
             throw HttpException::notFound('Connection not found.');
         }
@@ -148,6 +160,22 @@ final class McpClients
      * whether it has been disabled - is read from the account itself, which is
      * what makes revocation immediate.
      *
+     * A password an administrator set revokes the connections that predate it,
+     * which is the fourth thing read from the account. A reset means somebody
+     * else has held this account's password: the account is locked out of the
+     * browser until it chooses a new one, and a token minted while the old
+     * password was current would otherwise walk straight past that and carry on
+     * as if nothing had happened. `password_reset_at` is compared rather than
+     * `updated_at`, because `updated_at` also moves for a display-name change
+     * and revoking every connection on the installation whenever somebody
+     * tidied up their profile is not a security control, it is an outage.
+     *
+     * The comparison is strictly-before on purpose. A connection made in the
+     * same second as the reset is one made after it - the account has to choose
+     * its own password before the Connect screen will issue anything, and that
+     * choice stamps nothing, so a fresh token must not be killed by the reset
+     * that came before it.
+     *
      * @return array{actor:Actor,client_id:int,client_name:string,scopes:string[]}|null
      */
     public static function resolve(string $token): ?array
@@ -158,7 +186,7 @@ final class McpClients
         }
 
         $row = Db::row(
-            'SELECT id, username, name, scopes, expires_at FROM mcp_clients WHERE token_hash = ?',
+            'SELECT id, username, name, scopes, expires_at, created_at FROM mcp_clients WHERE token_hash = ?',
             [self::hash($token)]
         );
         if ($row === null) {
@@ -170,6 +198,14 @@ final class McpClients
 
         $user = Users::find((string)$row['username']);
         if ($user === null || (int)$user['disabled'] === 1) {
+            return null;
+        }
+
+        // Zero is what an account carries that has never had its password set
+        // by anybody else - including every account on an installation that has
+        // just upgraded - and it revokes nothing.
+        $resetAt = (int)($user['password_reset_at'] ?? 0);
+        if ($resetAt > 0 && (int)$row['created_at'] < $resetAt) {
             return null;
         }
 
@@ -203,6 +239,9 @@ final class McpClients
     private static function shape(array $row): array
     {
         $expires = (int)($row['expires_at'] ?? 0);
+        $created = (int)$row['created_at'];
+        $resetAt = (int)($row['password_reset_at'] ?? 0);
+
         return [
             'id' => (int)$row['id'],
             'owner' => (string)($row['username'] ?? ''),
@@ -211,7 +250,12 @@ final class McpClients
             'scopes' => self::splitScopes((string)($row['scopes'] ?? '')),
             'expires_at' => $expires,
             'expired' => $expires > 0 && $expires < time(),
-            'created_at' => (int)$row['created_at'],
+            // The same comparison resolve() makes, so a card cannot say a
+            // connection works while the endpoint refuses it. The alternative
+            // is a Claude that has quietly stopped being able to see anything
+            // and a person with no way to find out why.
+            'revoked_by_reset' => $resetAt > 0 && $created < $resetAt,
+            'created_at' => $created,
             'last_used_at' => (int)$row['last_used_at'],
             'uses' => (int)$row['uses'],
         ];

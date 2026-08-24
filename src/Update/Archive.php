@@ -285,11 +285,10 @@ final class Archive
      * Copies one file, creating the directory it belongs in.
      *
      * The copy goes to a temporary name in the destination directory and is
-     * then renamed over the target, for the same reason Support\Json writes
-     * that way: a process that dies mid-copy leaves the old file whole rather
-     * than half of the new one. On Windows rename() will not overwrite, so
-     * there the old file is removed first - which is exactly the window the
-     * atomic move exists to close, and is unavoidable on that platform.
+     * then put in the place of the target, for the same reason Support\Json
+     * writes that way: a process that dies mid-copy leaves the old file whole
+     * rather than half of the new one. How that last step is done, and why it
+     * is not a bare rename, is on replace().
      */
     public static function copyFile(string $source, string $target): void
     {
@@ -301,13 +300,7 @@ final class Archive
             throw new RuntimeException('Could not copy ' . basename($source) . ' into ' . dirname($target) . '.');
         }
 
-        if (DIRECTORY_SEPARATOR === '\\' && is_file($target)) {
-            @unlink($target);
-        }
-        if (!@rename($temporary, $target)) {
-            @unlink($temporary);
-            throw new RuntimeException('Could not replace ' . $target . '.');
-        }
+        self::replace($temporary, $target);
     }
 
     /**
@@ -469,11 +462,52 @@ final class Archive
             @unlink($temporary);
             throw new RuntimeException('Could not write ' . basename($target) . '.');
         }
-        if (DIRECTORY_SEPARATOR === '\\' && is_file($target)) {
-            @unlink($target);
+
+        self::replace($temporary, $target);
+    }
+
+    /**
+     * Puts $temporary in the place of $target, with no moment in between where
+     * the target is missing.
+     *
+     * rename() is the whole method on a good day. It is atomic, so a process
+     * that dies during it leaves either the old file or the new one and never
+     * half of either, and it overwrites an existing file on Windows as readily
+     * as anywhere else.
+     *
+     * An earlier version of this class believed it did not, and deleted the
+     * target first on Windows. That delete was the one step in an update
+     * capable of losing a file outright: Windows will not really remove a file
+     * another handle has open, it marks it pending and keeps the name reserved,
+     * so the delete reported success, the rename that followed was refused, and
+     * the file was gone for good. There is always one file in that state - the
+     * script running the update, tools/update.php from the command line and
+     * api/index.php from a browser - so every update on Windows destroyed its
+     * own entry point, and the rollback, coming back through this same method,
+     * destroyed it a second time instead of putting it back.
+     *
+     * What is left is the case that made the delete look necessary: Windows
+     * does refuse to rename ONTO a file that is open, and the entry script is
+     * always such a file. Writing the new bytes into the existing file is what
+     * Windows does allow there, so that is the fallback. It is reached only
+     * after the atomic path has been refused, because it is not atomic: a
+     * process that dies inside it leaves a half-written file. That is a state a
+     * rollback can repair - it comes back through here and writes the old bytes
+     * the same way - whereas a deleted file was a state nothing could repair.
+     */
+    private static function replace(string $temporary, string $target): void
+    {
+        if (@rename($temporary, $target)) {
+            return;
         }
-        if (!@rename($temporary, $target)) {
-            @unlink($temporary);
+
+        // Only an existing file can be written into, and an existing file is
+        // the only thing the fallback is for. A rename refused for any other
+        // reason is a plain failure, and the target is untouched by it.
+        $inPlace = is_file($target) && @copy($temporary, $target);
+        @unlink($temporary);
+
+        if (!$inPlace) {
             throw new RuntimeException('Could not replace ' . $target . '.');
         }
     }
@@ -765,10 +799,7 @@ final class Archive
 
         $headers = [
             'User-Agent: CourseForge/' . CF_VERSION . ' (+PHP ' . PHP_VERSION . ')',
-            // The API form of an asset URL only hands over the file itself when
-            // this is asked for; without it GitHub returns the asset's JSON
-            // description, which would unzip into nothing.
-            'Accept: application/octet-stream',
+            'Accept: ' . self::accept($url),
             'X-GitHub-Api-Version: 2022-11-28',
         ];
         if ($token !== '') {
@@ -830,6 +861,30 @@ final class Archive
         }
 
         return is_string($body) ? $body : '';
+    }
+
+    /**
+     * The Accept header one download needs, decided by the shape of its URL.
+     *
+     * `application/octet-stream` belongs to exactly one endpoint: the API form
+     * of a release asset, `/releases/assets/123`. That one hands over the file
+     * itself only when this is asked for, and answers with the asset's JSON
+     * description otherwise - which would unzip into nothing.
+     *
+     * It is wrong everywhere else, and on the zipball endpoint it is fatal:
+     * GitHub answers 415, "Unsupported 'Accept' header ... Must accept
+     * 'application/json'". Since the zipball is where a release with no
+     * uploaded asset is fetched from, sending that header to every URL left the
+     * fallback this class documents unable to download anything at all - and
+     * CourseForge's own releases publish no asset, so it could not update
+     * itself. A browser download URL is content-negotiated by the storage host
+     * and takes either header happily.
+     */
+    private static function accept(string $url): string
+    {
+        $path = (string)parse_url($url, PHP_URL_PATH);
+
+        return preg_match('#/releases/assets/\d+$#', $path) === 1 ? 'application/octet-stream' : '*/*';
     }
 
     /**

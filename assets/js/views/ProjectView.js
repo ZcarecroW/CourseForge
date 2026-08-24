@@ -24,7 +24,13 @@ export const ProjectView = {
   setup() {
     const project = openCourse;
     const stats = computed(() => project.value?.stats ?? { pages: 0, generated: 0, pushed: 0, dirty: 0, errors: 0, links: {} });
-    const title = computed(() => project.value?.book_title || project.value?.name || 'Course');
+    /* The course's own name, and nothing else. `book_title` is the title of the
+       published book, which the outline sets and which is allowed to differ
+       from it; preferring it here gave one course two names on screen, because
+       the course list shows `name` - the header said one thing and the card
+       just clicked said another. The Structure tab names the book title
+       wherever the two differ. */
+    const title = computed(() => project.value?.name || 'Course');
 
     const tabs = computed(() => TABS.map((tab) => ({
       ...tab,

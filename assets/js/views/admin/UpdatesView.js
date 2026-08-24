@@ -14,10 +14,14 @@
  * log rather than a spinner and a shrug. A person whose installation has just
  * half-failed needs to read what happened far more than they need reassurance.
  *
- * The preconditions list is not decoration either. When Install is unavailable
- * this is the only place that says why, one condition at a time, so "the
- * install directory is not writable" is something that can be fixed rather than
- * something that has to be guessed at.
+ * The preconditions list is not decoration either. When an update is offered
+ * and cannot start, this is the only place that says why, one condition at a
+ * time, so "the install directory is not writable" is something that can be
+ * fixed rather than something that has to be guessed at. It answers one
+ * question and only one - could this installation run an update - because
+ * whether there is an update to run is the headline's job, and answering it
+ * twice is how a green tick ends up sitting next to a red problem count. See
+ * AVAILABILITY below.
  *
  * The switches for automatic checking and installing live on the Settings
  * screen and are not repeated here. What is here is the consequence of however
@@ -36,6 +40,25 @@ import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';
 import EmptyState from '@/components/EmptyState.js';
 import ViewHeader from '@/components/ViewHeader.js';
+
+/**
+ * The one precondition the server reports that this screen does not list.
+ *
+ * `Updater::preconditions()` answers two different questions in one list. Most
+ * of its rows are about this installation - is ext-zip loaded, is the directory
+ * writable, is another update already running - and `newer` is about whether
+ * GitHub has anything to offer. The server is right to gate on it, because
+ * install() has to refuse when there is nothing newer to install. On screen it
+ * is a different kind of statement: being up to date is the answer an
+ * administrator hopes for, it is what the headline immediately above already
+ * says, and there is nothing to go and fix. Listed with the rest it turned "Up
+ * to date" into "1 problem", in red, under a heading promising that no update
+ * could start "yet".
+ *
+ * So availability is answered once - in the headline, and in whether an Install
+ * button is drawn at all - and the list below is only about readiness.
+ */
+const AVAILABILITY = 'newer';
 
 /** What the history table calls each way an update can have been started. */
 const TRIGGERS = {
@@ -149,11 +172,24 @@ export const UpdatesView = {
           detail: info.value.error,
         };
       }
-      if (latest.value) {
+      if (latest.value && latest.value.version === currentVersion.value) {
         return {
           icon: 'check-circle', tone: 'c-success', spin: false,
           title: 'Up to date',
           detail: `${currentVersion.value} is the newest release published on ${info.value.repository}.`,
+        };
+      }
+      // Nothing newer, and yet the two versions differ: an installation running
+      // a build that was never released, or one that has been pointed at a
+      // repository behind it. "Up to date" would then name the installed
+      // version as the newest release published, which is a statement about
+      // GitHub that GitHub did not make.
+      if (latest.value) {
+        return {
+          icon: 'info', tone: 'dim', spin: false,
+          title: 'Nothing newer to install',
+          detail: `The newest release published on ${info.value.repository} is ${latest.value.version}, and this `
+            + `installation is running ${currentVersion.value}, so there is nothing newer to install.`,
         };
       }
       return {
@@ -163,9 +199,14 @@ export const UpdatesView = {
       };
     });
 
-    const blocking = computed(() => checks.value.filter((check) => !check.ok && check.blocking));
-    const warnings = computed(() => checks.value.filter((check) => !check.ok && !check.blocking));
+    /** The conditions that are about this installation rather than about GitHub. */
+    const readiness = computed(() => checks.value.filter((check) => check.key !== AVAILABILITY));
 
+    const blocking = computed(() => readiness.value.filter((check) => !check.ok && check.blocking));
+    const warnings = computed(() => readiness.value.filter((check) => !check.ok && !check.blocking));
+
+    // Availability is still required to install - it is simply asked of the
+    // status rather than counted as a fault in the list below.
     const canInstall = computed(() =>
       info.value.available === true && !info.value.running && blocking.value.length === 0);
 
@@ -219,6 +260,11 @@ export const UpdatesView = {
     /* -------------------------------------------------------------- checking */
 
     const checkNow = () => attempt(async () => {
+      // The disabled attribute is not the guard, only the sign of it: Vue
+      // applies it on the next tick, and three clicks in one tick would be
+      // three calls to GitHub - a third of the anonymous allowance for an hour,
+      // spent on asking the same question three times.
+      if (checking.value) return;
       checking.value = true;
       try {
         // The response is the whole status, freshly read, so it replaces what
@@ -253,6 +299,10 @@ export const UpdatesView = {
     };
 
     const startJob = async () => {
+      // Two clicks on Install would be two downloads and two file swaps racing
+      // each other. The server's lease would refuse the second, but this is the
+      // cheaper place to say no.
+      if (job.phase === 'running') return;
       job.phase = 'running';
       job.result = null;
       job.error = '';
@@ -345,7 +395,7 @@ export const UpdatesView = {
     const reload = () => window.location.reload();
 
     return {
-      state, loading, checking, info, latest, settings, schedule, checks, backups, history,
+      state, loading, checking, info, latest, settings, schedule, readiness, backups, history,
       currentVersion, headline, blocking, warnings, canInstall, automatic, schedulerProblem, notes,
       checkNow, job, jobTitle, askInstall, askRollback, closeJob, startJob, finished, logLines,
       openLog, historyLines, triggerLabel, outcomeFor, reload, go,
@@ -378,16 +428,19 @@ export const UpdatesView = {
               </div>
             </div>
 
-            <div class="col gap-2 none" style="align-items:flex-end">
+            <!-- Only when there is something to install. A button offering the
+                 version that is already running is not a disabled button, it is
+                 a wrong one. -->
+            <div v-if="info.available && latest" class="col gap-2 none" style="align-items:flex-end">
               <button class="btn btn--primary" :disabled="!canInstall" @click="askInstall"
                       :title="canInstall ? '' : 'See the conditions below.'">
                 <app-icon name="download" :size="14"/>
-                Install {{ latest ? latest.version : '' }}
+                Install {{ latest.version }}
               </button>
               <p v-if="blocking.length && !info.running" class="t-2xs c-warning"
                  style="max-width:26ch;text-align:right">
                 {{ plural(blocking.length, 'condition') }} below {{ blocking.length === 1 ? 'is' : 'are' }}
-                not met, so no update can start yet.
+                not met, so this update cannot start yet.
               </p>
             </div>
           </div>
@@ -452,7 +505,7 @@ export const UpdatesView = {
               to pass; the rest are worth reading but will not stop an update.
             </p>
 
-            <div v-for="check in checks" :key="check.key" class="row-top gap-3">
+            <div v-for="check in readiness" :key="check.key" class="row-top gap-3">
               <app-icon :name="check.ok ? 'check-circle' : (check.blocking ? 'x-circle' : 'alert-circle')"
                         :size="16" class="none" style="margin-top:2px"
                         :class="check.ok ? 'c-success' : (check.blocking ? 'c-danger' : 'c-warning')"/>
@@ -465,7 +518,7 @@ export const UpdatesView = {
               </div>
             </div>
 
-            <empty-state v-if="!checks.length && !loading" icon="info" title="No conditions were reported"
+            <empty-state v-if="!readiness.length && !loading" icon="info" title="No conditions were reported"
                          hint="The server answered without a precondition list, which usually means the update feature is switched off."/>
           </div>
         </section>

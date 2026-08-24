@@ -21,7 +21,7 @@ final class Meta
     public static function int(string $key, int $default = 0): int
     {
         $value = self::get($key, '');
-        return is_numeric($value) ? (int)$value : $default;
+        return is_numeric($value) && is_finite((float)$value) ? (int)$value : $default;
     }
 
     public static function set(string $key, string $value): void

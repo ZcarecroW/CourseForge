@@ -565,6 +565,14 @@ final class RunController
      * one it is handed and the estimate has to be about the set the run would
      * actually write - a page named three times is one page of work, not three.
      *
+     * Every entry is checked rather than cast. PHP turns any non-empty array
+     * into the integer 1 and `true` into the integer 1 without a word of
+     * complaint, so `{"pages":[{"id":3},{"id":4}]}` used to be accepted as page
+     * 1 - a page the caller never named, generated at their expense and written
+     * over. Everything else in this application refuses a non-scalar id with a
+     * 422 (Request::intOrNull, and Args::ids on the MCP side), and a selection
+     * that decides which pages get overwritten is the last place to be lenient.
+     *
      * @return array<int,int>
      */
     private static function selection(Request $request, int $projectId): array
@@ -573,15 +581,18 @@ final class RunController
         if ($explicit !== []) {
             $ids = [];
             foreach ($explicit as $value) {
-                $id = (int)$value;
-                if ($id > 0) {
-                    $ids[] = $id;
+                // is_bool first: (string)true is "1", which would otherwise read
+                // as a perfectly good page id.
+                if (is_bool($value) || !is_scalar($value) || preg_match('/^\d+$/', trim((string)$value)) !== 1) {
+                    throw HttpException::unprocessable('Every entry in "pages" must be a page id.');
                 }
+                $id = (int)$value;
+                if ($id <= 0) {
+                    throw HttpException::unprocessable('Every entry in "pages" must be a page id.');
+                }
+                $ids[] = $id;
             }
             $ids = array_values(array_unique($ids));
-            if ($ids === []) {
-                throw HttpException::unprocessable('No usable page ids were given.');
-            }
             foreach ($ids as $id) {
                 Pages::require($projectId, $id); // reject anything from another course
             }

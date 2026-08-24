@@ -14,6 +14,7 @@ use CourseForge\Mcp\Tool;
 use CourseForge\Security\Actor;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Runtime;
+use CourseForge\Support\Text;
 
 /**
  * Pages: the two ways one gets written, and everything about reading them.
@@ -260,7 +261,12 @@ final class PageTools
                 'title' => (string)$page['title'],
                 'status' => (string)$page['status'],
                 'written' => $written,
-                'words' => $written ? str_word_count(strip_tags((string)$page['content'])) : 0,
+                // Text::words, not str_word_count: the latter counts only ASCII
+                // words, so a Chinese or Cyrillic page reports zero - and a German
+                // one reports roughly double, because it splits on the bytes of
+                // every accented letter. This is the count a model reads to decide
+                // whether a page has been written.
+                'words' => $written ? Text::words(strip_tags((string)$page['content'])) : 0,
                 'published' => $published,
                 'error' => (string)$page['error'],
             ];

@@ -6,11 +6,12 @@ import { plural } from '@/core/format.js';
 import { saveSettings } from './actions.js';
 
 import AppIcon from '@/components/AppIcon.js';
+import AppModal from '@/components/AppModal.js';
 import EmptyState from '@/components/EmptyState.js';
 
 export const StructureTab = {
   name: 'StructureTab',
-  components: { AppIcon, EmptyState },
+  components: { AppIcon, AppModal, EmptyState },
   setup() {
     const project = openCourse;
     const topic = ref(project.value?.topic ?? '');
@@ -18,6 +19,13 @@ export const StructureTab = {
     const feedback = ref('');
     const generating = ref(false);
     const applying = ref(false);
+
+    /* The titles of pages the outline in the editor would delete, each of them
+       with text on it. Non-empty means the dialog is up and nothing has been
+       written yet: the server refuses such an apply and answers with this list,
+       and the same list arrives when the AI designs an outline that would cost
+       written pages, which is handed back rather than applied. */
+    const atRisk = ref([]);
 
     // Watched as one string rather than as an array, because an array getter
     // returns a fresh value every time the effect re-runs and the callback then
@@ -40,23 +48,50 @@ export const StructureTab = {
       try {
         const body = { topic: topic.value };
         if (refine) body.feedback = feedback.value;
-        applyProject(await post(`projects/${project.value.id}/structure`, body));
+        const data = applyProject(await post(`projects/${project.value.id}/structure`, body));
         feedback.value = '';
+
+        // The model has already been paid for, so an outline that would cost
+        // written pages comes back unapplied instead of being thrown away. It
+        // goes into the editor, and the dialog asks about the pages; applying
+        // it from there costs nothing.
+        if (data.applied === false) {
+          markdown.value = data.structure_md ?? markdown.value;
+          atRisk.value = data.at_risk ?? [];
+          return;
+        }
         toast.success(refine ? 'Structure revised.' : 'Structure generated.');
       } finally {
         generating.value = false;
       }
     }, refine ? 'Revise structure' : 'Generate structure');
 
-    const apply = () => attempt(async () => {
+    /* `confirmed` is somebody having read the dialog and pressed the red
+       button. The server refuses the apply outright without it, which is the
+       same refusal the MCP tool gets, so this is a question being passed on
+       rather than a guard of its own that could drift away from it. */
+    const apply = (confirmed = false) => attempt(async () => {
       applying.value = true;
       try {
-        const data = applyProject(await put(`projects/${project.value.id}/structure`, { structure_md: markdown.value }));
+        const data = applyProject(await put(`projects/${project.value.id}/structure`, {
+          structure_md: markdown.value,
+          confirm_removals: confirmed,
+        }));
+        atRisk.value = [];
         const removed = data.removed ?? {};
         const note = removed.pages || removed.chapters
           ? ` Removed ${plural(removed.chapters ?? 0, 'chapter')} and ${plural(removed.pages ?? 0, 'page')}.`
           : '';
         toast.success(`Structure applied.${note}`);
+      } catch (error) {
+        // A refusal is not a failure worth a toast - it is the question the
+        // dialog is about to ask, and one event must not raise two notices.
+        const pages = error?.payload?.at_risk;
+        if (Array.isArray(pages) && pages.length) {
+          atRisk.value = pages;
+          return;
+        }
+        throw error;
       } finally {
         applying.value = false;
       }
@@ -67,9 +102,19 @@ export const StructureTab = {
 
     const revert = () => { markdown.value = project.value?.structure_md ?? ''; };
 
+    /* The published book takes its title from the outline, the course keeps the
+       name it is filed under here, and the two are allowed to differ. Saying so
+       where the outline is edited is what stops the difference from looking
+       like one of them having quietly overwritten the other. */
+    const publishedAs = computed(() => {
+      const bookTitle = (project.value?.book_title ?? '').trim();
+      return bookTitle && bookTitle !== (project.value?.name ?? '') ? bookTitle : '';
+    });
+
     return {
-      state, project, topic, markdown, feedback, generating, applying,
-      dirty, hasStructure, canRefine, generate, apply, saveTopic, revert,
+      state, project, topic, markdown, feedback, generating, applying, atRisk,
+      dirty, hasStructure, canRefine, publishedAs, plural,
+      generate, apply, saveTopic, revert,
     };
   },
   template: `
@@ -80,7 +125,9 @@ export const StructureTab = {
           <span class="eyebrow grow">Outline — strict Markdown</span>
           <span v-if="dirty" class="badge badge--warning">unapplied edits</span>
           <button class="btn btn--sm" :disabled="!dirty" @click="revert">Revert</button>
-          <button class="btn btn--success btn--sm" :disabled="applying || !markdown.trim()" @click="apply">
+          <!-- apply(false), never bare apply: a method reference is handed the
+               click event, which would arrive here as "yes, delete them". -->
+          <button class="btn btn--success btn--sm" :disabled="applying || !markdown.trim()" @click="apply(false)">
             <app-icon v-if="applying" name="refresh" :size="13" spin/><app-icon v-else name="check" :size="13"/>
             Apply
           </button>
@@ -93,7 +140,8 @@ export const StructureTab = {
           <app-icon name="info" :size="13" class="dim none"/>
           <p class="hint grow">
             Applying matches chapters and pages <strong>by title</strong>, so anything already written stays attached.
-            Renaming a title detaches its content.
+            A page this outline no longer names is <strong>deleted</strong>, and the text on it goes with it —
+            renaming a title is the usual way that happens. CourseForge asks first if the page has text on it.
           </p>
         </div>
       </section>
@@ -137,6 +185,10 @@ export const StructureTab = {
               <span class="badge">{{ project.stats.chapters }} / {{ project.stats.pages }}</span>
             </div>
             <div class="card__body">
+              <p v-if="publishedAs" class="t-xs dim mb-3">
+                Published book title: <strong>{{ publishedAs }}</strong>, from the <code>#</code> line of the outline.
+                In CourseForge this course is called <strong>{{ project.name }}</strong> — rename it under Settings.
+              </p>
               <p v-if="project.book_desc" class="t-xs dim mb-3">{{ project.book_desc }}</p>
               <ol v-if="project.chapters.length" class="col gap-3" style="list-style:none;padding:0">
                 <li v-for="chapter in project.chapters" :key="chapter.id">
@@ -152,7 +204,29 @@ export const StructureTab = {
           </div>
         </div>
       </aside>
-    </div>`,
+    </div>
+
+    <app-modal v-if="atRisk.length" title="Delete pages that have text?" icon="alert" @close="atRisk = []">
+      <p class="t-sm">
+        This outline no longer names {{ plural(atRisk.length, 'page') }} that
+        {{ atRisk.length === 1 ? 'has' : 'have' }} text written on
+        {{ atRisk.length === 1 ? 'it' : 'them' }}. Applying it deletes
+        {{ atRisk.length === 1 ? 'that page' : 'those pages' }} and everything written on
+        {{ atRisk.length === 1 ? 'it' : 'them' }}. There is no undo.
+      </p>
+      <ul class="t-sm mt-3" style="padding-left:20px">
+        <li v-for="title in atRisk" :key="title">{{ title }}</li>
+      </ul>
+      <p class="hint mt-3">
+        To keep a page, cancel and put its title back into the outline exactly as it was.
+      </p>
+      <template #footer>
+        <button class="btn" @click="atRisk = []">Cancel</button>
+        <button class="btn btn--danger" :disabled="applying" @click="apply(true)">
+          <app-icon name="trash" :size="14"/> Delete and apply
+        </button>
+      </template>
+    </app-modal>`,
 };
 
 export default StructureTab;

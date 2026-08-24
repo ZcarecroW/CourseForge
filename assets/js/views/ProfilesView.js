@@ -158,6 +158,7 @@ export const ProfilesView = {
     const selectedId = ref(null);
     const draft = ref(null);
     const saving = ref(false);
+    const creating = ref(false);
     const models = reactive({});           // ai account id -> string[]
     const modelMeta = reactive({});        // ai account id -> { batch:Set, supportsBatch:bool }
     const checks = reactive({});           // ai account id -> { ok, detail, probe, busy }
@@ -181,13 +182,29 @@ export const ProfilesView = {
 
     /* ------------------------------------------------------------ CRUD */
 
+    /**
+     * The guard is inside the function rather than only on the button, because
+     * a `:disabled` binding is a rendering and Vue renders on the next tick -
+     * three presses inside one turn all get here first and all create a
+     * profile. Every one of them is called "New profile", so what the person
+     * is left with is three rows they cannot tell apart, and no hint that two
+     * of them are theirs by accident.
+     */
     const create = () => attempt(async () => {
-      const data = await post('profiles', { name: 'New profile', data: clone(state.profileDefaults) });
-      await loadProfiles();
-      select(state.profiles.find((p) => p.id === data.profile.id) ?? data.profile);
-      tab.value = 'accounts';
-      toast.success('Profile created.');
+      if (creating.value) return;
+      creating.value = true;
+      try {
+        const data = await post('profiles', { name: 'New profile', data: clone(state.profileDefaults) });
+        await loadProfiles();
+        select(state.profiles.find((p) => p.id === data.profile.id) ?? data.profile);
+        tab.value = 'accounts';
+        toast.success('Profile created.');
+      } finally {
+        creating.value = false;
+      }
     }, 'Create profile');
+
+    const reload = () => attempt(loadProfiles, 'Reload profiles');
 
     const save = async (silent = false) => {
       if (!draft.value) return false;
@@ -615,9 +632,9 @@ export const ProfilesView = {
     const batchSuffix = BATCH_SUFFIX;
 
     return {
-      state, tab, draft, selectedId, saving, confirmDelete, listOpen, MODEL_SLOTS, LANGUAGES,
+      state, tab, draft, selectedId, saving, creating, confirmDelete, listOpen, MODEL_SLOTS, LANGUAGES,
       languageToken, batchSuffix,
-      select, create, save, remove, addBookstack, addAi, aiAccounts, modelList, loadModels,
+      select, create, reload, save, remove, addBookstack, addAi, aiAccounts, modelList, loadModels,
       providerFor, providerId, overHttp, needsKey, providerGroups, providerSearch,
       picker, openPicker, chooseProvider, isCurrentProvider,
       checks, checkAccount, queueState,
@@ -630,7 +647,14 @@ export const ProfilesView = {
   template: `
     <view-header title="Profiles" icon="sliders">
       <template #actions>
-        <button class="btn btn--primary" @click="create"><app-icon name="plus" :size="15"/> New profile</button>
+        <span class="badge hide-sm">{{ plural(state.profiles.length, 'profile') }}</span>
+        <button class="btn btn--ghost btn--icon" title="Reload" @click="reload">
+          <app-icon name="refresh" :size="15"/>
+        </button>
+        <button class="btn btn--primary" :disabled="creating" @click="create">
+          <app-icon :name="creating ? 'refresh' : 'plus'" :size="15" :spin="creating"/>
+          {{ creating ? 'Creating…' : 'New profile' }}
+        </button>
       </template>
     </view-header>
 

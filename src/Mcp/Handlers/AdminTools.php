@@ -157,7 +157,11 @@ final class AdminTools
                         'true refuses every sign-in and every connection token this account owns, without deleting '
                         . 'anything. false lets it back in.'
                     ),
-                    'password' => Schema::text('A new password, of at least ' . Users::MIN_PASSWORD . ' characters.'),
+                    'password' => Schema::text(
+                        'A new password, of at least ' . Users::MIN_PASSWORD . ' characters. Setting one cuts off '
+                        . 'every MCP connection the account made before now, because a reset is how somebody who '
+                        . 'has held this password is cut off.'
+                    ),
                 ],
                 required: ['username'],
                 handler: static fn(Actor $actor, array $args): array => self::updateUser($actor, Args::of($args)),
@@ -663,7 +667,8 @@ final class AdminTools
             'user' => Users::publicView(Users::require($target)),
             'changed' => $changed,
             'note' => in_array('password', $changed, true)
-                ? 'The account has to choose a new password at its next sign-in.'
+                ? 'The account has to choose a new password before it can do anything else, in the browser and '
+                . 'over MCP alike, and every connection it made before now has stopped working.'
                 : '',
         ];
     }
@@ -1102,13 +1107,16 @@ final class AdminTools
     {
         $actor->requireAdmin();
 
-        $unavailable = self::updaterUnavailable('check');
+        $unavailable = self::updaterUnavailable('status');
         if ($unavailable !== null) {
             return $unavailable;
         }
 
+        // status(true) is what forces a fresh look at GitHub. There is a
+        // check() on Updater, but it is a private helper that builds one
+        // precondition row, and calling it is what this tool used to do.
         $class = self::UPDATER;
-        $result = self::pass($class::check($args->bool('force')));
+        $result = self::pass($class::status(true));
 
         // The web interface records a check for the same reason: this
         // installation reaching out to GitHub is an act, and the audit log is
@@ -1183,7 +1191,7 @@ final class AdminTools
         );
 
         $class = self::UPDATER;
-        return self::pass($class::install($actor));
+        return self::pass($class::install($actor->username, 'mcp'));
     }
 
     /** @return array<string,mixed> */
@@ -1215,7 +1223,7 @@ final class AdminTools
         Audit::record($actor->username, 'update.rollback', '', 'requested via MCP, from ' . CF_VERSION, 'mcp');
 
         $class = self::UPDATER;
-        return self::pass($class::rollback($actor));
+        return self::pass($class::rollback($actor->username, 'mcp'));
     }
 
     /** @return array<string,mixed> */
@@ -1404,11 +1412,18 @@ final class AdminTools
                     . 'leave the data directory as it is.',
             ];
         }
-        if (!method_exists(self::UPDATER, $method)) {
+        // is_callable, not method_exists: method_exists answers true for a
+        // private method, and this guard existed precisely to stop a call that
+        // cannot be made. It did not - Updater::check() is a private helper for
+        // building a precondition row, the guard waved it through, and every
+        // check_for_update fatalled. is_callable asks the question that was
+        // meant: may THIS scope call it.
+        if (!is_callable([self::UPDATER, $method])) {
             return [
                 'available' => false,
-                'message' => 'The updater in this build does not offer ' . $method . '(), so this particular call '
-                    . 'cannot be made. get_diagnostics reports what the update feature can do on this installation.',
+                'message' => 'The updater in this build does not offer a public ' . $method . '(), so this '
+                    . 'particular call cannot be made. get_diagnostics reports what the update feature can do on '
+                    . 'this installation.',
             ];
         }
         return null;

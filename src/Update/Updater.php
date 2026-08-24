@@ -271,6 +271,17 @@ final class Updater
      * A `blocking` check that fails stops the update. A non-blocking one is a
      * warning: worth reading, not worth refusing over.
      *
+     * One row answers a different question from the rest. `newer` is about what
+     * GitHub has to offer; every other row is about this installation and names
+     * something somebody can go and fix. It belongs in this list because
+     * install() and the unattended run both gate on it and both have to refuse
+     * when there is nothing newer to install - but being up to date is not a
+     * fault, and a screen that draws the list as a list of faults turns it into
+     * one, in red, under a heading that promises no update can start "yet". So
+     * the Updates screen answers availability once, in its headline and in
+     * whether it offers an Install button at all, and lists only the rest. See
+     * AVAILABILITY in UpdatesView.js.
+     *
      * @return array<int,array{key:string,label:string,ok:bool,blocking:bool,detail:string}>
      */
     public static function preconditions(?Release $release = null): array

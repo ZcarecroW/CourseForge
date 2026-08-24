@@ -146,10 +146,19 @@ final class UserController
     /**
      * Issues an invite code, written to INVITE-CODE.txt.
      *
-     * This is the way back in when every administrator password has been lost,
-     * and the way to let somebody create their own account rather than being
-     * handed a password over a chat. Reading the file needs the same access as
-     * editing `config/`, so it grants nothing that was not already granted.
+     * This is how somebody creates their own account, choosing a password
+     * nobody else has ever seen, rather than being handed one over a chat. The
+     * holder redeems it at `POST redeem` while signed out, and the account they
+     * get carries the role written on the invite row - the code itself is never
+     * an argument about what it is worth. Reading the file needs the same
+     * access as editing `config/`, so it grants nothing that was not already
+     * granted.
+     *
+     * It is not a way back into an installation whose administrator passwords
+     * have all been lost: issuing one needs an administrator session, so by
+     * then there is nobody left to issue it. That case is repaired by deleting
+     * the rows in `users`, which brings the setup screen and a fresh first-run
+     * code back.
      */
     public static function invite(Request $request, ?Actor $actor): array
     {

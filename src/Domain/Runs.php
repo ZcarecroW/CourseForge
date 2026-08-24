@@ -107,9 +107,15 @@ final class Runs
                 }
                 return $runId;
             });
-        } catch (PDOException) {
+        } catch (PDOException $e) {
             // The only unique constraint that can fire here is one active item
-            // per page, and it means somebody got there first.
+            // per page, and it means somebody got there first. Anything else a
+            // database can raise - it is locked, it is read-only, a migration
+            // never finished - is not that, and answering it with this message
+            // sends whoever reads it hunting for a run that does not exist.
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
             throw HttpException::unprocessable(
                 'Some of those pages are already part of a run. Open the run panel to see it, '
                 . 'or stop it before starting them again.'
@@ -265,16 +271,74 @@ final class Runs
      * The guard is what makes a second poller, or a run cancelled mid-flight,
      * harmless: whoever gets there first writes the page and everybody else
      * finds nothing left to settle rather than overwriting it.
+     *
+     * State alone is not enough for a live worker, though. A claim can be taken
+     * away from a process that is still running - its lease expires, cron hands
+     * the page to the next worker - and the loser has no way to notice: it is
+     * inside a provider call that may last an hour. When it finally reports, the
+     * item is `working` again, just not its own, and matching on state would let
+     * it settle somebody else's claim. So a worker passes the token it was given
+     * and only the holder of that token gets to write the outcome. An empty
+     * token means "do not ask", which is right for the batch driver - nothing
+     * there claims anything - and for items claimed by a release that predates
+     * the column.
      */
-    public static function settleItem(int $runId, string $customId, string $status, string $error = '', string $from = ''): bool
-    {
+    public static function settleItem(
+        int $runId,
+        string $customId,
+        string $status,
+        string $error = '',
+        string $from = '',
+        string $owner = '',
+    ): bool {
         $expected = $from !== '' ? [$from] : [self::ITEM_PENDING, self::ITEM_WORKING];
         $placeholders = implode(',', array_fill(0, count($expected), '?'));
 
-        return Db::run(
-            'UPDATE batch_items SET status = ?, error = ? WHERE job_id = ? AND custom_id = ? AND status IN (' . $placeholders . ')',
-            array_merge([$status, mb_substr($error, 0, 500), $runId, $customId], $expected)
-        )->rowCount() > 0;
+        // The claim ends with the item, whatever it ended as, so a stale token
+        // can never match again.
+        $sql = "UPDATE batch_items SET status = ?, error = ?, owner = ''
+                 WHERE job_id = ? AND custom_id = ? AND status IN (" . $placeholders . ')';
+        $args = array_merge([$status, mb_substr($error, 0, 500), $runId, $customId], $expected);
+
+        if ($owner !== '') {
+            $sql .= ' AND owner = ?';
+            $args[] = $owner;
+        }
+
+        return Db::run($sql, $args)->rowCount() > 0;
+    }
+
+    /**
+     * Hands a page back to the queue for another attempt.
+     *
+     * This is the one settle that does not end anything, and it is the only one
+     * that has to know whether the run is still alive. A run that was stopped
+     * while this page was in flight has already released everything it held;
+     * putting the page back to `pending` afterwards leaves an item nothing will
+     * ever look at again - claimNextItem() reads live runs only - while the
+     * unique index on one active item per page goes on holding that page against
+     * every future run. The page then reports as queued for ever with nothing
+     * queued for it, and starting a new run over it is refused with advice to
+     * stop a run that is already stopped.
+     *
+     * So the run's status is part of the condition rather than something checked
+     * beforehand and hoped to still be true when the write lands.
+     */
+    public static function requeueItem(int $runId, string $customId, string $error = '', string $owner = ''): bool
+    {
+        $sql = "UPDATE batch_items SET status = ?, error = ?, owner = ''
+                 WHERE job_id = ? AND custom_id = ? AND status = ?";
+        $args = [self::ITEM_PENDING, mb_substr($error, 0, 500), $runId, $customId, self::ITEM_WORKING];
+
+        if ($owner !== '') {
+            $sql .= ' AND owner = ?';
+            $args[] = $owner;
+        }
+
+        $sql .= ' AND EXISTS (SELECT 1 FROM batch_jobs j WHERE j.id = ? AND j.status NOT IN (?,?,?))';
+        $args = array_merge($args, [$runId], self::TERMINAL);
+
+        return Db::run($sql, $args)->rowCount() > 0;
     }
 
     /* ------------------------------------------------------------ the worker */
@@ -286,6 +350,13 @@ final class Runs
      * one worker slot - so the claim has to be the thing that decides, not a
      * read followed by a write. The UPDATE reporting a changed row is the claim;
      * a worker that loses the race simply asks again.
+     *
+     * The claim carries a token, which the caller has to give back to settle it.
+     * A lease that expires while its worker is still inside a provider call is
+     * not a hypothetical - `app.ai_timeout_seconds` may be set as high as two
+     * hours and `app.cron_item_timeout_seconds` as low as a minute, and neither
+     * screen mentions the other - so the page really can be handed to somebody
+     * else mid-flight. The token is what tells the two attempts apart afterwards.
      *
      * @return array<string,mixed>|null
      */
@@ -305,10 +376,11 @@ final class Runs
                 return null;
             }
 
+            $owner = bin2hex(random_bytes(8));
             $claimed = Db::run(
-                'UPDATE batch_items SET status = ?, started_at = ?, attempts = attempts + 1
+                'UPDATE batch_items SET status = ?, started_at = ?, attempts = attempts + 1, owner = ?
                   WHERE id = ? AND status = ?',
-                [self::ITEM_WORKING, time(), (int)$row['id'], self::ITEM_PENDING]
+                [self::ITEM_WORKING, time(), $owner, (int)$row['id'], self::ITEM_PENDING]
             )->rowCount() > 0;
 
             if ($claimed) {
@@ -318,6 +390,7 @@ final class Runs
                 );
                 $row['attempts'] = (int)$row['attempts'] + 1;
                 $row['status'] = self::ITEM_WORKING;
+                $row['owner'] = $owner;
                 return $row;
             }
         }
@@ -343,6 +416,36 @@ final class Runs
                JOIN batch_jobs j ON j.id = i.job_id
               WHERE i.status = ? AND i.started_at > 0 AND i.started_at < ?',
             [self::ITEM_WORKING, time() - max(60, $olderThanSeconds)]
+        );
+    }
+
+    /**
+     * Pages still queued against a run that has already ended.
+     *
+     * Nothing looks at these: claimNextItem() reads live runs only, and the
+     * unique index on one active item per page goes on holding their pages
+     * against every future run, so a page in this state cannot be generated in
+     * the background by anybody until the row is cleared. requeueItem() is what
+     * stops new ones being made; this is what clears the ones an earlier release
+     * left behind, and the braces to that fix's belt if some path nobody has
+     * thought of makes another.
+     *
+     * `working` is deliberately not swept. A run stopped mid-flight leaves its
+     * in-flight page claimed on purpose, so the worker still writing it can
+     * finish and keep the text that has already been paid for; the driver ends
+     * that item when the worker comes back, or the stale-claim sweep does when
+     * it does not.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function strandedItems(): array
+    {
+        return Db::rows(
+            'SELECT i.*, j.project_id, j.username
+               FROM batch_items i
+               JOIN batch_jobs j ON j.id = i.job_id
+              WHERE i.status = ? AND j.status IN (?,?,?)',
+            array_merge([self::ITEM_PENDING], self::TERMINAL)
         );
     }
 

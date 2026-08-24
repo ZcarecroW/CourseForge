@@ -198,16 +198,20 @@ final class OpenAiFileBatch
         $fileIds = $this->resultFileIds($handle);
         $spec = $this->provider->spec();
 
-        foreach ($fileIds as $fileId) {
+        foreach ($fileIds as $field => $fileId) {
             $url = $this->provider->batchUrl($spec->filesPath . '/' . rawurlencode($fileId) . '/content');
 
-            // Null is a 404, and a 404 is the ordinary case: a batch with no
-            // failures has no error file. Anything else - a rate limit, an
-            // expired key, a connection that died part way through - was raised
-            // inside batchStream(), because the caller would otherwise read a
-            // short result set as "the provider had nothing to say about those
-            // pages" and mark them all failed.
-            $spool = $this->provider->batchStream($url);
+            // Which of the two files this is decides what a 404 means, and
+            // getting that backwards is the expensive mistake. An error file
+            // that is not there is a batch in which nothing failed. An OUTPUT
+            // file that is not there is the answers this run paid for, gone -
+            // and treating that as "the provider had nothing to say about those
+            // pages" fails every page and closes the run as finished. So only
+            // the error file is allowed to come back null; everything else -
+            // that 404, a rate limit, an expired key, a download that died part
+            // way through - is raised inside batchStream() and leaves the run
+            // open to be collected again.
+            $spool = $this->provider->batchStream($url, $field === 'error_file_id');
             if ($spool === null) {
                 continue;
             }
@@ -344,14 +348,18 @@ final class OpenAiFileBatch
      * The two file ids the results are in, asked for again if the stored handle
      * predates them.
      *
-     * @return string[]
+     * Keyed by the field they arrived under rather than flattened to a list,
+     * because the reader has to know which is which: a missing error file is a
+     * batch in which nothing failed, and a missing output file is lost work.
+     *
+     * @return array<string,string>
      */
     private function resultFileIds(BatchHandle $handle): array
     {
-        $ids = array_values(array_filter([
-            $handle->refValue('output_file_id'),
-            $handle->refValue('error_file_id'),
-        ]));
+        $ids = array_filter([
+            'output_file_id' => $handle->refValue('output_file_id'),
+            'error_file_id' => $handle->refValue('error_file_id'),
+        ]);
         if ($ids !== []) {
             return $ids;
         }
@@ -360,10 +368,10 @@ final class OpenAiFileBatch
         // caller may not have polled first. One extra GET beats concluding that
         // a finished batch answered nothing.
         $ref = $this->poll($handle)->ref;
-        return array_values(array_filter([
-            (string)($ref['output_file_id'] ?? ''),
-            (string)($ref['error_file_id'] ?? ''),
-        ]));
+        return array_filter([
+            'output_file_id' => (string)($ref['output_file_id'] ?? ''),
+            'error_file_id' => (string)($ref['error_file_id'] ?? ''),
+        ]);
     }
 
     /**
@@ -399,6 +407,16 @@ final class OpenAiFileBatch
                 $code === 'batch_expired' ? BatchItemResult::EXPIRED : BatchItemResult::ERRORED,
                 $line['error'],
             );
+        }
+
+        // OpenAI itself always sends an object here, but this driver serves
+        // every preset whose probe finds /batches and /files - LiteLLM, vLLM,
+        // self-hosted shims - and those write a bare sentence. Falling through
+        // with it would land on the empty-text branch below and report "the
+        // provider answered with no text", which is both untrue and the last
+        // place the gateway's own reason could have been kept.
+        if (is_string($line['error'] ?? null) && trim($line['error']) !== '') {
+            return BatchItemResult::failed($customId, BatchItemResult::ERRORED, trim($line['error']));
         }
 
         $response = is_array($line['response'] ?? null) ? $line['response'] : [];

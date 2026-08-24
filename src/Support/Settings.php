@@ -197,8 +197,21 @@ final class Settings
             /* ----------------------------------------------------- security */
             [
                 'key' => 'security.max_login_attempts', 'group' => 'security', 'type' => 'int',
-                'label' => 'Failed sign-ins before lockout',
+                'label' => 'Failed sign-ins before an account is locked',
+                'description' => 'Counted for one account, wherever the attempts came from. This is what stands '
+                    . 'between a password and somebody working through a list of guesses at it.',
                 'default' => 5, 'min' => 1, 'max' => 100, 'admin_only' => true,
+            ],
+            [
+                'key' => 'security.max_address_attempts', 'group' => 'security', 'type' => 'int',
+                'label' => 'Failed sign-ins before an address is locked',
+                'description' => 'Counted for one address, against any account, and deliberately looser than the '
+                    . 'figure above: an address is shared - an office, a mobile network, a VPN - and a cap of '
+                    . 'five there would let one person mistyping their password lock out everybody behind it. '
+                    . 'Raise it for a busy shared address; lower it towards the per-account figure for an '
+                    . 'installation only you reach. It is never used below that figure, because an address that '
+                    . 'locked first would put the door shut before the per-account count could ever fill.',
+                'default' => 20, 'min' => 1, 'max' => 1000, 'admin_only' => true,
             ],
             [
                 'key' => 'security.attempt_window_minutes', 'group' => 'security', 'type' => 'int',
@@ -381,6 +394,12 @@ final class Settings
     {
         if (!is_numeric($value)) {
             throw HttpException::unprocessable($label . ' must be a number.');
+        }
+        // A JSON body carrying 1e400 arrives as the float INF, which is numeric
+        // and cannot be cast to an integer - the cast is a warning, and a
+        // warning here is a 500 for input that is merely out of range.
+        if (!is_finite((float)$value)) {
+            throw HttpException::unprocessable($label . ' must be a number, and that one is too large to be one.');
         }
         $n = (int)$value;
         $min = (int)($field['min'] ?? PHP_INT_MIN);

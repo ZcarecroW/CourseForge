@@ -63,7 +63,9 @@ final class Scopes
             [
                 'key' => self::PAGES,
                 'label' => 'Pages',
-                'description' => 'Read a writing brief, store a finished page, edit a page, and generate one through the profile\'s model.',
+                'description' => 'List and read pages, take a writing brief, store a finished page, and generate one '
+                    . 'through the profile\'s model. Also retitles pages and chapters and rewrites a chapter '
+                    . 'description, which edits the stored outline, because chapters and pages are matched by title.',
                 'admin' => false,
                 'spends' => true,
             ],

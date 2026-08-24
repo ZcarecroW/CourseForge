@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace CourseForge\Domain;
 
 use CourseForge\Support\Config;
+use CourseForge\Support\HttpException;
 
 /**
  * Content details: what a generated page is made of.
@@ -178,6 +179,14 @@ final class Details
             if (!isset($catalogue['features'][$key])) {
                 continue;
             }
+            // An array cast to int is 1, which would have quietly switched the
+            // feature on. A tri-state has three legal answers and none of them
+            // is a list.
+            if (!is_scalar($state) && $state !== null) {
+                throw HttpException::unprocessable(
+                    'The feature "' . $key . '" must be -1 (off), 0 (inherit) or 1 (on), not a list or an object.'
+                );
+            }
             $state = (int)$state;
             if ($state === self::INHERIT) {
                 unset($current['features'][$key]);
@@ -194,12 +203,26 @@ final class Details
                 unset($current['params'][$key]);
                 continue;
             }
+            // Casting a list to a string is a warning, which the front
+            // controller turns into a 500 - an unhelpful answer to input that is
+            // merely wrong. The numeric branch below would have been quieter and
+            // worse: is_numeric() is false for a list, so the value would have
+            // been dropped without a word.
+            if (!is_scalar($value)) {
+                throw HttpException::unprocessable(
+                    'The value "' . $key . '" must be a number or a piece of text, not a list or an object.'
+                );
+            }
             $spec = $catalogue['params'][$key];
             if ($spec['type'] === 'text') {
                 $current['params'][$key] = trim((string)$value);
                 continue;
             }
-            if (is_numeric($value)) {
+            // is_finite as well as is_numeric: INF and NAN are both numeric
+            // and neither can be cast to an integer. Clamping is the right
+            // answer for a number that is merely too big, and INF is what a
+            // JSON body's 1e400 becomes.
+            if (is_numeric($value) && is_finite((float)$value)) {
                 $current['params'][$key] = max((int)$spec['min'], min((int)$spec['max'], (int)$value));
             }
         }

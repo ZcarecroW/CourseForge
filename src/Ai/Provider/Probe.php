@@ -42,8 +42,13 @@ final class Probe
     /**
      * Bumped whenever the logic below changes, so a stored result taken by an
      * older version is re-taken rather than trusted.
+     *
+     * 3 retires every row version 2 wrote, because version 2 could record a
+     * definitive `no` on a batch list whose download died mid-body. Nothing
+     * distinguishes such a row from an honest one after the fact, so they all
+     * go rather than leaving one installation quietly unable to batch.
      */
-    public const VERSION = 2;
+    public const VERSION = 3;
 
     /** The queue is there and this key may use it. */
     public const YES = 'yes';
@@ -104,6 +109,19 @@ final class Probe
         $batches = $this->get($this->spec->batchesPath . '?limit=1');
         $codes['batches'] = $batches->status;
 
+        // A 2xx that did not arrive whole is not an answer about the queue. The
+        // branches below read the body to tell a batch list from anything else,
+        // and a connection that dies after the response line leaves the status
+        // at 200 with nothing behind it - which the "not a list of batches" arm
+        // would then record as a definitive no, reached on a body nobody saw.
+        // Statuses outside 2xx describe themselves and are left to speak even
+        // when their body came up short.
+        if ($batches->truncated() && $batches->status >= 200 && $batches->status < 300) {
+            return $this->outcome(self::UNKNOWN, $codes, 'The batch route answered HTTP '
+                . $batches->status . ' and then the connection dropped before the body arrived ('
+                . $batches->error . '), so this decides nothing about the queue.');
+        }
+
         $ambiguous = false;
         if ($batches->status === 200 && is_array($batches->data) && array_key_exists('data', $batches->data)) {
             $ambiguous = false;
@@ -158,15 +176,20 @@ final class Probe
         // this question and is abandoned rather than interpreted.
         $create = $this->post($this->spec->batchesPath);
         $codes['create'] = $create->status;
-        $definitive = $create->status >= 400 && $create->status < 500;
+
+        // A 4xx whose body was cut off is not the validation error this probe
+        // came for: the field it named and the windows it allows are both read
+        // out of that body, and half of one would be guessed at rather than
+        // read.
+        $definitive = $create->status >= 400 && $create->status < 500 && !$create->truncated();
         $message = $definitive ? $create->message(300) : '';
         $window = $definitive ? self::windowIn($message, $this->spec->window) : $this->spec->window;
 
         if ($ambiguous && !$definitive) {
             return $this->outcome(self::UNKNOWN, $codes, 'The batch route exists but would not confirm '
                 . 'itself: creating an empty batch answered HTTP ' . $create->status . ' instead of a '
-                . 'validation error. Treating the queue as unavailable until a real submission proves '
-                . 'otherwise.', $window);
+                . 'validation error. Nothing here settles it either way, so only a real submission can.',
+                $window);
         }
 
         $named = $definitive && self::namesABatchField($message);
@@ -286,12 +309,21 @@ final class Probe
      * real, so re-probing will not change anything, and the account needs a
      * tier upgrade rather than another round trip.
      *
+     * `unknown` is the mirror image and answers null, because that verdict is
+     * recorded precisely when nothing was learned - a gateway that timed out, a
+     * 502 in front of the queue route, a route that would not confirm itself.
+     * Answering false there would be worse than saying nothing twice over: this
+     * answer outranks the preset table in supportsBatch(), so one bad minute on
+     * somebody else's server switches off a documented queue, and the recovery
+     * every such row promises - a real submission settling it - is exactly what
+     * the false would refuse to allow.
+     *
      * @param array<string,mixed>|null $stored
      */
     public static function supported(?array $stored, string $fingerprint = ''): ?bool
     {
         $row = self::stored($stored, $fingerprint);
-        if ($row === null || $row['probe_ver'] < self::VERSION) {
+        if ($row === null || $row['probe_ver'] < self::VERSION || $row['result'] === self::UNKNOWN) {
             return null;
         }
         return $row['result'] === self::YES;

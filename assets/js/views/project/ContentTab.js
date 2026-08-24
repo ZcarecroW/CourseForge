@@ -10,7 +10,7 @@ import { compactNumber, plural } from '@/core/format.js';
 import { busy, patchDetails, tagAdd, tagRemove, tagInherit, tagToggle, inheritedTags, saveChapter } from './actions.js';
 import {
   runs, openRuns, doneRuns, cronStalled, loadRuns, stopPolling, resetRuns, pollNow,
-  startRun, cancelRun, forgetRun, runTone, runProgress, runWhere, cronAge,
+  startRun, cancelRun, forgetRun, runTone, runProgress, runWhere, cronProblem,
 } from './runs.js';
 
 import AppIcon from '@/components/AppIcon.js';
@@ -231,10 +231,22 @@ export const ContentTab = {
         toast.error('This page is waiting in a batch. Cancel the batch first, or wait for it to arrive.');
         return;
       }
-      await generateOne(selectedPage.value.id, {
-        extra: draft.extra_context,
-        feedback: pageFeedback.value.trim(),
-      });
+      const pageId = selectedPage.value.id;
+      try {
+        await generateOne(pageId, {
+          extra: draft.extra_context,
+          feedback: pageFeedback.value.trim(),
+        });
+      } catch (error) {
+        // `generateOne` marks the page as generating before the request leaves,
+        // and clears the old error with it. A failure has to put both back or
+        // the tree keeps an amber dot, and the page a clean slate, for work that
+        // is not happening - the repair `runQueue` makes in its own catch.
+        markPageStatus(pageId, 'error');
+        const page = allPages.value.find((p) => p.id === pageId);
+        if (page) page.error = error.message;
+        throw error;
+      }
       pageFeedback.value = '';
       toast.success('Page written.');
     }, 'Generate page');
@@ -306,7 +318,7 @@ export const ContentTab = {
      * an explicit list of ids; the other three are named selections the server
      * resolves itself, which keeps them correct even if the tree moved on.
      */
-    const startSelection = (mode = '') => {
+    const sendSelection = (mode = '') => {
       if (gen.mode === 'limited') {
         const ids = queue();
         if (!ids.length) { toast.info('Nothing to start with this selection.'); return; }
@@ -314,6 +326,28 @@ export const ContentTab = {
         return;
       }
       startRun(gen.mode, mode);
+    };
+
+    // Nobody writes a background run except the scheduler, so a scheduler that
+    // is not running turns "Run in the background" into a queue that never
+    // moves. Ask first, and offer the tab as the way out - the pages can be
+    // written here without any scheduler at all.
+    const confirmBackground = ref(null);
+
+    const startSelection = (mode = '') => {
+      if (mode === 'live' && cronStalled.value) { confirmBackground.value = mode; return; }
+      sendSelection(mode);
+    };
+
+    const backgroundAnyway = () => {
+      const mode = confirmBackground.value;
+      confirmBackground.value = null;
+      sendSelection(mode);
+    };
+
+    const writeHereInstead = () => {
+      confirmBackground.value = null;
+      startGeneration();
     };
 
     /* -- details and tags for the selected level ------------------------ */
@@ -394,7 +428,8 @@ export const ContentTab = {
       collapseAll, pageDotClass, selectPage, selectChapter, savePage, saveChapterEdits,
       gen, startGeneration, stopGeneration, regeneratePage, confirmRegenerateAll, runQueue,
       runs, openRuns, doneRuns, cronStalled, pollNow, cancelRun, forgetRun,
-      runTone, runProgress, runWhere, cronAge, startSelection,
+      runTone, runProgress, runWhere, cronProblem, startSelection,
+      confirmBackground, backgroundAnyway, writeHereInstead,
       onDetailChange, detailTarget, detailEntity, tagAdd, tagRemove, tagInherit, tagToggle, inheritedTags,
       wordCount, pushPage, pushChapter, confirmDiscard, discardAndGo,
       concurrency, compactNumber,
@@ -516,15 +551,16 @@ export const ContentTab = {
 
           <p v-if="runs.capability.reason" class="t-2xs c-warning">{{ runs.capability.reason }}</p>
 
-          <!-- A background run with no scheduler behind it would wait forever,
-               so say so before the user does. -->
-          <p v-else-if="!runs.capability.batch_available && !runs.capability.background_available"
+          <!-- What the provider cannot do and what the scheduler is not doing
+               are two separate problems, and the second one is at its most
+               likely exactly when the first one has pushed the user onto the
+               background path - so this chain starts again rather than
+               continuing the one above, which used to hide it. -->
+          <p v-if="!runs.capability.batch_available && !runs.capability.background_available"
              class="t-2xs faint">
             Set up the scheduler to run these in the background and close the tab.
           </p>
-          <p v-else-if="cronStalled" class="t-2xs c-danger">
-            The scheduler last ran {{ cronAge() }} — background pages are not being written.
-          </p>
+          <p v-else-if="cronStalled" class="t-2xs c-danger">{{ cronProblem() }}</p>
 
           <div v-if="gen.running || gen.done">
             <div class="bar"><div class="bar__fill"
@@ -606,7 +642,7 @@ export const ContentTab = {
                  @pointerdown="claim('editor')" @wheel.passive="claim('editor')"
                  @focusin="claim('editor')" @keydown="claim('editor')">
               <markdown-editor ref="editor" v-model="draft.content" :reset-key="editorKey"
-                               placeholder="Nothing written yet. Use Generate in the outline panel, or type the page yourself."
+                               placeholder="Nothing written yet. Type the page here, or open the context tab on the right and press Write this page."
                                @scroll="fromEditor"/>
             </div>
             <div v-if="viewMode !== 'edit'" class="split__half"
@@ -814,6 +850,21 @@ export const ContentTab = {
       <template #footer>
         <button class="btn" @click="confirmDiscard = null">Keep editing</button>
         <button class="btn btn--danger" @click="discardAndGo">Discard and switch</button>
+      </template>
+    </app-modal>
+
+    <app-modal v-if="confirmBackground" title="Nothing is collecting background runs" icon="alert"
+               @close="confirmBackground = null">
+      <p class="t-sm">{{ cronProblem() }}</p>
+      <p class="hint mt-2">
+        A background run is written down here and picked up by the scheduler, so this one would be queued
+        and then wait. Writing the pages in this tab needs no scheduler at all — it keeps the tab busy
+        until they are done.
+      </p>
+      <template #footer>
+        <button class="btn" @click="confirmBackground = null">Cancel</button>
+        <button class="btn" @click="backgroundAnyway">Queue it anyway</button>
+        <button class="btn btn--primary" @click="writeHereInstead">Write them here instead</button>
       </template>
     </app-modal>
 

@@ -352,9 +352,13 @@ final class Diagnostics
         $checks = [];
 
         try {
+            // Asked first, and the counts read after it, because needsSetup()
+            // is not a question: on an installation with an empty users table
+            // it imports data/users.json, and a count taken before that can be
+            // three accounts out of date by the time it is printed.
+            $pending = Users::needsSetup();
             $total = Users::count();
             $admins = Users::adminCount();
-            $pending = Users::needsSetup();
 
             $checks[] = $total > 0
                 ? self::ok('accounts', 'Accounts', $total . ' account(s)')
@@ -401,20 +405,26 @@ final class Diagnostics
 
             $checks = array_merge($checks, self::inviteFile($pending, (bool)$invite['open']));
 
-            // Not a live file any more. Users::importLegacyFile() can lift a
-            // 3.x file into the users table, but nothing calls it and it only
-            // renames the file when it actually imported an account, so a file
-            // sitting here will not clear itself either way. What it will do is
-            // sit in the data directory holding a password hash.
+            // A file still sitting here means one of two different things, and
+            // the difference is worth stating rather than leaving somebody to
+            // work out. Users::needsSetup() imports it when the users table is
+            // empty and renames it to users.json.imported on success - which
+            // has already been tried a few lines above, since $pending is what
+            // calls it. So on an installation with no accounts the file being
+            // here is the import having found nothing usable in it; on one with
+            // accounts the import was never offered the file at all. Either
+            // way what is left is a password hash in the data directory.
             if (self::isFile(CF_DATA . '/users.json')) {
                 $checks[] = self::warn(
                     'legacy_users',
                     'Legacy users.json',
                     'still present in ' . Text::path(CF_DATA),
                     $total > 0
-                        ? 'It is ignored now that accounts exist. Delete it - it holds a password hash.'
-                        : 'Nothing imports it on its own. Create the first administrator with the invite code, '
-                        . 'then delete the file - it holds a password hash.'
+                        ? 'It is ignored now that accounts exist - importing only happens while there are none. '
+                        . 'Delete it: it holds a password hash.'
+                        : 'It was offered to the CourseForge 3 import just now and produced no account, so it is '
+                        . 'either unreadable or holds nothing with a user name and a password hash in it. Create '
+                        . 'the first administrator with the invite code instead, then delete the file.'
                 );
             }
         } catch (Throwable $e) {

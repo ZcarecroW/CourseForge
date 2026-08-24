@@ -54,7 +54,9 @@ use CourseForge\Support\Text;
  * true. An outline that only adds and renames still applies in one call, which
  * is the ordinary case; the argument exists for the case that is not ordinary,
  * where a regenerated outline would take fifty written pages with it and there
- * is no undo.
+ * is no undo. The refusal itself is Projects::applyStructure's, not this file's
+ * - the browser is held to the same rule by the same code, and what is said
+ * here is only the same decision put in words a model can act on.
  */
 final class StructureTools
 {
@@ -251,14 +253,16 @@ final class StructureTools
         }
 
         // Worked out before anything is written, because afterwards the only
-        // honest thing left to say is which pages have already been lost.
-        $atRisk = self::wouldLose($project, $markdown);
+        // honest thing left to say is which pages have already been lost. The
+        // domain refuses this too - what is gained by asking first is a refusal
+        // written for a model rather than for somebody reading a dialog.
+        $atRisk = Projects::pagesLosingContent($project, $markdown);
         if ($atRisk !== [] && !$args->bool('confirm_removals')) {
             throw HttpException::unprocessable(self::removalRefusal($atRisk));
         }
 
         $before = self::snapshot($project);
-        Projects::applyStructure($project, $markdown);
+        Projects::applyStructure($project, $markdown, $args->bool('confirm_removals'));
         $diff = self::diff($before, self::snapshot($project));
 
         Audit::record(
@@ -297,7 +301,7 @@ final class StructureTools
         // back what it designed rather than throwing it away. Applying that
         // Markdown with apply_structure costs nothing, which means the decision
         // can be looked at without the answer having to be bought twice.
-        $atRisk = self::wouldLose($project, $markdown);
+        $atRisk = Projects::pagesLosingContent($project, $markdown);
         if ($atRisk !== [] && !$args->bool('confirm_removals')) {
             return [
                 'applied' => false,
@@ -313,7 +317,7 @@ final class StructureTools
         }
 
         $before = self::snapshot($project);
-        Projects::applyStructure($project, $markdown);
+        Projects::applyStructure($project, $markdown, $args->bool('confirm_removals'));
         $diff = self::diff($before, self::snapshot($project));
 
         Audit::record(
@@ -408,8 +412,9 @@ final class StructureTools
         foreach ($parsed['chapters'] as $index => $chapter) {
             $key = mb_strtolower($chapter['title']);
             if (isset($seenChapters[$key])) {
-                $problems[] = 'Two chapters are called "' . $chapter['title'] . '". Chapters are matched by title, so '
-                    . 'the second one would be folded into the first and its description would win.';
+                $problems[] = 'Two chapters are called "' . $chapter['title'] . '". They stay two chapters - the '
+                    . 'first one in the outline is matched to the first stored one of that name and the second to '
+                    . 'the second - but a reader cannot tell them apart, and neither can you when you revise this.';
             }
             $seenChapters[$key] = true;
 
@@ -421,8 +426,10 @@ final class StructureTools
             foreach ($chapter['pages'] as $page) {
                 $pageKey = mb_strtolower($page['title']);
                 if (isset($seenPages[$pageKey])) {
-                    $problems[] = 'Two pages are called "' . $page['title'] . '". Page titles must be unique across '
-                        . 'the whole course, because that is how existing text is matched to a page.';
+                    $problems[] = 'Two pages are called "' . $page['title'] . '". Both are kept, and each is matched '
+                        . 'to the stored page of that name in the same position - but which of them holds which text '
+                        . 'is decided by position alone, so reordering them swaps their content. Distinct titles are '
+                        . 'safer, and they are what the cross-reference markers need in order to resolve.';
                 }
                 $seenPages[$pageKey] = true;
                 $pages[] = ['title' => $page['title'], 'tags' => $page['tags']];
@@ -453,9 +460,10 @@ final class StructureTools
             $problems[] = 'These chapters have no pages: ' . implode(', ', $emptyChapters) . '. They would be created '
                 . 'empty and would publish as an empty chapter.';
         }
-        if ($parsed['title'] === 'Untitled course') {
-            $problems[] = 'No "# " title line was read, so the book title fell back to "Untitled course". The first '
-                . 'line of the outline must be "# " followed by the book title.';
+        if ($parsed['title'] === '') {
+            $problems[] = 'No "# " title line was read, so this outline says nothing about what the book is called '
+                . 'and applying it would leave the stored title alone. The first line of the outline must be "# " '
+                . 'followed by the book title.';
         }
         if (trim($parsed['description']) === '') {
             $problems[] = 'There is no book description. It is the plain paragraph directly below the "# " title and '
@@ -596,50 +604,6 @@ final class StructureTools
         }
 
         return $rules;
-    }
-
-    /**
-     * The written pages an outline would delete, worked out before it is applied.
-     *
-     * Applying an outline matches by lowercased title and deletes whatever is
-     * left over, so a page survives exactly when the new outline still names
-     * its title. Titles are counted rather than merely looked up, because two
-     * outline entries are needed to keep two pages that share a name.
-     *
-     * Where a title is shared, the unwritten pages are offered the matching
-     * places first, so that it is the written one that gets named here. Naming
-     * a page that would in fact have survived costs one extra argument; missing
-     * one that would not costs the text on it.
-     *
-     * @param array<string,mixed> $project
-     * @return string[] the titles of pages that have text and would be removed
-     */
-    private static function wouldLose(array $project, string $markdown): array
-    {
-        $wanted = [];
-        foreach (Structure::parse($markdown)['chapters'] as $chapter) {
-            foreach ($chapter['pages'] as $page) {
-                $key = mb_strtolower((string)$page['title']);
-                $wanted[$key] = ($wanted[$key] ?? 0) + 1;
-            }
-        }
-
-        $rows = self::snapshot($project)['pages'];
-        uasort($rows, static fn(array $a, array $b): int => (int)$a['written'] <=> (int)$b['written']);
-
-        $lost = [];
-        foreach ($rows as $row) {
-            $key = mb_strtolower($row['title']);
-            if (($wanted[$key] ?? 0) > 0) {
-                $wanted[$key]--;
-                continue;
-            }
-            if ($row['written']) {
-                $lost[] = $row['title'];
-            }
-        }
-
-        return $lost;
     }
 
     /**

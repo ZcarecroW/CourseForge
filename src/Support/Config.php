@@ -102,7 +102,7 @@ final class Config
     public static function int(string $path, int $default): int
     {
         $value = self::get($path, $default);
-        return is_numeric($value) ? (int)$value : $default;
+        return is_numeric($value) && is_finite((float)$value) ? (int)$value : $default;
     }
 
     public static function str(string $path, string $default): string

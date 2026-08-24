@@ -50,7 +50,31 @@ export const ConnectView = {
       url: '', clients: [], enabled: true, scopes: [], scopes_unavailable: false,
     });
 
-    const loading = ref(true);
+    /**
+     * What this screen actually knows: 'loading' until the server has answered
+     * once, 'ready' after it has, 'failed' if that first answer never came.
+     *
+     * Every number and every instruction below is gated on this. A request that
+     * failed - or one that simply never came back - used to leave the page fully
+     * drawn and confidently wrong: "0 connections" over five real ones, a blank
+     * endpoint, and an instruction to tick a group out of an empty list. None of
+     * that was ever read from anywhere. It is the shape of the empty object the
+     * screen starts life with, presented as fact.
+     */
+    const status = ref('loading');
+    /**
+     * Set when a later read fails on a screen that had already been read once.
+     *
+     * That is not the same situation at all. The cards on screen did come from
+     * the server and were true when they arrived, so clearing them and saying
+     * the screen could not be read would be its own untrue statement. They stay
+     * where they are, and a strip at the top says how old they are.
+     */
+    const stale = ref(false);
+    /** True while a read is in flight, whether or not anything is on screen yet. */
+    const reading = ref(false);
+    /** What the server said when it refused, kept on screen rather than in a toast. */
+    const failure = ref('');
     const busy = ref(false);
     const draft = reactive({ name: '', note: '', ttl: 0 });
     /** The chosen tool groups, by key. Empty is refused - see create(). */
@@ -122,21 +146,70 @@ export const ConnectView = {
       else chosen.delete(key);
     };
 
-    const load = () => attempt(async () => {
-      const data = await get('connect');
-      Object.assign(connect, data.connect ?? {});
-      // Everything on, every time the catalogue arrives: a connection made
-      // without a thought should be able to do what its owner can do, and
-      // narrowing it is the deliberate act.
-      selectAll();
-      loading.value = false;
-    }, 'Load connections');
+    /**
+     * Which read is the current one.
+     *
+     * Reload stays pressable while a read is in flight, because a request that
+     * hangs never comes back to re-enable it and a screen you cannot ask again
+     * is a dead end - which is the very case that used to show nothing at all.
+     * The cost of that is two answers racing, so an answer to a read that has
+     * since been superseded is dropped rather than allowed to overwrite a newer
+     * one with older facts.
+     */
+    let currentRead = 0;
+
+    /**
+     * Written out rather than wrapped in `attempt`, because a toast is the wrong
+     * home for this failure. A toast is gone in nine seconds and the screen it
+     * left behind still claims to be the truth about the installation, so the
+     * message is kept on the page until a read succeeds.
+     *
+     * The first read and every one after it are told apart on purpose. Before
+     * the first answer there is genuinely nothing to show and nothing that can
+     * honestly be said, so the screen waits and then, if it must, says it could
+     * not be read. After it, the screen is holding real cards, and a reload that
+     * fails is a reason to date them, not to throw them away.
+     */
+    const load = async () => {
+      const mine = (currentRead += 1);
+      const first = status.value !== 'ready';
+      if (first) status.value = 'loading';
+      reading.value = true;
+      failure.value = '';
+      try {
+        const data = await get('connect');
+        if (mine !== currentRead) return;
+        Object.assign(connect, data.connect ?? {});
+        // Everything on, every time the catalogue arrives: a connection made
+        // without a thought should be able to do what its owner can do, and
+        // narrowing it is the deliberate act.
+        selectAll();
+        status.value = 'ready';
+        stale.value = false;
+      } catch (error) {
+        if (mine !== currentRead) return;
+        failure.value = error.message;
+        if (first) status.value = 'failed';
+        else stale.value = true;
+        toast.error(`Load connections: ${error.message}`);
+      } finally {
+        if (mine === currentRead) reading.value = false;
+      }
+    };
 
     onMounted(load);
 
     /* ------------------------------------------------------------- writing */
 
     const create = () => attempt(async () => {
+      // The Create button carries `:disabled="busy…"`, but that is a rendering,
+      // and Vue renders on the next tick - so two presses inside one turn both
+      // arrive here and both issue a token. Only one of them can be shown: the
+      // second answer overwrites the panel, and the first token is left live,
+      // uncopied and unknown to the person who is supposed to revoke it. The
+      // flag has to be read where the work happens, not only where it is drawn.
+      if (busy.value) return;
+
       if (chosen.size === 0) {
         // An empty list is how the server spells "everything this account may
         // do", so submitting an empty checklist would hand over more than a
@@ -174,6 +247,7 @@ export const ConnectView = {
     };
 
     const saveEdit = () => attempt(async () => {
+      if (busy.value) return;                     // same reasoning as create()
       const target = editing.value;
       if (!target) return;
       busy.value = true;
@@ -204,6 +278,27 @@ export const ConnectView = {
 
     const labelFor = (key) => connect.scopes.find((s) => s.key === key)?.label ?? key;
     const spendsFor = (key) => connect.scopes.find((s) => s.key === key)?.spends === true;
+
+    /**
+     * Whether a group named on a card is actually behind the token.
+     *
+     * Administration is gated on the account, not on the connection, and the
+     * server intersects the two every time a tool is called - so a normal
+     * account's connection can carry the group and be given nothing by it. That
+     * happens through the API, or to an administrator's connection whose owner
+     * is later demoted. Every card here belongs to the signed-in account (the
+     * screen never asks for anybody else's), so this account's rights are the
+     * right thing to measure against.
+     *
+     * A group the catalogue does not describe is left alone: an unreadable
+     * catalogue is a reason to say nothing, not a reason to call it inert.
+     */
+    const grants = (key) => {
+      const scope = connect.scopes.find((s) => s.key === key);
+      return scope?.admin !== true || isAdmin.value;
+    };
+
+    const inertScopes = (client) => (client.scopes ?? []).filter((key) => !grants(key));
 
     /**
      * How a connection's remaining life reads on its card.
@@ -247,25 +342,70 @@ export const ConnectView = {
     };
 
     return {
-      connect, loading, busy, draft, chosen, fresh, freshPanel, editing, confirmDelete, isAdmin,
+      connect, status, stale, reading, failure, busy, draft, chosen, fresh, freshPanel,
+      editing, confirmDelete, isAdmin,
       scopeList, grantable, allChosen, selectAll, toggleScope,
       load, create, startEdit, saveEdit, remove,
-      labelFor, spendsFor, expiry, command, urlWithToken, copy,
+      labelFor, spendsFor, grants, inertScopes, expiry, command, urlWithToken, copy,
       TTL_CHOICES, relativeTime, formatDate, plural,
     };
   },
   template: `
     <view-header title="Connect" icon="link">
       <template #actions>
-        <span class="badge hide-sm">{{ plural(connect.clients.length, 'connection') }}</span>
+        <span v-if="status === 'ready'" class="badge hide-sm">
+          {{ plural(connect.clients.length, 'connection') }}
+        </span>
+        <span v-if="status === 'ready' && stale" class="badge badge--warning hide-sm">out of date</span>
+        <span v-else-if="status === 'failed'" class="badge badge--danger hide-sm">not read</span>
         <button class="btn btn--ghost btn--icon" title="Reload" @click="load">
-          <app-icon name="refresh" :size="15"/>
+          <app-icon name="refresh" :size="15" :spin="reading"/>
         </button>
       </template>
     </view-header>
 
     <div class="view-scroll">
       <div class="view-pad container-narrow col gap-6">
+
+        <!-- nothing was read ------------------------------------------- -->
+        <section v-if="status === 'failed'" class="card card--pad col gap-3" role="alert"
+                 style="border-color:var(--danger-line)">
+          <div class="row gap-2">
+            <app-icon name="alert" :size="16" class="c-danger none"/>
+            <h3 class="card__title grow">This screen could not be read</h3>
+          </div>
+          <p class="hint">{{ failure }}</p>
+          <p class="hint">
+            So nothing below is known: not how many connections exist, not the address a client would use,
+            and not what any of them may do. Nothing has been changed and nothing has stopped working -
+            it is only this page that failed to load.
+          </p>
+          <div class="row">
+            <button class="btn btn--sm" @click="load">
+              <app-icon name="refresh" :size="13" :spin="reading"/> Try again
+            </button>
+          </div>
+        </section>
+
+        <!-- read once, and then not again ------------------------------ -->
+        <section v-if="stale" class="card card--pad col gap-3" role="status"
+                 style="border-color:var(--warning-line)">
+          <div class="row gap-2">
+            <app-icon name="alert" :size="16" class="c-warning none"/>
+            <h3 class="card__title grow">This screen is showing an older answer</h3>
+          </div>
+          <p class="hint">{{ failure }}</p>
+          <p class="hint">
+            Everything below is what the server said when it last answered, so it is real but it may have
+            moved on since - a connection created or revoked elsewhere would not be here. Nothing has been
+            changed and nothing has stopped working.
+          </p>
+          <div class="row">
+            <button class="btn btn--sm" @click="load">
+              <app-icon name="refresh" :size="13" :spin="reading"/> Try again
+            </button>
+          </div>
+        </section>
 
         <!-- what this is ---------------------------------------------- -->
         <section class="card card--pad col gap-3">
@@ -289,8 +429,12 @@ export const ConnectView = {
             <strong>Settings, Connectors, Add custom connector</strong>.
           </p>
           <div class="divider"></div>
-          <p class="hint">
+          <p v-if="connect.url" class="hint">
             <strong>Endpoint:</strong> <code>{{ connect.url }}</code>
+          </p>
+          <p v-else class="hint">
+            <strong>Endpoint:</strong> the server works this address out from the request itself, so it
+            appears here once this screen has managed to load.
           </p>
           <p class="hint">
             It answers both generations of the protocol, so you do not have to know which one your client
@@ -305,7 +449,7 @@ export const ConnectView = {
                  style="border-color:var(--success-line);scroll-margin-top:var(--s-4)">
           <div class="row gap-2">
             <app-icon name="check-circle" :size="16" class="c-success none"/>
-            <h3 class="card__title grow">"{{ fresh.client.name }}" is ready</h3>
+            <h3 class="card__title grow" style="overflow-wrap:anywhere">"{{ fresh.client.name }}" is ready</h3>
           </div>
           <p class="hint c-warning">
             Copy it now. Only a hash of this token is stored, so it cannot be shown again - if you lose it,
@@ -314,7 +458,9 @@ export const ConnectView = {
 
           <div class="row wrap gap-1">
             <template v-if="fresh.client.scopes && fresh.client.scopes.length">
-              <span v-for="key in fresh.client.scopes" :key="key" class="chip">
+              <span v-for="key in fresh.client.scopes" :key="key" class="chip"
+                    :class="{ 'chip--off': !grants(key) }"
+                    :title="grants(key) ? null : 'Struck through: this group gives the connection nothing.'">
                 <app-icon v-if="spendsFor(key)" name="zap" :size="10"/>{{ labelFor(key) }}
               </span>
             </template>
@@ -365,6 +511,15 @@ export const ConnectView = {
             </p>
           </div>
 
+          <empty-state v-if="status === 'loading'" icon="refresh" title="Reading this installation…"
+                       hint="What a connection may be given is decided by the server, so the form waits for it."/>
+
+          <p v-else-if="status === 'failed'" class="hint c-danger">
+            The form is hidden because the list of tool groups never arrived, and a connection made without
+            it would be given everything this account can do. Load the screen again first.
+          </p>
+
+          <template v-else>
           <div class="grid grid-2">
             <div class="form-row">
               <label for="conn-name">Name</label>
@@ -439,7 +594,11 @@ export const ConnectView = {
 
             <!-- Silent while the catalogue is unreadable: the red message above
                  is the whole story then, and "nothing is ticked" would be
-                 advice to tick something that is not on screen. -->
+                 advice to tick something that is not on screen. The same is
+                 true when nothing was read at all, which is why the whole form
+                 sits behind status === 'ready' - that is the case this guard
+                 was written for and used to miss, because a request that never
+                 answers leaves scopes_unavailable false. -->
             <template v-if="!connect.scopes_unavailable">
               <p v-if="allChosen" class="hint">
                 Everything is ticked, which is stored as "whatever this account may do". If your account is
@@ -465,21 +624,35 @@ export const ConnectView = {
               {{ busy ? 'Creating…' : 'Create connection' }}
             </button>
           </div>
+          </template>
         </section>
 
         <!-- existing ---------------------------------------------------- -->
         <section class="col gap-3">
           <h3 class="card__title">Connected clients</h3>
 
+          <empty-state v-if="status === 'loading'" icon="refresh" title="Reading your connections…"/>
+
+          <p v-else-if="status === 'failed'" class="hint c-danger">
+            The list could not be read. Whatever is connected is still connected - this page simply does not
+            know what it is, so it is showing you nothing rather than none.
+          </p>
+
+          <template v-else>
           <article v-for="client in connect.clients" :key="client.id"
                    class="card card--flat card--pad col gap-3">
             <div class="row wrap between gap-3">
+              <!-- A name and a note are somebody's own words, and 200 characters
+                   of pasted machine id or base64 carry no space to break at.
+                   Without this the text runs out of the card and drags a
+                   horizontal scrollbar across the whole screen. -->
               <div class="grow" style="min-width:220px">
                 <p class="row wrap gap-2">
-                  <span class="strong">{{ client.name }}</span>
+                  <span class="strong" style="overflow-wrap:anywhere">{{ client.name }}</span>
                   <span v-if="client.expired" class="badge badge--danger">expired</span>
+                  <span v-if="client.revoked_by_reset" class="badge badge--danger">cut off</span>
                 </p>
-                <p v-if="client.note" class="t-xs dim">{{ client.note }}</p>
+                <p v-if="client.note" class="t-xs dim" style="overflow-wrap:anywhere">{{ client.note }}</p>
               </div>
               <div class="row gap-1 none">
                 <button class="btn btn--ghost btn--sm" @click="startEdit(client)">
@@ -493,7 +666,9 @@ export const ConnectView = {
 
             <div class="row wrap gap-1">
               <template v-if="client.scopes && client.scopes.length">
-                <span v-for="key in client.scopes" :key="key" class="chip">
+                <span v-for="key in client.scopes" :key="key" class="chip"
+                      :class="{ 'chip--off': !grants(key) }"
+                      :title="grants(key) ? null : 'Struck through: this group gives the connection nothing.'">
                   <app-icon v-if="spendsFor(key)" name="zap" :size="10"/>{{ labelFor(key) }}
                 </span>
               </template>
@@ -502,6 +677,13 @@ export const ConnectView = {
               </span>
               <span class="badge none" :class="expiry(client).tone">{{ expiry(client).label }}</span>
             </div>
+
+            <p v-if="inertScopes(client).length" class="hint c-warning">
+              {{ inertScopes(client).map(labelFor).join(', ') }} is struck through because it needs an
+              administrator and this account is not one. The server checks that on every call, so this
+              connection has never been given those tools - it would gain them only if this account were
+              made an administrator.
+            </p>
 
             <p class="t-xs dim">
               Added {{ relativeTime(client.created_at) }}
@@ -519,13 +701,20 @@ export const ConnectView = {
               This connection has passed its expiry date, so the endpoint now refuses it. The client at the
               other end will report that it can no longer see anything. Revoke it and make a new one.
             </p>
+
+            <p v-if="client.revoked_by_reset" class="hint c-warning">
+              This connection was made before an administrator last set this account's password, so the
+              endpoint refuses it. Resetting a password is how somebody who has held it is cut off, and that
+              has to include the connections they had already made. Revoke this one and make a new one.
+            </p>
           </article>
 
-          <empty-state v-if="!loading && !connect.clients.length" icon="link" title="Nothing connected yet"
+          <empty-state v-if="!connect.clients.length" icon="link" title="Nothing connected yet"
                        hint="Create a connection above and paste the line it gives you into your Claude client."/>
+          </template>
         </section>
 
-        <p v-if="!connect.enabled" class="hint c-danger">
+        <p v-if="status === 'ready' && !connect.enabled" class="hint c-danger">
           The MCP endpoint is switched off for this installation, so every one of these connections will be
           refused. An administrator can turn it back on under Settings.
         </p>

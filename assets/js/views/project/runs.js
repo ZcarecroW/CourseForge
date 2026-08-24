@@ -49,10 +49,16 @@ let live = false;
 export const openRuns = computed(() => runs.jobs.filter((job) => !job.terminal));
 export const doneRuns = computed(() => runs.jobs.filter((job) => job.terminal));
 
-/** True when a background run would sit in the queue with nobody to write it. */
-export const cronStalled = computed(() =>
-  openRuns.value.some((job) => job.mode === 'live') && !runs.cron.healthy
-);
+/**
+ * True when a background run would sit in the queue with nobody to write it.
+ *
+ * Deliberately not conditional on a run already being open: the point of the
+ * warning is to be read before one is started, and a scheduler that has never
+ * called in is exactly as broken with an empty queue as with a full one. When
+ * it is not configured at all the button is not offered in the first place, so
+ * that case belongs to the capability rather than here.
+ */
+export const cronStalled = computed(() => runs.cron.configured && !runs.cron.healthy);
 
 const projectId = () => openCourse.value.id;
 
@@ -234,12 +240,28 @@ export function runProgress(job) {
   return `${written} of ${total} written${notes.length ? `, ${notes.join(', ')}` : ''}`;
 }
 
-/** How long ago the scheduler last ran, in words. */
-export function cronAge() {
-  if (!runs.cron.configured) return 'not set up';
-  if (!runs.cron.last_at) return 'never run';
+/** How long ago the scheduler last ran, in words. Only asked once it has run. */
+function cronAge() {
   const s = runs.cron.seconds_ago;
   if (s < 90) return 'just now';
   if (s < 5400) return `${Math.round(s / 60)} min ago`;
   return `${Math.round(s / 3600)} h ago`;
+}
+
+/**
+ * What is wrong with the scheduler, as a whole sentence.
+ *
+ * The three cases are three different sentences, which is why they are built
+ * here rather than around a single phrase: "not set up" and "never run" are not
+ * durations, and dropping them into "The scheduler last ran …" produced "The
+ * scheduler last ran never run".
+ */
+export function cronProblem() {
+  if (!runs.cron.configured) {
+    return 'The scheduler is not set up, so nothing writes background pages.';
+  }
+  if (!runs.cron.last_at) {
+    return 'The scheduler has never run, so nothing is writing background pages yet.';
+  }
+  return `The scheduler last ran ${cronAge()} — background pages are not being written.`;
 }

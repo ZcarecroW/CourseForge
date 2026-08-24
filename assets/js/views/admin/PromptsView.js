@@ -27,6 +27,7 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { get, put } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { plural } from '@/core/format.js';
+import { declareUnsaved } from '@/core/store.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import EmptyState from '@/components/EmptyState.js';
@@ -144,6 +145,10 @@ export const PromptsView = {
 
     const dirtySlots = computed(() => slotList.value.filter(isDirty));
     const dirtyCount = computed(() => dirtySlots.value.length);
+
+    // See SettingsView: the shell holds the navigation, the screen knows
+    // what would be lost, and this is the sentence that joins them.
+    declareUnsaved(() => (dirtyCount.value ? plural(dirtyCount.value, 'unsaved edit') : ''));
     const customCount = computed(() => slotList.value.filter(differs).length);
     const slotCount = computed(() => slotList.value.length);
     const customIn = (key) => inGroup(key).filter(differs).length;
@@ -156,7 +161,10 @@ export const PromptsView = {
      * told to drop the override rather than to store a copy of its own default.
      */
     const save = () => attempt(async () => {
-      if (!dirtyCount.value) return;
+      // `saving` disables the button, but only on the next tick, so two clicks
+      // in one tick would both get through and the second would send an already
+      // saved edit a second time.
+      if (!dirtyCount.value || saving.value) return;
       saving.value = true;
       try {
         const prompts = {};
@@ -223,7 +231,8 @@ export const PromptsView = {
         <span v-if="customCount" class="badge badge--accent hide-sm">{{ customCount }} of {{ slotCount }} changed</span>
         <span v-if="dirtyCount" class="badge badge--warning">{{ plural(dirtyCount, 'unsaved edit') }}</span>
         <button v-if="dirtyCount" class="btn btn--ghost btn--sm" @click="discard">Discard</button>
-        <button class="btn btn--ghost btn--icon hide-sm" title="Reload from the server" @click="load">
+        <button class="btn btn--ghost btn--icon hide-sm" title="Reload from the server"
+                aria-label="Reload the prompts from the server" @click="load">
           <app-icon name="refresh" :size="15"/>
         </button>
         <button class="btn btn--primary" :disabled="saving || !dirtyCount" @click="save">
@@ -263,6 +272,7 @@ export const PromptsView = {
           </span>
           <span class="badge none">{{ visibleSlots.length }}</span>
           <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Close"
+                  aria-label="Close the prompt list"
                   @click="listOpen = false"><app-icon name="x" :size="14"/></button>
         </div>
 
@@ -306,6 +316,7 @@ export const PromptsView = {
         <template v-if="current">
           <div class="pane__head">
             <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show the other prompts"
+                    aria-label="Show the other prompts"
                     @click="listOpen = true"><app-icon name="menu" :size="15"/></button>
             <div class="col grow" style="min-width:0;gap:1px">
               <span class="strong truncate">{{ current.label }}</span>

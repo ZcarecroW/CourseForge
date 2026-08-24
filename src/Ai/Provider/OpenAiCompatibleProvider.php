@@ -460,8 +460,8 @@ class OpenAiCompatibleProvider extends HttpProvider implements BatchCapable
     }
 
     /**
-     * A results file as a stream of whole lines, or null when there is no such
-     * file.
+     * A results file as a stream of whole lines, or null when the caller said
+     * the file was allowed to be missing and it was.
      *
      * A results file is JSONL rather than JSON and a finished course is tens of
      * megabytes of it, so the ordinary request path is the wrong shape twice
@@ -474,15 +474,19 @@ class OpenAiCompatibleProvider extends HttpProvider implements BatchCapable
      * that. Returning anything but the byte count aborts the transfer, which is
      * why the callback always returns what it was handed.
      *
-     * Null means the file is not there, which is the ordinary case rather than
-     * an error: a batch with no failures has no error file, and asking for one
-     * is how that is discovered. Every other failure is raised through the
-     * account's own error ladder, because a caller that reads a short result
-     * set as success marks a whole course of finished pages as never answered.
+     * A 404 is only ever ordinary when the caller says so, which is what
+     * $optional is for. It is true of a batch's error file, which does not
+     * exist when nothing failed; it is never true of the output file, because a
+     * completed batch always names one and a 404 there means the answers this
+     * run paid for could not be fetched. Reading that second case as "the
+     * provider had nothing to say about those pages" is how a finished course
+     * is written off as failed and its run closed as complete, so it is raised
+     * through the account's own error ladder like every other failure - as is a
+     * download that dies half way, for the same reason.
      *
      * @return resource|null
      */
-    public function batchStream(string $url)
+    public function batchStream(string $url, bool $optional = false)
     {
         $this->assertConfigured();
 
@@ -546,9 +550,16 @@ class OpenAiCompatibleProvider extends HttpProvider implements BatchCapable
             fwrite($spool, $pending); // a final line with no newline after it
         }
 
-        if ($status === 404) {
+        if ($status === 404 && $errno === 0) {
             fclose($spool);
-            return null;
+            if ($optional) {
+                return null;
+            }
+            throw HttpException::badRequest(
+                $this->label() . ': the batch results are no longer at ' . $url . ' (HTTP 404). '
+                . 'The batch finished, so these answers were written - the provider is not handing '
+                . 'them over now. Try again, and check how long that account keeps result files.'
+            );
         }
 
         if ($errno !== 0 || $status < 200 || $status >= 300) {

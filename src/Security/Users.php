@@ -23,6 +23,19 @@ final class Users
     /** Below this a password is refused outright, whoever sets it. */
     public const MIN_PASSWORD = 10;
 
+    /**
+     * The ceiling, in bytes rather than characters, because that is the unit
+     * the hash reads.
+     *
+     * PASSWORD_DEFAULT is bcrypt, and bcrypt uses the first 72 bytes and
+     * silently discards the rest - two different eighty-character passwords
+     * verify against each other, which was measured rather than assumed. A
+     * character is not a byte either: thirty emoji is a hundred and twenty
+     * bytes. So the limit is stated in the unit that matters and enforced
+     * before the hash can quietly enforce it worse.
+     */
+    public const MAX_PASSWORD_BYTES = 72;
+
     public static function count(): int
     {
         return (int)(Db::row('SELECT COUNT(*) AS n FROM users')['n'] ?? 0);
@@ -36,9 +49,22 @@ final class Users
         )['n'] ?? 0);
     }
 
-    /** True before the first administrator exists: the setup screen is due. */
+    /**
+     * True before the first administrator exists: the setup screen is due.
+     *
+     * A 3.x installation that has just been updated has no rows in this table
+     * and its accounts in `data/users.json`, so the file is imported here,
+     * where the question "are there any accounts?" is actually asked, rather
+     * than from a migration step nothing calls. An installation with accounts
+     * never gets as far as the import; one without pays a single stat for a
+     * file that is not there.
+     */
     public static function needsSetup(): bool
     {
+        if (self::count() > 0) {
+            return false;
+        }
+        self::importLegacyFile();
         return self::count() === 0;
     }
 
@@ -106,6 +132,12 @@ final class Users
     /**
      * Creates an account.
      *
+     * `password_reset_at` is stamped because the password this account starts
+     * with was chosen by whoever created it rather than by whoever will use it.
+     * Nothing is revoked by it - a brand-new account owns no connections yet -
+     * but it means the column says something true from the first row onwards,
+     * rather than only after the first reset.
+     *
      * @return array<string,mixed> the public view of the new account
      */
     public static function create(
@@ -125,8 +157,8 @@ final class Users
 
         $now = time();
         Db::run(
-            'INSERT INTO users (username, display_name, password_hash, role, disabled, created_at, updated_at, created_by, must_change_password)
-             VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)',
+            'INSERT INTO users (username, display_name, password_hash, role, disabled, created_at, updated_at, created_by, must_change_password, password_reset_at)
+             VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
             [
                 $username,
                 trim($displayName) !== '' ? trim($displayName) : $username,
@@ -136,6 +168,7 @@ final class Users
                 $now,
                 trim($createdBy),
                 $mustChangePassword ? 1 : 0,
+                $now,
             ]
         );
 
@@ -145,31 +178,37 @@ final class Users
     /**
      * Changes the role of an account.
      *
-     * The last enabled administrator cannot demote themselves out of existence;
-     * an installation with no administrator can only be repaired from the file
-     * system, so the check is worth having.
+     * The last enabled administrator cannot be demoted out of existence; an
+     * installation with no administrator can only be repaired from the file
+     * system, so the check is worth having - and worth making atomic, which is
+     * what KEEPS_AN_ADMIN is for.
      */
     public static function setRole(string $username, string $role): array
     {
         $user = self::require($username);
         $role = Actor::normaliseRole($role);
+        $sql = 'UPDATE users SET role = ?, updated_at = ? WHERE id = ?';
+        $args = [$role, time(), (int)$user['id']];
 
-        if ($role !== Actor::ROLE_ADMIN && (string)$user['role'] === Actor::ROLE_ADMIN) {
-            self::guardLastAdmin($username, 'change the role of');
+        if ($role === Actor::ROLE_ADMIN) {
+            Db::run($sql, $args);
+        } else {
+            self::writeKeepingAnAdmin($sql, $args, $username, 'change the role of');
         }
-
-        Db::run('UPDATE users SET role = ?, updated_at = ? WHERE id = ?', [$role, time(), (int)$user['id']]);
         return self::publicView(self::require($username));
     }
 
     public static function setDisabled(string $username, bool $disabled): array
     {
         $user = self::require($username);
-        if ($disabled && (string)$user['role'] === Actor::ROLE_ADMIN) {
-            self::guardLastAdmin($username, 'disable');
-        }
+        $sql = 'UPDATE users SET disabled = ?, updated_at = ? WHERE id = ?';
+        $args = [$disabled ? 1 : 0, time(), (int)$user['id']];
 
-        Db::run('UPDATE users SET disabled = ?, updated_at = ? WHERE id = ?', [$disabled ? 1 : 0, time(), (int)$user['id']]);
+        if ($disabled) {
+            self::writeKeepingAnAdmin($sql, $args, $username, 'disable');
+        } else {
+            Db::run($sql, $args);
+        }
         return self::publicView(self::require($username));
     }
 
@@ -199,14 +238,27 @@ final class Users
         return true;
     }
 
-    /** An administrator setting somebody else's password. */
+    /**
+     * An administrator setting somebody else's password.
+     *
+     * This is the one write that stamps `password_reset_at`, and the stamp is
+     * what revokes the account's older MCP connections - see
+     * `McpClients::resolve()`. The reason a reset is treated differently from
+     * the account changing its own password is what a reset is for: somebody
+     * else now knows this password, so anything issued while the old one was
+     * current has to stop working. An account choosing its own new password is
+     * not evidence that anything was compromised, and revoking its connections
+     * there would break the promise `change_my_password` makes in as many
+     * words - including cutting off the connection making the call.
+     */
     public static function setPassword(string $username, string $new, bool $mustChange = true): void
     {
         $user = self::require($username);
         self::validatePassword($new);
+        $now = time();
         Db::run(
-            'UPDATE users SET password_hash = ?, must_change_password = ?, updated_at = ? WHERE id = ?',
-            [self::hash($new), $mustChange ? 1 : 0, time(), (int)$user['id']]
+            'UPDATE users SET password_hash = ?, must_change_password = ?, updated_at = ?, password_reset_at = ? WHERE id = ?',
+            [self::hash($new), $mustChange ? 1 : 0, $now, $now, (int)$user['id']]
         );
     }
 
@@ -222,21 +274,35 @@ final class Users
     public static function delete(string $username, string $content, string $transferTo = ''): void
     {
         $user = self::require($username);
-        self::guardLastAdmin($username, 'delete');
+        $owner = (string)$user['username'];
 
-        if ($content === 'transfer') {
-            $target = self::require($transferTo);
-            if (strcasecmp((string)$target['username'], (string)$user['username']) === 0) {
-                throw HttpException::unprocessable('An account cannot inherit its own content.');
-            }
-            self::transferContent((string)$user['username'], (string)$target['username']);
-        } elseif ($content === 'delete') {
-            self::deleteContent((string)$user['username']);
-        } else {
+        if ($content !== 'transfer' && $content !== 'delete') {
             throw HttpException::unprocessable('Say what should happen to this account\'s courses: "delete" or "transfer".');
         }
 
-        Db::run('DELETE FROM users WHERE id = ?', [(int)$user['id']]);
+        $heir = '';
+        if ($content === 'transfer') {
+            $target = self::require($transferTo);
+            if (strcasecmp((string)$target['username'], $owner) === 0) {
+                throw HttpException::unprocessable('An account cannot inherit its own content.');
+            }
+            $heir = (string)$target['username'];
+        }
+
+        // The account row goes first, so the transaction opens as a writer -
+        // which is what lets SQLite's busy handler apply - and the
+        // last-administrator condition is decided by the same statement that
+        // acts on it. The courses follow inside the same transaction, so a
+        // refusal leaves them exactly where they were.
+        Db::transaction(static function () use ($user, $username, $owner, $content, $heir): void {
+            self::writeKeepingAnAdmin('DELETE FROM users WHERE id = ?', [(int)$user['id']], $username, 'delete');
+
+            if ($content === 'transfer') {
+                self::transferContent($owner, $heir);
+            } else {
+                self::deleteContent($owner);
+            }
+        });
     }
 
     /** Moves everything one account owns to another. */
@@ -324,11 +390,21 @@ final class Users
 
     public static function validatePassword(string $password): void
     {
+        if (str_contains($password, "\0")) {
+            // password_hash() throws a ValueError on a null byte, and an
+            // uncaught ValueError is a 500 for what is plainly bad input.
+            throw HttpException::unprocessable('A password cannot contain a null character.');
+        }
         if (mb_strlen($password) < self::MIN_PASSWORD) {
             throw HttpException::unprocessable('A password needs at least ' . self::MIN_PASSWORD . ' characters.');
         }
-        if (mb_strlen($password) > 4096) {
-            throw HttpException::unprocessable('That password is absurdly long.');
+        if (strlen($password) > self::MAX_PASSWORD_BYTES) {
+            throw HttpException::unprocessable(
+                'That password is too long. The hash reads the first ' . self::MAX_PASSWORD_BYTES
+                . ' bytes and ignores the rest, so a longer one is not a stronger one - and accepting it would '
+                . 'mean storing something different from what you typed. Note that a byte is not a character: an '
+                . 'accented letter is two and an emoji is four.'
+            );
         }
     }
 
@@ -350,17 +426,44 @@ final class Users
         ];
     }
 
-    private static function guardLastAdmin(string $username, string $verb): void
+    /**
+     * The condition under which a row may be demoted, disabled or deleted: it
+     * is not an enabled administrator, or it is not the last one.
+     *
+     * This is a SQL fragment rather than a check in PHP because the count and
+     * the write have to be one statement. Reading the count and then writing
+     * leaves a window - the few milliseconds of the commit - and two
+     * administrators disabling each other inside it both read "two
+     * administrators", both wrote, and left the installation with none, which
+     * can only be repaired by editing app.sqlite by hand. Folded into the
+     * write, the second statement is serialised behind the first and sees its
+     * effect, so it matches no rows and is refused.
+     *
+     * Only ever interpolated into SQL, never near a value: it holds no
+     * parameters of its own.
+     */
+    private const KEEPS_AN_ADMIN =
+        "(role <> 'admin' OR disabled = 1 OR (SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled = 0) > 1)";
+
+    /**
+     * Runs a write that must not remove the last enabled administrator.
+     *
+     * The statement is expected to end in a WHERE clause, so the condition can
+     * be appended to it. Nothing changed means either that the guard refused or
+     * that the row went away underneath us, and those are different answers.
+     *
+     * @param array<int,mixed> $args
+     */
+    private static function writeKeepingAnAdmin(string $sql, array $args, string $username, string $verb): void
     {
-        $user = self::require($username);
-        if ((string)$user['role'] !== Actor::ROLE_ADMIN || (int)$user['disabled'] === 1) {
+        if (Db::run($sql . ' AND ' . self::KEEPS_AN_ADMIN, $args)->rowCount() > 0) {
             return;
         }
-        if (self::adminCount() <= 1) {
-            throw HttpException::unprocessable(
-                'This is the only administrator left. Promote another account before you ' . $verb . ' this one.'
-            );
-        }
+
+        self::require($username); // gone rather than guarded: that is a 404
+        throw HttpException::unprocessable(
+            'This is the only administrator left. Promote another account before you ' . $verb . ' this one.'
+        );
     }
 
     /* ------------------------------------------------------------- migration */
@@ -372,6 +475,12 @@ final class Users
      * everything, so they arrive as administrators. The file is renamed rather
      * than deleted: it is the only copy of the hash, and an import that went
      * wrong should be recoverable by hand.
+     *
+     * `password_reset_at` is deliberately left at its column default of zero.
+     * Nobody has reset these passwords - they are the ones the installation
+     * already had - and stamping the import instead would revoke every
+     * CourseForge 3 connection the moment 4.0 first booted, which is the
+     * opposite of what those tokens were promised.
      */
     public static function importLegacyFile(): int
     {

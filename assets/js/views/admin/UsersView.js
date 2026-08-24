@@ -106,8 +106,17 @@ export const UsersView = {
      * stores it, which has no ownership counts and no "this is you" marker on
      * it, so merging one would quietly blank the two columns this screen is
      * actually about.
+     *
+     * It is also the re-entrancy guard for the whole screen. Every button here
+     * carries `:disabled="busy"`, but that is the sign of the guard rather than
+     * the guard itself: Vue writes the attribute on the next tick, so three
+     * clicks landing in one tick all see an enabled button. Issuing an invite
+     * three times that way really did issue three, each one cancelling the last.
+     * Nothing on this screen is worth doing twice at once, so a second call
+     * while one is in flight is dropped here.
      */
     const run = (action, label) => attempt(async () => {
+      if (busy.value) return;
       busy.value = true;
       try {
         const result = await action();
@@ -287,13 +296,30 @@ export const UsersView = {
 
     /* --------------------------------------------------------------- copying */
 
+    /**
+     * Which copy button has just worked, so the button itself can say so.
+     *
+     * The things copied here are shown exactly once - a generated password, an
+     * invite code - and somebody who is not sure it reached the clipboard will
+     * dismiss the card and find out too late that it did not. A toast in the
+     * corner is easy to miss; the button under the cursor is not. Held as the
+     * label because the three buttons on this screen copy three different
+     * things and only the pressed one should change.
+     */
+    const copied = ref('');
+    let copiedTimer = 0;
+
     const copy = async (text, what) => {
       try {
         await navigator.clipboard.writeText(text);
+        copied.value = what;
+        clearTimeout(copiedTimer);
+        copiedTimer = setTimeout(() => { copied.value = ''; }, 2000);
         toast.success(`${what} copied.`);
       } catch {
         // A page served over plain http has no clipboard API. The text is on
         // screen and selectable, so this is a nudge rather than a failure.
+        copied.value = '';
         toast.info('Copying is blocked here - select the text and copy it manually.');
       }
     };
@@ -307,7 +333,7 @@ export const UsersView = {
       deleting, deleteChoice, transferTo, typedName, inheritors, needsTyping, deleteReady,
       openDelete, confirmDelete,
       inviteDraft, issueInvite, TTL_CHOICES,
-      fresh, copy, reload,
+      fresh, copy, copied, reload,
       formatDateTime, relativeTime, plural,
     };
   },
@@ -315,7 +341,8 @@ export const UsersView = {
     <view-header title="Accounts" icon="users">
       <template #actions>
         <span class="badge hide-sm">{{ plural(state.users.length, 'account') }}</span>
-        <button class="btn btn--ghost btn--icon" title="Reload" :disabled="busy" @click="reload">
+        <button class="btn btn--ghost btn--icon" title="Reload" aria-label="Reload the accounts"
+                :disabled="busy" @click="reload">
           <app-icon name="refresh" :size="15" :spin="busy"/>
         </button>
       </template>
@@ -339,7 +366,8 @@ export const UsersView = {
             <label class="row between">
               <span>Password for {{ fresh.password.username }}</span>
               <button class="btn btn--ghost btn--sm" @click="copy(fresh.password.password, 'Password')">
-                <app-icon name="copy" :size="12"/> copy
+                <app-icon :name="copied === 'Password' ? 'check' : 'copy'" :size="12"/>
+                {{ copied === 'Password' ? 'copied' : 'copy' }}
               </button>
             </label>
             <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ fresh.password.password }}</pre>
@@ -367,7 +395,8 @@ export const UsersView = {
             <label class="row between">
               <span>Invite code ({{ roleLabel(fresh.invite.role) }})</span>
               <button class="btn btn--ghost btn--sm" @click="copy(fresh.invite.code, 'Invite code')">
-                <app-icon name="copy" :size="12"/> copy
+                <app-icon :name="copied === 'Invite code' ? 'check' : 'copy'" :size="12"/>
+                {{ copied === 'Invite code' ? 'copied' : 'copy' }}
               </button>
             </label>
             <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ fresh.invite.code }}</pre>
@@ -377,7 +406,8 @@ export const UsersView = {
             <label class="row between">
               <span>Written to</span>
               <button class="btn btn--ghost btn--sm" @click="copy(fresh.invite.path, 'Path')">
-                <app-icon name="copy" :size="12"/> copy
+                <app-icon :name="copied === 'Path' ? 'check' : 'copy'" :size="12"/>
+                {{ copied === 'Path' ? 'copied' : 'copy' }}
               </button>
             </label>
             <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ fresh.invite.path }}</pre>
@@ -459,23 +489,32 @@ export const UsersView = {
                   </td>
 
                   <td>
+                    <!-- These four carry no text, so each needs a name of its
+                         own. The title says what the button does and why it may
+                         be refused; the label names the account it would do it
+                         to, which a row read out on its own does not otherwise
+                         say. -->
                     <div class="row gap-1 end">
                       <button class="btn btn--ghost btn--sm btn--icon" title="Set a password for this account"
+                              :aria-label="'Set a password for ' + user.username"
                               :disabled="busy" @click="openPassword(user)">
                         <app-icon name="cog" :size="13"/>
                       </button>
                       <button v-if="user.disabled" class="btn btn--ghost btn--sm btn--icon"
-                              title="Let this account sign in again" :disabled="busy"
+                              title="Let this account sign in again"
+                              :aria-label="'Let ' + user.username + ' sign in again'" :disabled="busy"
                               @click="setDisabled(user, false)">
                         <app-icon name="eye" :size="13"/>
                       </button>
                       <button v-else class="btn btn--ghost btn--sm btn--icon"
-                              :title="user.is_you ? 'You cannot lock yourself out.' : 'Stop this account signing in, without deleting anything'"
+                              :title="user.is_you ? 'You cannot disable the account you are signed in with.' : 'Stop this account signing in, without deleting anything'"
+                              :aria-label="'Stop ' + user.username + ' signing in'"
                               :disabled="busy || user.is_you" @click="setDisabled(user, true)">
                         <app-icon name="eye-off" :size="13"/>
                       </button>
                       <button class="btn btn--ghost btn--sm btn--icon"
                               :title="user.is_you ? 'You cannot delete the account you are signed in with.' : 'Delete this account'"
+                              :aria-label="'Delete ' + user.username"
                               :disabled="busy || user.is_you" @click="openDelete(user)">
                         <app-icon name="trash" :size="13"/>
                       </button>
@@ -574,10 +613,16 @@ export const UsersView = {
               to a file on the server as well as showing it here.
             </p>
             <p class="hint mt-2">
-              It is also the way back in when every administrator password has been lost: anybody who can read
-              files on the server can open that file and make themselves an administrator account. Reading it
-              needs the same access as editing the configuration, so it grants nothing that was not already
-              there.
+              Whoever you send it to types it on the sign-in screen, under
+              <span class="semi">I have an invite code</span>. The account it makes is the role you choose
+              below and nothing else - the code carries that with it, and its holder is never asked.
+            </p>
+            <p class="hint mt-2">
+              An invite grants nothing that reading files on this server did not already grant, which is why
+              an administrator is allowed to issue one. It is not a way back in when every administrator
+              password has been lost, though: issuing one needs an administrator session, which is precisely
+              what is missing then. That case is repaired from the database - delete the rows in the
+              <span class="mono">users</span> table, and the first-run screen and a fresh code come back.
             </p>
           </div>
 
@@ -634,7 +679,11 @@ export const UsersView = {
       <div class="col gap-4">
         <p class="t-sm">
           This replaces whatever <strong>{{ passwordFor.display_name }}</strong> is using now. Their courses,
-          profiles and tags are not touched, and any session they have open is not signed out.
+          profiles and tags are not touched, and a browser tab they have open is not signed out.
+        </p>
+        <p class="t-sm">
+          Every MCP connection they made before now stops working, because a reset is how somebody who has held
+          this password is cut off. They can make new ones from the Connect screen once they have signed in.
         </p>
 
         <div class="form-row">

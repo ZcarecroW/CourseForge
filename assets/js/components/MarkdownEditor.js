@@ -29,7 +29,7 @@ import {
   drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightSpecialChars,
   placeholder as cmPlaceholder, ViewPlugin, Decoration, MatchDecorator,
 } from '@codemirror/view';
-import { history, defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { history, defaultKeymap, historyKeymap, indentWithTab, redo } from '@codemirror/commands';
 import {
   indentOnInput, bracketMatching, syntaxHighlighting, HighlightStyle,
   LanguageSupport, StreamLanguage, ParseContext,
@@ -294,7 +294,15 @@ export const MarkdownEditor = {
       clozeDeletions,
       cmPlaceholder(props.placeholder),
       darkness.of(EditorView.darkTheme.of(resolvedTheme.value === 'dark')),
-      keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap, indentWithTab]),
+      // CodeMirror's own history keymap gives redo Ctrl+Shift+Z on macOS and on
+      // Linux, and on Windows nothing but Ctrl+Y - which leaves the shortcut
+      // every other editor on the machine has doing nothing at all. Bound here
+      // for all three, next to the keymap it completes.
+      keymap.of([
+        ...closeBracketsKeymap, ...defaultKeymap, ...searchKeymap, ...historyKeymap,
+        { key: 'Mod-Shift-z', run: redo, preventDefault: true },
+        indentWithTab,
+      ]),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged || echoing) return;
         emit('update:modelValue', update.state.doc.toString());

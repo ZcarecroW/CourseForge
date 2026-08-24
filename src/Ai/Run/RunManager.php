@@ -174,9 +174,20 @@ final class RunManager
             return BatchDriver::cancel($username, $runId);
         }
 
+        // The run is closed before its pages are released, not after. Both the
+        // worker asking for its next page and the requeue a worker's failure
+        // makes read the run's status, so releasing first leaves a window in
+        // which either can put a page back into a run that is one statement away
+        // from ending - and a page queued against an ended run is a page no run
+        // can claim again. Closing first shuts that window: from here on nothing
+        // can enter the run, and what is left to do is release what it holds.
+        Runs::update($runId, ['status' => Runs::CANCELED, 'finished_at' => time()]);
+
         // A page a worker already holds is left alone: it will finish, find its
         // item is no longer claimed, and keep the text it produced rather than
-        // throwing away work that was already paid for.
+        // throwing away work that was already paid for. The driver ends that
+        // item when the worker reports back, and the scheduler's stale-claim
+        // sweep does it when the worker never does.
         foreach (Runs::pendingItems($runId) as $item) {
             if (!Runs::settleItem($runId, (string)$item['custom_id'], 'canceled', 'Stopped before this page was written.', Runs::ITEM_PENDING)) {
                 continue;
@@ -187,7 +198,6 @@ final class RunManager
             }
         }
 
-        Runs::update($runId, ['status' => Runs::CANCELED, 'finished_at' => time()]);
         Projects::touch((int)$run['project_id']);
 
         return Runs::summary(Runs::require($username, $runId));

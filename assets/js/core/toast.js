@@ -29,12 +29,20 @@ export const toast = {
 /**
  * Runs an async action, turning any failure into an error toast.
  * Returns the action's value, or `undefined` when it failed – so callers can
- * simply check the result instead of writing their own try/catch.
+ * check the result instead of writing their own try/catch.
+ *
+ * One failure, one message. A lost session is announced by the store the
+ * moment the server refuses the request, in words that say what to do about
+ * it; the server's own wording for the same refusal is developer language
+ * ("Not authenticated.") and would arrive alongside it as a second notice for
+ * the same event. api.js marks those errors as already announced, and they are
+ * dropped here rather than at every call site.
  */
 export async function attempt(action, label = '') {
   try {
     return await action();
   } catch (error) {
+    if (error?.announced === true) return undefined;
     toast.error(label ? `${label}: ${error.message}` : error.message);
     return undefined;
   }

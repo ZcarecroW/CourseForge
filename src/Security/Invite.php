@@ -7,7 +7,7 @@ use CourseForge\Support\Db;
 use CourseForge\Support\HttpException;
 
 /**
- * The invite code that opens the setup screen.
+ * The invite code that turns into an account.
  *
  * A fresh installation is a web application with no accounts and a form that
  * creates the first administrator. Anything reachable from the internet in that
@@ -16,6 +16,13 @@ use CourseForge\Support\HttpException;
  * `INVITE-CODE.txt`, written next to `index.html` the first time CourseForge is
  * opened. Somebody who can read that file can already read `config/`, so it
  * proves exactly the right thing.
+ *
+ * The same mechanism serves a second door once that first account exists: an
+ * administrator issues an invite for a role, and whoever holds the code creates
+ * their own account with it and chooses their own password, rather than being
+ * handed one over a chat. The role is the one on the row, decided by the
+ * administrator who issued it - a code is never an argument about what it is
+ * worth.
  *
  * The plain code is in that file and nowhere else - the database keeps a hash,
  * the same way it does for a password or a connection token. An invite is good
@@ -87,12 +94,25 @@ final class Invite
         );
     }
 
+    /** The person on the first-run screen: they installed this and can read files on the server. */
+    public const AUDIENCE_INSTALLER = 'installer';
+
+    /** The person redeeming an invite: they were sent a code and have nothing else. */
+    public const AUDIENCE_HOLDER = 'holder';
+
     /**
      * Checks a code against the open invite.
      *
+     * The refusal is worded for whoever is reading it, which is not the same
+     * person at the two doors. On the first run it is the installer, who can
+     * open INVITE-CODE.txt and should be told to. On the other it is somebody
+     * who was sent a code and has no account, no shell and no reason to have
+     * heard of that file - pointing them at it sends them looking for something
+     * they cannot reach, which is worse than saying nothing.
+     *
      * @return array<string,mixed> the invite row
      */
-    public static function verify(string $code): array
+    public static function verify(string $code, string $audience = self::AUDIENCE_INSTALLER): array
     {
         $code = self::normalise($code);
         $invite = self::open();
@@ -103,15 +123,48 @@ final class Invite
         $matches = hash_equals($expected, self::hash($code));
 
         if ($invite === null || !$matches) {
-            throw HttpException::forbidden('That invite code is not valid. Read the current one from ' . self::FILE . '.');
+            throw HttpException::forbidden(
+                'That invite code is not valid. ' . ($audience === self::AUDIENCE_HOLDER
+                    ? 'Check you have copied all six groups of it, and ask whoever sent it to you for a new one '
+                        . 'if it has been used already.'
+                    : 'Read the current one from ' . self::FILE . ', in the folder CourseForge is installed in.')
+            );
         }
         return $invite;
     }
 
-    /** Marks an invite as spent and removes the file it was published in. */
-    public static function consume(array $invite, string $username): void
+    /**
+     * Spends an invite, and says whether this caller is the one who spent it.
+     *
+     * The write is conditional on the row still being open rather than being a
+     * bare UPDATE, because "an invite is good for one account" has to hold when
+     * two requests arrive with the same code at the same instant. SQLite
+     * serialises the two statements, so the second one matches no rows and is
+     * told so - two simultaneous setups used to produce two administrators from
+     * a single one-shot code.
+     *
+     * The caller is expected to be inside the transaction that creates the
+     * account, so that a spent invite and an account are the same event.
+     */
+    public static function consume(array $invite, string $username): bool
     {
-        Db::run('UPDATE invites SET used_at = ?, used_by = ? WHERE id = ?', [time(), $username, (int)$invite['id']]);
+        return Db::run(
+            'UPDATE invites SET used_at = ?, used_by = ? WHERE id = ? AND used_at = 0',
+            [time(), $username, (int)$invite['id']]
+        )->rowCount() > 0;
+    }
+
+    /**
+     * Removes the file a spent invite was published in.
+     *
+     * Separate from consume() because a transaction can be rolled back and an
+     * unlinked file cannot: the code lives in that file and nowhere else, so
+     * deleting it before the account is certain would leave an invite nobody
+     * can read. Both fixed locations are swept as well as the recorded one, so
+     * that a file left behind by an earlier invite cannot outlive it.
+     */
+    public static function discard(array $invite): void
+    {
         @unlink(self::pathOf($invite));
         @unlink(CF_ROOT . '/' . self::FILE);
         @unlink(CF_DATA . '/' . self::FILE);
@@ -186,11 +239,19 @@ final class Invite
             ? 'This code expires on ' . gmdate('Y-m-d H:i', $expires) . ' UTC.'
             : 'This code does not expire, but it can only be used once.';
 
+        // The first code is the only way to reach the setup screen; a later one
+        // is redeemed against an installation that already has accounts, and
+        // saying "setup screen" there would send its holder to a form that
+        // refuses them.
+        $purpose = $expires > 0
+            ? "This code creates one {$role} account, whose password is chosen by whoever uses it:"
+            : "Type this code into the setup screen to create the first {$role} account:";
+
         $body = <<<TXT
         CourseForge - invite code
         =========================
 
-        Type this code into the setup screen to create the first {$role} account:
+        {$purpose}
 
             {$code}
 

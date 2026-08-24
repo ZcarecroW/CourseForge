@@ -24,7 +24,7 @@
  * leave the installation in.
  */
 import { ref, reactive, computed, onMounted } from 'vue';
-import { state, loadSettings, applySettings } from '@/core/store.js';
+import { state, loadSettings, applySettings, declareUnsaved } from '@/core/store.js';
 import { get, put, post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { relativeTime, formatDateTime, plural } from '@/core/format.js';
@@ -67,6 +67,8 @@ export const SettingsView = {
 
     const confirmToken = ref(false);
     const confirmResetAll = ref(false);
+    /** The secret whose deletion is waiting to be confirmed. See resetField. */
+    const confirmSecret = ref(null);
     /** The freshly minted cron URL, readable until the administrator dismisses it. */
     const freshToken = ref(null);
 
@@ -130,6 +132,11 @@ export const SettingsView = {
 
     const dirtyFields = computed(() => state.settings.filter(isDirty));
     const dirtyCount = computed(() => dirtyFields.value.length);
+
+    // What the shell asks before it lets somebody navigate away. Without
+    // this the guard exists and has nothing to guard: the count is right
+    // here on the screen, and the shell cannot see it.
+    declareUnsaved(() => (dirtyCount.value ? plural(dirtyCount.value, 'unsaved change') : ''));
     const overridden = computed(() => state.settings.filter((field) => field.is_overridden));
 
     /* -------------------------------------------------------------- groups */
@@ -196,7 +203,7 @@ export const SettingsView = {
     /* --------------------------------------------------------------- write */
 
     const save = () => attempt(async () => {
-      if (!dirtyCount.value) return;
+      if (!dirtyCount.value || saving.value) return;
       saving.value = true;
       try {
         const values = {};
@@ -220,15 +227,25 @@ export const SettingsView = {
      * This is the only path that can truly remove a value from the override
      * file, which is why it is kept - but it is a write, so it is used only
      * where staging cannot do the job: a secret, and "reset everything" in the
-     * danger zone, which both say what they are before they happen.
+     * danger zone. Both are behind a confirmation that says so, because this is
+     * the one thing on the screen the "nothing is written until you save"
+     * promise does not cover, and a control that quietly breaks that promise is
+     * worse than one that never made it.
+     *
+     * The dialogs close here rather than at the call site, so a refusal from
+     * the server leaves the question on screen instead of dismissing it as
+     * though it had been answered.
      */
-    const resetKeys = (keys) => attempt(async () => {
+    const resetKeys = (keys, message = '') => attempt(async () => {
+      if (busy.value) return;
       busy.value = true;
       try {
         applySettings(await post('admin/settings/reset', { keys }));
         seed();
         confirmResetAll.value = false;
-        toast.success(keys.length === 1 ? 'Back to the shipped default.' : `${plural(keys.length, 'setting')} put back.`);
+        confirmSecret.value = null;
+        toast.success(message
+          || (keys.length === 1 ? 'Back to the shipped default.' : `${plural(keys.length, 'setting')} put back.`));
       } finally {
         busy.value = false;
       }
@@ -251,15 +268,25 @@ export const SettingsView = {
      * A secret is the exception, and it cannot be staged at all. The server
      * never sends one back and an empty box means "keep what is stored", so
      * there is no value this form could hold that means "remove it". That one
-     * has to be deleted on the server, which is what resetKeys is for.
+     * has to be deleted on the server, which is what resetKeys is for - and
+     * because it is a write that cannot wait for Save, and an irreversible one
+     * on a screen where every other reset is reversible until saved, it asks
+     * first and says why. The two controls looked identical; only one of them
+     * destroyed a credential.
      */
     const resetField = (field) => {
       if (field.type === 'secret') {
-        resetKeys([field.key]);
+        confirmSecret.value = field;
         return;
       }
       draft[field.key] = toDraft({ type: field.type, value: field.default });
       toast.info('Put back to the shipped default. Press Save changes to write it.');
+    };
+
+    /** The confirmed deletion of one stored secret. */
+    const removeSecret = () => {
+      const field = confirmSecret.value;
+      if (field) resetKeys([field.key], `${field.label} is no longer stored.`);
     };
 
     const resetEverything = () => resetKeys(overridden.value.map((field) => field.key));
@@ -303,6 +330,7 @@ export const SettingsView = {
     );
 
     const generateToken = () => attempt(async () => {
+      if (busy.value) return;
       busy.value = true;
       try {
         const data = await post('admin/settings/cron-token');
@@ -319,6 +347,7 @@ export const SettingsView = {
     /* --------------------------------------------------------- diagnostics */
 
     const runDiagnostics = () => attempt(async () => {
+      if (diagBusy.value) return;
       diagBusy.value = true;
       try {
         report.value = (await get('admin/diagnostics')).report;
@@ -341,11 +370,29 @@ export const SettingsView = {
 
     /* -------------------------------------------------------------- copying */
 
-    const copy = async (text, what) => {
+    /**
+     * Which copy button has just worked, so the button itself can say so.
+     *
+     * A toast answers "did that do anything" only for as long as somebody is
+     * looking at the corner of the screen, and the thing being copied here is a
+     * URL somebody is about to paste into a hosting control panel - they need
+     * to know it is on the clipboard before they leave. Held as an id rather
+     * than a boolean because four of these buttons can be on screen at once and
+     * only the one that was pressed should change; the id is separate from the
+     * noun in the toast because two of them copy a crontab line.
+     */
+    const copied = ref('');
+    let copiedTimer = 0;
+
+    const copy = async (text, what, id = what) => {
       try {
         await navigator.clipboard.writeText(text);
+        copied.value = id;
+        clearTimeout(copiedTimer);
+        copiedTimer = setTimeout(() => { copied.value = ''; }, 2000);
         toast.success(`${what} copied.`);
       } catch {
+        copied.value = '';
         toast.info('Copying is blocked here - select the text and copy it by hand.');
       }
     };
@@ -355,9 +402,9 @@ export const SettingsView = {
       groups, fieldsOf, advancedShown, toggleAdvanced,
       isDirty, dirtyCount, overridden, defaultText, hasRange, resetField, resetEverything,
       scheduler, schedulerHealth, cronLine, cronCurlLine,
-      confirmToken, confirmResetAll, freshToken, generateToken, CRON_TOKEN,
+      confirmToken, confirmResetAll, confirmSecret, removeSecret, freshToken, generateToken, CRON_TOKEN,
       report, diagBusy, diagOpen, toggleDiagnostics, runDiagnostics, statusOf, troubled, hintTone,
-      copy, relativeTime, formatDateTime, plural,
+      copy, copied, relativeTime, formatDateTime, plural,
     };
   },
   template: `
@@ -365,7 +412,8 @@ export const SettingsView = {
       <template #actions>
         <span v-if="dirtyCount" class="badge badge--warning">{{ plural(dirtyCount, 'unsaved change') }}</span>
         <button v-if="dirtyCount" class="btn btn--ghost btn--sm" @click="discard">Discard</button>
-        <button class="btn btn--ghost btn--icon hide-sm" title="Reload from the server" @click="load">
+        <button class="btn btn--ghost btn--icon hide-sm" title="Reload from the server"
+                aria-label="Reload the settings from the server" @click="load">
           <app-icon name="refresh" :size="15"/>
         </button>
         <button class="btn btn--primary" :disabled="saving || !dirtyCount" @click="save">
@@ -387,6 +435,12 @@ export const SettingsView = {
             picks up the new default on its own. Only the settings you actually change are written to
             <code>{{ state.settingsFiles.overrides }}</code> - everything else stays in the shipped
             <code>{{ state.settingsFiles.defaults }}</code>, which is never edited.
+          </p>
+          <p class="hint">
+            Three things here are written the moment you confirm them rather than waiting for Save, and each
+            one asks first: generating a scheduler token, deleting a stored secret, and
+            <strong>Reset every setting</strong> at the bottom of the page. A secret cannot wait, because this
+            screen is never sent one - so there is no value it could hold that means "remove it".
           </p>
           <p v-if="overridden.length" class="hint">
             Changed from the release on this installation:
@@ -441,8 +495,9 @@ export const SettingsView = {
             <div v-if="scheduler.configured" class="form-row">
               <label class="row between">
                 <span>Paste this into your hosting control panel</span>
-                <button class="btn btn--ghost btn--sm" @click="copy(scheduler.url, 'URL')">
-                  <app-icon name="copy" :size="12"/> copy
+                <button class="btn btn--ghost btn--sm" @click="copy(scheduler.url, 'URL', 'scheduler-url')">
+                  <app-icon :name="copied === 'scheduler-url' ? 'check' : 'copy'" :size="12"/>
+                  {{ copied === 'scheduler-url' ? 'copied' : 'copy' }}
                 </button>
               </label>
               <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ scheduler.url }}</pre>
@@ -458,8 +513,9 @@ export const SettingsView = {
                 <div class="form-row">
                   <label class="row between">
                     <span>crontab line</span>
-                    <button class="btn btn--ghost btn--sm" @click="copy(cronLine, 'Crontab line')">
-                      <app-icon name="copy" :size="12"/> copy
+                    <button class="btn btn--ghost btn--sm" @click="copy(cronLine, 'Crontab line', 'cron-cli')">
+                      <app-icon :name="copied === 'cron-cli' ? 'check' : 'copy'" :size="12"/>
+                      {{ copied === 'cron-cli' ? 'copied' : 'copy' }}
                     </button>
                   </label>
                   <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ cronLine }}</pre>
@@ -471,8 +527,9 @@ export const SettingsView = {
                 <div class="form-row">
                   <label class="row between">
                     <span>or the same thing over HTTP</span>
-                    <button class="btn btn--ghost btn--sm" @click="copy(cronCurlLine, 'Crontab line')">
-                      <app-icon name="copy" :size="12"/> copy
+                    <button class="btn btn--ghost btn--sm" @click="copy(cronCurlLine, 'Crontab line', 'cron-curl')">
+                      <app-icon :name="copied === 'cron-curl' ? 'check' : 'copy'" :size="12"/>
+                      {{ copied === 'cron-curl' ? 'copied' : 'copy' }}
                     </button>
                   </label>
                   <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ cronCurlLine }}</pre>
@@ -499,8 +556,9 @@ export const SettingsView = {
               <div class="row gap-2">
                 <app-icon name="check-circle" :size="15" class="c-success"/>
                 <strong class="grow">The new scheduler URL</strong>
-                <button class="btn btn--ghost btn--sm" @click="copy(freshToken.url, 'URL')">
-                  <app-icon name="copy" :size="12"/> copy
+                <button class="btn btn--ghost btn--sm" @click="copy(freshToken.url, 'URL', 'fresh-url')">
+                  <app-icon :name="copied === 'fresh-url' ? 'check' : 'copy'" :size="12"/>
+                  {{ copied === 'fresh-url' ? 'copied' : 'copy' }}
                 </button>
               </div>
               <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ freshToken.url }}</pre>
@@ -514,7 +572,7 @@ export const SettingsView = {
               <summary class="t-xs dim" style="cursor:pointer">Set the token by hand</summary>
               <div class="form-row mt-3">
                 <input v-model="draft[CRON_TOKEN]" type="password" class="mono"
-                       :placeholder="scheduler.configured ? '•••••••• stored - leave blank to keep it' : 'No token stored'">
+                       :placeholder="scheduler.configured ? '•••••••• stored - leave blank to keep it' : 'Nothing stored'">
                 <p class="hint">
                   Only useful when you are matching a token chosen somewhere else. Leave it blank and the
                   stored one is kept; it is saved with the rest of the page. Sixteen characters minimum, and
@@ -547,9 +605,9 @@ export const SettingsView = {
                     <span class="t-2xs faint">· ships as {{ defaultText(field) }}</span>
                     <button class="btn btn--ghost btn--sm" :disabled="busy" @click="resetField(field)"
                             :title="field.type === 'secret'
-                              ? 'Removes the stored secret straight away. It cannot wait for Save, because this screen never receives a secret to put back.'
+                              ? 'Deletes the stored secret on the server. It cannot wait for Save, because this screen is never sent a secret to put back - so it asks first.'
                               : 'Puts the box back to the shipped default. Nothing is written until you save.'">
-                      Reset to default
+                      {{ field.type === 'secret' ? 'Remove what is stored' : 'Reset to default' }}
                     </button>
                   </template>
                 </div>
@@ -595,7 +653,7 @@ export const SettingsView = {
                 <!-- secret -->
                 <template v-else-if="field.type === 'secret'">
                   <input v-model="draft[field.key]" type="password" class="mono"
-                         :placeholder="field.is_set ? '•••••••• stored' : 'Nothing stored'">
+                         :placeholder="field.is_set ? '•••••••• stored - leave blank to keep it' : 'Nothing stored'">
                   <p class="hint">
                     {{ field.is_set
                        ? 'Something is stored, and it is never sent back to this screen. Leave the box empty to keep it; type here only to replace it.'
@@ -718,6 +776,27 @@ export const SettingsView = {
         <button class="btn" @click="confirmToken = false">Cancel</button>
         <button class="btn btn--primary" :disabled="busy" @click="generateToken">
           <app-icon name="refresh" :size="14"/> Generate
+        </button>
+      </template>
+    </app-modal>
+
+    <!-- The one field-level control that writes without waiting for Save. -->
+    <app-modal v-if="confirmSecret" :title="'Delete the stored ' + confirmSecret.label + '?'" icon="alert"
+               @close="confirmSecret = null">
+      <p class="t-sm">
+        Unlike every other box on this page, this one is written the moment you confirm it. It does not wait
+        for <strong>Save changes</strong> and <strong>Discard</strong> will not bring it back: a stored secret
+        is never sent to this screen, so there is nothing here to put back. If you need it again you will have
+        to paste or generate a new one.
+      </p>
+      <p class="t-sm mt-3">
+        Anything relying on <code>{{ confirmSecret.key }}</code> stops working until something is stored there
+        again. This installation goes back to the shipped default, which for a secret means nothing at all.
+      </p>
+      <template #footer>
+        <button class="btn" @click="confirmSecret = null">Keep it</button>
+        <button class="btn btn--danger" :disabled="busy" @click="removeSecret">
+          <app-icon name="trash" :size="14"/> Delete it
         </button>
       </template>
     </app-modal>

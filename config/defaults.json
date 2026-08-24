@@ -37,6 +37,7 @@
   },
   "security": {
     "max_login_attempts": 5,
+    "max_address_attempts": 20,
     "attempt_window_minutes": 15,
     "lockout_minutes": 15,
     "session_lifetime_minutes": 480

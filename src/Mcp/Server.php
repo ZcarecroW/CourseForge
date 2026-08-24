@@ -5,6 +5,7 @@ namespace CourseForge\Mcp;
 
 use CourseForge\Domain\McpClients;
 use CourseForge\Security\Actor;
+use CourseForge\Security\Auth;
 use CourseForge\Support\Config;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Runtime;
@@ -62,6 +63,19 @@ final class Server
     /** How long a client may cache `tools/list`. Ten minutes: the surface only changes on an update. */
     private const LIST_TTL_MS = 600000;
 
+    /**
+     * The tools an account that owes a password change may still call: who am
+     * I, what is this account, and set the password. The mirror of
+     * PASSWORD_CHANGE_ROUTES in api/index.php.
+     *
+     * `tools/list` is deliberately not narrowed to these three. A model that
+     * cannot see `change_my_password` in the catalogue has no way to find the
+     * one thing it is allowed to do, and hiding the rest of the surface would
+     * teach it that this installation has no tools rather than that this
+     * account is not finished signing in.
+     */
+    private const PASSWORD_CHANGE_TOOLS = ['whoami', 'get_my_account', 'change_my_password'];
+
     /** Set once per request, so the response knows which shape to take. */
     private static bool $modern = false;
 
@@ -96,7 +110,15 @@ final class Server
         if (!is_array($message)) {
             self::send(self::error(null, -32700, 'The request body was not valid JSON.'), 400);
         }
-        if (array_is_list($message)) {
+        // Decided on the text, not on the decoded value. `{}` and `[]` both
+        // decode to the empty PHP array and array_is_list() calls both of them
+        // a list, so an empty object used to be refused as a batch - an
+        // explanation with nothing to do with what was sent, whose only advice
+        // ("send one request at a time") changed nothing. So does an object
+        // whose keys happen to be "0", "1", ..., because PHP folds numeric
+        // string keys to integers. The opening bracket is the only thing that
+        // actually says "this is a JSON array".
+        if (str_starts_with(ltrim($raw), '[')) {
             self::send(self::error(null, -32600, 'Batched JSON-RPC requests are not supported here.'), 400);
         }
 
@@ -122,7 +144,14 @@ final class Server
                     'message' => 'Unsupported protocol version',
                     'data' => [
                         'supported' => self::SUPPORTED,
-                        'requested' => (string)($meta['io.modelcontextprotocol/protocolVersion'] ?? ''),
+                        // Whichever of the two places the refusal was actually
+                        // decided from. Reading only `_meta` here told a client
+                        // that negotiates by header - which is how every
+                        // HTTP-transport client from 2025-06-18 onwards states
+                        // its version - that it had asked for "", so the one
+                        // thing the answer had to say was the one thing missing
+                        // from it.
+                        'requested' => self::requestedVersion($meta),
                     ],
                 ],
             ], 400);
@@ -213,6 +242,23 @@ final class Server
             return self::toolResult(['text' => 'No tool name was given.', 'data' => null], true);
         }
 
+        /* The same rule the front controller applies to every HTTP route, in
+         * the same words, because it is the same rule: an account holding a
+         * password an administrator chose for it may find out who it is,
+         * replace that password, and nothing else. The browser gate alone left
+         * this endpoint doing the whole of CourseForge on a credential a second
+         * person has read. */
+        if (!in_array($name, self::PASSWORD_CHANGE_TOOLS, true)
+            && Auth::passwordChangeDue($context['actor'])) {
+            return self::toolResult([
+                'text' => 'This account was handed its password by an administrator and has to choose its own '
+                    . 'before it can do anything else. Call change_my_password with the password you were given '
+                    . 'and a new one. Until then only ' . implode(', ', self::PASSWORD_CHANGE_TOOLS)
+                    . ' will answer.',
+                'data' => null,
+            ], true);
+        }
+
         // A tool call may sit on a provider for minutes, or write five hundred
         // rows. Releasing the session lock and the time limit first is what
         // stops it blocking everything else the account has in flight.
@@ -276,11 +322,26 @@ final class Server
             return true;
         }
 
+        return self::requestedVersion($meta) === self::MODERN;
+    }
+
+    /**
+     * The revision this request says it speaks, from wherever it said it.
+     *
+     * Two places carry it - `params._meta` in the modern revision, the
+     * `MCP-Protocol-Version` header over HTTP - and `_meta` wins because a
+     * request that carries both means the one it wrote inside itself. One
+     * helper rather than three copies of the fallback, because the three used
+     * to disagree: the two that decided the answer read both places and the one
+     * that reported it read only the first, so a rejected header came back as
+     * an empty string.
+     *
+     * @param array<string,mixed> $meta
+     */
+    private static function requestedVersion(array $meta): string
+    {
         $version = trim((string)($meta['io.modelcontextprotocol/protocolVersion'] ?? ''));
-        if ($version === '') {
-            $version = trim(self::header('MCP_PROTOCOL_VERSION'));
-        }
-        return $version === self::MODERN;
+        return $version !== '' ? $version : trim(self::header('MCP_PROTOCOL_VERSION') ?? '');
     }
 
     /**
@@ -321,10 +382,7 @@ final class Server
      */
     private static function versionAccepted(array $meta): bool
     {
-        $version = trim((string)($meta['io.modelcontextprotocol/protocolVersion'] ?? ''));
-        if ($version === '') {
-            $version = trim(self::header('MCP_PROTOCOL_VERSION'));
-        }
+        $version = self::requestedVersion($meta);
         return $version === '' || in_array($version, self::SUPPORTED, true);
     }
 
@@ -336,34 +394,72 @@ final class Server
      * inconsistency. Non-ASCII values arrive base64-wrapped in a sentinel and
      * have to be decoded before they are compared.
      *
+     * A header that was not sent at all is the one case that skips the
+     * comparison, and only that one. A client is allowed to send no header -
+     * every legacy client sends none, and refusing them would take the whole
+     * legacy era down - but a header that IS there has made a claim, and a
+     * claim this server cannot read is not the same as no claim at all. The
+     * two used to be indistinguishable: an empty value and a sentinel whose
+     * base64 would not decode both came out as the empty string, which read as
+     * "absent" and turned the check off. A proxy decoding the same sentinel
+     * leniently would have read a method out of it and routed on that while
+     * this server ran the one in the body - the exact disagreement the check
+     * exists to refuse.
+     *
      * @param array<string,mixed> $params
      */
     private static function assertHeadersMatch(mixed $id, string $rpc, array $params): void
     {
-        $declared = self::decodeHeaderValue(self::header('MCP_METHOD'));
-        if ($declared !== '' && $declared !== $rpc) {
+        $declared = self::routingHeader($id, 'MCP_METHOD', 'Mcp-Method');
+        if ($declared !== null && $declared !== $rpc) {
             self::send(self::error($id, -32020, 'The Mcp-Method header does not match the request body.'), 400);
         }
 
         if (!in_array($rpc, ['tools/call', 'resources/read', 'prompts/get'], true)) {
             return;
         }
-        $name = self::decodeHeaderValue(self::header('MCP_NAME'));
+        $name = self::routingHeader($id, 'MCP_NAME', 'Mcp-Name');
         $actual = (string)($params['name'] ?? $params['uri'] ?? '');
-        if ($name !== '' && $name !== $actual) {
+        if ($name !== null && $name !== $actual) {
             self::send(self::error($id, -32020, 'The Mcp-Name header does not match the request body.'), 400);
         }
     }
 
-    /** `=?base64?...?=` is how a header carries a value that is not ASCII. */
-    private static function decodeHeaderValue(string $value): string
+    /**
+     * One routing header, decoded, or null when the client sent none.
+     *
+     * `=?base64?...?=` is how a header carries a value that is not ASCII.
+     * A payload that is not base64 makes the header malformed, and a malformed
+     * routing header is refused rather than ignored: every method name this
+     * server dispatches and every tool name in the catalogue is ASCII, so no
+     * client of this endpoint has any reason to reach for the sentinel, let
+     * alone to get it wrong.
+     */
+    private static function routingHeader(mixed $id, string $key, string $label): ?string
     {
-        $value = trim($value);
-        if (preg_match('/^=\?base64\?(.*)\?=$/', $value, $m) === 1) {
-            $decoded = base64_decode($m[1], true);
-            return $decoded === false ? '' : $decoded;
+        $raw = self::header($key);
+        if ($raw === null) {
+            return null;
         }
-        return $value;
+
+        $value = trim($raw);
+        if (preg_match('/^=\?base64\?(.*)\?=$/', $value, $m) !== 1) {
+            return $value;
+        }
+
+        $decoded = base64_decode($m[1], true);
+        if ($decoded === false) {
+            self::send(
+                self::error(
+                    $id,
+                    -32020,
+                    'The ' . $label . ' header says it is base64 and is not, so this server cannot tell what it '
+                    . 'claims the request is.'
+                ),
+                400
+            );
+        }
+        return $decoded;
     }
 
     /* ------------------------------------------------------------ identity */
@@ -397,6 +493,16 @@ final class Server
     private static function instructions(array $context): string
     {
         $actor = $context['actor'];
+
+        // Said first and said plainly, because it is the only state in which
+        // almost every tool below will refuse. A model that reads this does not
+        // have to discover the rule one failed call at a time.
+        if (Auth::passwordChangeDue($actor)) {
+            return 'This account (' . $actor->username . ') was handed its password by an administrator and has to '
+                . 'choose its own before CourseForge will do anything else. Call change_my_password with the '
+                . 'password it was given and a new one of at least ten characters. Until that is done only '
+                . implode(', ', self::PASSWORD_CHANGE_TOOLS) . ' will answer; every other tool refuses.';
+        }
 
         $text = 'CourseForge turns a one-line brief into a complete course - outline, chapters, written pages - '
             . "and publishes it into a BookStack knowledge base.\n\n"
@@ -537,9 +643,11 @@ final class Server
         return in_array($requested, self::LEGACY, true) ? $requested : self::LEGACY[0];
     }
 
-    private static function header(string $name): string
+    /** Null when the client sent no such header, which is not the same as an empty one. */
+    private static function header(string $name): ?string
     {
-        return (string)($_SERVER['HTTP_' . $name] ?? '');
+        $value = $_SERVER['HTTP_' . $name] ?? null;
+        return is_string($value) ? $value : null;
     }
 
     /** @return array<string,mixed> */

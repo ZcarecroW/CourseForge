@@ -74,20 +74,59 @@ final class Db
         return (int)self::pdo()->lastInsertId();
     }
 
-    /** Runs $work inside a transaction, rolling back on any throwable. */
-    public static function transaction(callable $work): mixed
+    /**
+     * Runs $work inside a transaction, rolling back on any throwable.
+     *
+     * The transaction is a writer from its very first statement, which is not
+     * what PDO's own beginTransaction() gives you. PDO issues a bare BEGIN, and
+     * a bare BEGIN is DEFERRED: the transaction takes a read snapshot when it
+     * first reads and only asks for the write lock when it first writes. In WAL
+     * mode that upgrade is not allowed to wait. If anything at all has committed
+     * since the snapshot was taken, SQLite answers SQLITE_BUSY straight away
+     * without ever consulting the busy handler - so `busy_timeout` is silently
+     * skipped for exactly the transactions that read before they write, while a
+     * transaction that happens to write first waits the full fifteen seconds and
+     * succeeds. With the cron worker committing page claims and page bodies
+     * every few seconds, that is a race a read-then-write loses several times a
+     * minute, and it surfaces as an unexplained "database is locked" rather than
+     * as anything a caller can retry.
+     *
+     * BEGIN IMMEDIATE takes the write lock up front, where waiting is allowed.
+     * Every transaction in CourseForge writes, so it is the default and the only
+     * kind anything asks for today. `deferred` is kept for the case it is
+     * genuinely right - a transaction that only ever reads and wants a
+     * consistent snapshot, which has no business holding the write lock against
+     * the rest of the installation while it does so.
+     */
+    public static function transaction(callable $work, string $kind = 'immediate'): mixed
     {
+        $begin = match (strtolower($kind)) {
+            'immediate' => 'BEGIN IMMEDIATE',
+            'deferred' => 'BEGIN DEFERRED',
+            default => throw new RuntimeException('Unknown transaction kind "' . $kind . '".'),
+        };
+
         $pdo = self::pdo();
         if ($pdo->inTransaction()) {
             return $work();
         }
-        $pdo->beginTransaction();
+
+        // Begun and ended through exec() rather than PDO's own methods, which
+        // have no way to ask for a kind. inTransaction() still answers correctly
+        // either way - the SQLite driver reads it from the connection rather
+        // than from a flag of its own - so the nesting guard above is unaffected.
+        $pdo->exec($begin);
         try {
             $result = $work();
-            $pdo->commit();
+            $pdo->exec('COMMIT');
             return $result;
         } catch (\Throwable $e) {
-            $pdo->rollBack();
+            // A COMMIT that failed usually leaves the transaction open, but not
+            // always; rolling back what is no longer there would replace the
+            // error worth reading with one that is not.
+            if ($pdo->inTransaction()) {
+                $pdo->exec('ROLLBACK');
+            }
             throw $e;
         }
     }
@@ -110,6 +149,14 @@ final class Db
                 ts       INTEGER NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_attempts_ip ON login_attempts(ip, ts);
+            -- The account counter asks a different question - "how often has
+            -- this name been guessed at, from anywhere?" - and the index above
+            -- cannot answer it, because it is led by ip. Without this one that
+            -- question is a full scan of a table every failed sign-in adds a
+            -- row to. NOCASE because every query against the column compares
+            -- that way, and an index built with another collation is one SQLite
+            -- will not use.
+            CREATE INDEX IF NOT EXISTS idx_attempts_user ON login_attempts(username COLLATE NOCASE, ts);
 
             CREATE TABLE IF NOT EXISTS profiles (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -361,6 +408,16 @@ final class Db
         self::ensureColumn($pdo, 'batch_items', 'attempts', 'INTEGER NOT NULL DEFAULT 0');
         self::ensureColumn($pdo, 'batch_items', 'started_at', 'INTEGER NOT NULL DEFAULT 0');
 
+        // Who holds a `working` item, for the same reason `locks` has an owner:
+        // a claim can be taken away from a worker that is still running - its
+        // lease expires, cron gives the page to somebody else - and the worker
+        // that lost it has no way to know. Without a token to compare, a settle
+        // arriving hours late matches on state alone and yanks the page back
+        // from the worker legitimately writing it. An item claimed by an older
+        // release carries the empty string, which reads as "no owner recorded"
+        // and behaves exactly as it did before.
+        self::ensureColumn($pdo, 'batch_items', 'owner', "TEXT NOT NULL DEFAULT ''");
+
         // The pending-only index predates the worker's `working` state, and an
         // index carries no data, so replacing it outright is safe.
         $pdo->exec('DROP INDEX IF EXISTS idx_batch_items_one_pending');
@@ -388,6 +445,23 @@ final class Db
         self::ensureColumn($pdo, 'batch_jobs', 'results_expire_at', 'INTEGER NOT NULL DEFAULT 0');
         self::ensureColumn($pdo, 'batch_items', 'pass', 'INTEGER NOT NULL DEFAULT 1');
         self::ensureColumn($pdo, 'batch_items', 'usage', "TEXT NOT NULL DEFAULT '{}'");
+
+        // When somebody other than the account holder last set this password -
+        // an administrator creating the account, or resetting it. That is the
+        // moment every MCP connection made before it stops being trustworthy,
+        // because the whole point of a reset is to cut off whoever was holding
+        // the old credential, and a token minted under it would otherwise
+        // outlive the password it was made with.
+        //
+        // It has to be its own column: `updated_at` moves for a display-name
+        // change too, so comparing against that would revoke every connection
+        // on the installation the first time anybody tidied up their profile.
+        //
+        // Zero is what an account that predates this column carries, and it
+        // reads as "never recorded, so revoke nothing" - an installation
+        // upgrading keeps every connection it had until an administrator
+        // actually resets a password.
+        self::ensureColumn($pdo, 'users', 'password_reset_at', 'INTEGER NOT NULL DEFAULT 0');
 
         if (self::schemaVersion($pdo) < 3) {
             self::upgradeToV3($pdo);

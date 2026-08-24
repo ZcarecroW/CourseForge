@@ -12,6 +12,7 @@ use CourseForge\Publish\BookStackClient;
 use CourseForge\Security\Access;
 use CourseForge\Security\Actor;
 use CourseForge\Support\HttpException;
+use CourseForge\Support\Json;
 use CourseForge\Support\Request;
 use CourseForge\Support\Runtime;
 
@@ -48,8 +49,27 @@ final class ProfileController
         $id = $request->id('id');
         $owner = self::owner($me, $id);
 
-        $name = $request->str('name', 'Profile');
-        $profile = Profiles::update($owner, $id, $name !== '' ? $name : 'Profile', $request->arr('data'));
+        // An absent field means "leave it alone", which is what every other
+        // update endpoint here does and what the MCP tool promises its caller.
+        // It used to mean "replace it with nothing": a PUT carrying only a name
+        // answered 200 and took every API key and BookStack credential with it.
+        // A profile is the one row in this application that holds secrets, so
+        // it is the last one that should be destroyed by omission.
+        $stored = Profiles::require($owner, $id);
+
+        $name = $request->has('name') ? $request->str('name') : (string)$stored['name'];
+        if ($name === '') {
+            $name = (string)$stored['name'];
+        }
+
+        // Profiles::update shapes the data explicitly, so a partial document
+        // would still drop whatever it did not mention. Merging here keeps that
+        // shaping intact while making an omitted section mean "unchanged".
+        $data = $request->has('data')
+            ? Json::merge((array)$stored['data'], $request->arr('data'))
+            : (array)$stored['data'];
+
+        $profile = Profiles::update($owner, $id, $name, $data);
         return ['profile' => Profiles::redact($profile), 'profiles' => Profiles::all(Access::workingSetOwner($me, $request))];
     }
 

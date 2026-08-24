@@ -86,9 +86,28 @@ export async function renderMath(tex, display) {
   // DOMPurify — the sanitiser would strip the custom elements it is made of.
   // Disabling `autoload` already removes `\href`; this closes the one remaining
   // way TeX can name a URL, `\mmlToken` with an attribute list.
+  //
+  // It cannot simply remove every href, though, and doing so was a bug worth
+  // recording: MathJax draws each character as `<use xlink:href="#MJX-…">`
+  // against `<path>` definitions in the same fragment, so stripping those made
+  // every formula render as blank space — with the occasional fraction rule
+  // surviving, because a rule is a `<rect>` rather than a glyph.
+  //
+  // So the two cases are told apart by what the value is. A reference is kept
+  // only when it is a bare fragment naming an id defined inside this very
+  // fragment: that is exactly what a glyph reference is, and exactly what no
+  // URL can be. Anything else — absolute, relative, protocol-relative,
+  // `javascript:`, or a fragment pointing at something elsewhere on the page —
+  // is removed as before.
+  const own = new Set([...node.querySelectorAll('[id]')].map((element) => element.id));
+
   for (const element of node.querySelectorAll('[href], [*|href]')) {
-    for (const { name } of [...element.attributes]) {
-      if (name === 'href' || name.endsWith(':href')) element.removeAttribute(name);
+    for (const { name, value } of [...element.attributes]) {
+      if (name !== 'href' && !name.endsWith(':href')) continue;
+
+      const target = value.trim();
+      const internal = target.startsWith('#') && own.has(target.slice(1));
+      if (!internal) element.removeAttribute(name);
     }
   }
 

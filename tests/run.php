@@ -20,16 +20,38 @@ if (PHP_SAPI !== 'cli') {
     exit("This runner is for the command line only.\n");
 }
 
-// One scratch directory, emptied at the start rather than at the end: the
-// database connection is still open when a run finishes, and on Windows an open
-// file is one that cannot be deleted. Clearing it on the way in also means every
-// run starts from an empty database without leaving a trail of them behind.
-$sandbox = sys_get_temp_dir() . '/courseforge-tests';
-if (!is_dir($sandbox) && !@mkdir($sandbox, 0770, true)) {
+// A scratch directory per run, not one shared by all of them.
+//
+// It used to be a single fixed path emptied on the way in, which meant two runs
+// at once deleted each other's database mid-test. That produced failures that
+// were not real and vanished on a re-run - the worst kind, because it teaches
+// people to re-run until the suite is green rather than to read it.
+//
+// Emptying still happens on the way in rather than the way out, for the reason
+// it always did: on Windows an open file cannot be deleted, and the database
+// handle is still open when the last test finishes. So the removal below is
+// best effort, and anything a killed run left behind is swept by the next one
+// that starts more than an hour later.
+$root = sys_get_temp_dir() . '/courseforge-tests';
+$sandbox = $root . '/run-' . getmypid() . '-' . bin2hex(random_bytes(3));
+
+if (!is_dir($sandbox) && !@mkdir($sandbox, 0770, true) && !is_dir($sandbox)) {
     fwrite(STDERR, 'Could not create the scratch directory ' . $sandbox . "\n");
     exit(1);
 }
-array_map(static fn(string $f): bool => @unlink($f), glob($sandbox . '/*') ?: []);
+
+foreach ((array)glob($root . '/run-*') as $old) {
+    if (is_dir($old) && $old !== $sandbox && @filemtime($old) < time() - 3600) {
+        array_map(static fn(string $f): bool => @unlink($f), glob($old . '/*') ?: []);
+        @rmdir($old);
+    }
+}
+
+register_shutdown_function(static function () use ($sandbox): void {
+    array_map(static fn(string $f): bool => @unlink($f), glob($sandbox . '/*') ?: []);
+    @rmdir($sandbox);
+});
+
 putenv('COURSEFORGE_DATA_DIR=' . $sandbox);
 
 require __DIR__ . '/../src/bootstrap.php';

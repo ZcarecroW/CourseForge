@@ -30,6 +30,26 @@
   color: var(--text-faint);
 }
 
+/* -- the count on the navigation row you are standing on -------------------
+   App.js, and the one place in the sidebar where a colour has to be picked
+   again rather than inherited.
+
+   layout.css draws .nav-item__count in --text-faint, which is measured against
+   the flat sidebar and clears 4.5:1 there comfortably (5.5:1 dark, 5.1:1
+   light). The active row is not the flat sidebar: it is washed in --accent-soft
+   and comes out lighter in the dark theme and darker in the light one, which
+   takes the same 10.5px number to 4.29:1 and 4.45:1 - under the floor in both.
+   A quiet colour has that little room left, which is what tokens.css means by
+   "the smaller a token is set, the less licence it has to recede".
+
+   One step up the same scale is the whole fix: --text-dim gives 5.04:1 dark and
+   5.46:1 light on that wash, and the count still reads as secondary to the
+   accent-coloured label beside it. Measured with alpha compositing over the
+   real stack, not sampled by eye. */
+.nav-item.is-active .nav-item__count {
+  color: var(--text-dim);
+}
+
 /* -- one setting ------------------------------------------------------------
    Settings and Prompts. A definition list: what the setting is called, what it
    actually does in a full sentence, and the control that changes it. The

@@ -102,19 +102,51 @@ export const ProjectsView = {
       }
     }, 'Create course');
 
+    /**
+     * What the confirmation promises to delete.
+     *
+     * The card behind the dialog says "1/4 pages written", so the dialog has to
+     * agree with it: the outline size is how many pages exist, not how many were
+     * generated, and calling all four of them "generated pages" overstated what
+     * was about to be lost.
+     */
+    const deleteScope = (project) => {
+      if (!project.page_count) return 'will be removed from CourseForge. It has no pages yet.';
+      return `and its ${plural(project.page_count, 'page')} (${project.generated_count} written)`
+        + ' will be removed from CourseForge.';
+    };
+
+    // One click, one deletion, one message: the modal stays open until the
+    // server answers, and a second click used to send a second DELETE that
+    // could only ever 404 - reporting a failure for something that had just
+    // succeeded.
+    const deleting = ref(false);
+
     const remove = (project) => attempt(async () => {
-      await del(`projects/${project.id}`);
-      confirmDelete.value = null;
-      await loadProjects();
-      toast.success(`"${project.name}" deleted.`);
+      if (deleting.value) return;
+      deleting.value = true;
+      try {
+        await del(`projects/${project.id}`);
+        confirmDelete.value = null;
+        await loadProjects();
+        toast.success(`"${project.name}" deleted.`);
+      } finally {
+        deleting.value = false;
+      }
     }, 'Delete course');
 
     const profileName = (id) => state.profiles.find((p) => p.id === id)?.name ?? 'no profile';
 
+    // `openProject` is async, so handing it straight to a click listener let a
+    // rejected fetch - a session that expired while the list sat on screen -
+    // reach Vue's error handler as an unhandled rejection. The recovery is the
+    // same either way; this makes it a toast instead of a console stack trace.
+    const open = (id) => attempt(() => openProject(id), 'Open course');
+
     return {
       state, isAdmin, search, sort, projects, showCreate, creating, draft, confirmDelete,
-      ownerFilter, owners, showOwners, isForeign,
-      create, remove, open: openProject, profileName,
+      ownerFilter, owners, showOwners, isForeign, deleting, deleteScope,
+      create, remove, open, profileName,
       relativeTime, percent, plural,
     };
   },
@@ -264,17 +296,17 @@ export const ProjectsView = {
 
     <app-modal v-if="confirmDelete" title="Delete this course?" icon="alert" @close="confirmDelete = null">
       <p class="t-sm">
-        <strong>{{ confirmDelete.name }}</strong> and all
-        {{ plural(confirmDelete.page_count, 'generated page') }} will be removed from CourseForge.
+        <strong>{{ confirmDelete.name }}</strong> {{ deleteScope(confirmDelete) }}
       </p>
       <p v-if="isForeign(confirmDelete)" class="hint mt-2 c-warning">
         This course belongs to <strong>{{ confirmDelete.owner }}</strong>, not to you. They will not be told.
       </p>
       <p class="hint mt-2">Anything already published stays in BookStack — delete it there separately.</p>
       <template #footer>
-        <button class="btn" @click="confirmDelete = null">Cancel</button>
-        <button class="btn btn--danger" @click="remove(confirmDelete)">
-          <app-icon name="trash" :size="14"/> Delete
+        <button class="btn" :disabled="deleting" @click="confirmDelete = null">Cancel</button>
+        <button class="btn btn--danger" :disabled="deleting" @click="remove(confirmDelete)">
+          <app-icon :name="deleting ? 'refresh' : 'trash'" :size="14" :spin="deleting"/>
+          {{ deleting ? 'Deleting…' : 'Delete' }}
         </button>
       </template>
     </app-modal>`,

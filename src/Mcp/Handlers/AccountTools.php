@@ -136,9 +136,11 @@ final class AccountTools
                 scope: Scopes::ACCOUNT,
                 title: 'List my MCP connections',
                 description: 'The MCP connections this account owns: the name each was given, the tool groups it is '
-                    . 'limited to, when it was made, when it was last used, how often, and whether it has expired. '
-                    . 'Only connections belonging to this account are ever listed, whatever its role. Tokens are '
-                    . 'stored as hashes and can never be shown again. Costs nothing.',
+                    . 'limited to, when it was made, when it was last used, how often, and whether it still works. '
+                    . 'Two things stop one working without removing it - passing its expiry date, and being older '
+                    . 'than the last password an administrator set for this account. Only connections belonging to '
+                    . 'this account are ever listed, whatever its role. Tokens are stored as hashes and can never '
+                    . 'be shown again. Costs nothing.',
                 properties: [],
                 required: [],
                 handler: static fn(Actor $actor, array $args): array => self::listMyConnections($actor),
@@ -348,6 +350,11 @@ final class AccountTools
             'expires_at' => (int)$client['expires_at'],
             'expires' => self::when((int)$client['expires_at']),
             'expired' => (bool)$client['expired'],
+            // The second way a connection can be listed and not work. Said as
+            // its own field rather than left out of the list, because a
+            // connection that has vanished from a listing looks like one
+            // somebody revoked on purpose.
+            'cut_off_by_password_reset' => (bool)($client['revoked_by_reset'] ?? false),
         ];
     }
 

@@ -18,6 +18,13 @@ use CourseForge\Support\Text;
 final class Structure
 {
     /**
+     * `title` is empty when the outline carries no `# ` line at all.
+     *
+     * That is a different thing from a book called "Untitled course", and the
+     * difference matters to whoever is storing the result: an outline that says
+     * nothing about the title must leave the stored one alone rather than
+     * stamp a placeholder over it.
+     *
      * @return array{
      *   title:string, description:string, tags:string[],
      *   chapters:array<int,array{title:string,description:string,tags:string[],
@@ -113,7 +120,7 @@ final class Structure
         }
 
         return [
-            'title' => $title !== '' ? $title : 'Untitled course',
+            'title' => $title,
             'description' => trim(implode(' ', $descriptionParts)),
             'tags' => $bookTags,
             'chapters' => array_values(array_filter($chapters, static fn(array $c): bool => $c['title'] !== '')),

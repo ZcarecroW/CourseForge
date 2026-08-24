@@ -22,6 +22,13 @@ final class Lock
      *
      * The owner token is what makes release() safe: a worker whose lease has
      * already expired and been taken by someone else must not release theirs.
+     *
+     * `until <= $now` rather than `until < $now`, because `until` is the instant
+     * the lease runs out and not the last instant it covers. The two readings
+     * differ for exactly one second, and heldFor() takes the same one - a lease
+     * this refuses always reports as held, and one it reports as free can always
+     * be taken. Reading them apart is how a screen comes to say nothing is
+     * running immediately before the acquire it was checking for is refused.
      */
     public static function acquire(string $name, int $seconds, string $owner = ''): string|false
     {
@@ -33,7 +40,7 @@ final class Lock
         Db::run('INSERT OR IGNORE INTO locks (name, until, owner) VALUES (?, 0, ?)', [$name, '']);
 
         $taken = Db::run(
-            'UPDATE locks SET until = ?, owner = ? WHERE name = ? AND until < ?',
+            'UPDATE locks SET until = ?, owner = ? WHERE name = ? AND until <= ?',
             [$until, $owner, $name, $now]
         )->rowCount() > 0;
 
@@ -54,7 +61,11 @@ final class Lock
         Db::run('UPDATE locks SET until = 0 WHERE name = ? AND owner = ?', [$name, $owner]);
     }
 
-    /** Seconds until the named lease is free, or 0 if it already is. */
+    /**
+     * Seconds until the named lease is free, or 0 if it already is.
+     *
+     * 0 means acquire() will take it - the two agree on where the boundary is.
+     */
     public static function heldFor(string $name): int
     {
         $row = Db::row('SELECT until FROM locks WHERE name = ?', [$name]);

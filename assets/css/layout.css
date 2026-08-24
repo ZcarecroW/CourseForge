@@ -181,6 +181,23 @@
   border-bottom: 1px solid var(--border-soft);
   min-height: 46px;
 }
+
+/*
+ * A pane can be a narrow column - the outline is 320px - and its head still
+ * carries a label, a badge and two buttons. The label is the item that gives
+ * way, and with `min-width: 0` from `.grow` it gave way all the way to nothing:
+ * it wrapped to three lines and painted itself underneath the badge. Keeping it
+ * whole is what pushes the rest onto a second row instead, which is why these
+ * heads wrap.
+ *
+ * Only the heads that are labelled this way, hence the `:has()`: a head built
+ * around a text field wants that field as wide as the row can make it, and
+ * wrapping it would cost a phone two rows of height for nothing. An eyebrow that
+ * asked for `truncate` has said it would rather be cut short, so it is left out
+ * of both rules.
+ */
+.pane__head:has(> .eyebrow:not(.truncate)) { flex-wrap: wrap; }
+.pane__head:has(> .eyebrow:not(.truncate)) > .eyebrow { white-space: nowrap; min-width: max-content; }
 .pane__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .pane__foot { flex: none; padding: var(--s-3) var(--s-4); border-top: 1px solid var(--border-soft); }
 

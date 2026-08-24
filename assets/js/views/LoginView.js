@@ -1,5 +1,19 @@
+/**
+ * Signing in - and, for somebody who cannot yet, the way to an account.
+ *
+ * This is the screen everybody who is not signed in lands on, including the one
+ * person here who has no account at all: the holder of an invite code an
+ * administrator issued. There is nowhere else for them to land, so the way to
+ * the redemption form starts here, under the sign-in button.
+ *
+ * It is offered only while the server says an invite is actually open. A box
+ * asking for a code that could not exist is a dead end dressed up as an
+ * option, and on the great majority of installations - which have no invite out
+ * at any given moment - the sign-in screen should be a sign-in screen and
+ * nothing else.
+ */
 import { ref, onMounted, onBeforeUnmount } from 'vue';
-import { state, loadWorkspace } from '@/core/store.js';
+import { state, inviteOpen, loadWorkspace } from '@/core/store.js';
 import { api, setCsrf } from '@/core/api.js';
 import { toast } from '@/core/toast.js';
 import { resolvedTheme, toggleTheme } from '@/core/theme.js';
@@ -14,10 +28,15 @@ export const LoginView = {
     const error = ref('');
     const busy = ref(false);
     const locked = ref(state.lockedFor || 0);
+    const userField = ref(null);
     let timer = null;
 
     onMounted(() => {
       timer = setInterval(() => { if (locked.value > 0) locked.value -= 1; }, 1000);
+      // Not the `autofocus` attribute: a browser honours that for the first
+      // such element to enter a document and no other, and this screen can be
+      // reached a second time - by coming back from the redemption form.
+      userField.value?.focus();
     });
     onBeforeUnmount(() => clearInterval(timer));
 
@@ -34,6 +53,9 @@ export const LoginView = {
         if (data?.ok) {
           state.user = data.user;
           password.value = '';
+          // Nothing is fetched for an account that still owes a password
+          // change; loadWorkspace() knows, and the shell puts the dialog that
+          // fixes it on screen.
           await loadWorkspace();
           toast.success(`Welcome back, ${state.user.display_name}.`);
         } else {
@@ -47,7 +69,10 @@ export const LoginView = {
       }
     };
 
-    return { state, username, password, error, busy, locked, submit, resolvedTheme, toggleTheme };
+    return {
+      state, inviteOpen, username, password, error, busy, locked, userField, submit,
+      resolvedTheme, toggleTheme,
+    };
   },
   template: `
     <div style="display:grid;place-items:center;height:100%;padding:var(--s-6);position:relative">
@@ -68,7 +93,7 @@ export const LoginView = {
         <div class="col gap-4">
           <div class="form-row">
             <label for="login-user">Username</label>
-            <input id="login-user" v-model="username" autocomplete="username" required autofocus>
+            <input id="login-user" ref="userField" v-model="username" autocomplete="username" required>
           </div>
           <div class="form-row">
             <label for="login-pass">Password</label>
@@ -85,6 +110,20 @@ export const LoginView = {
             <app-icon v-if="busy" name="refresh" :size="14" spin/>
             {{ busy ? 'Signing in…' : 'Sign in' }}
           </button>
+
+          <!-- Only while there is something to redeem. type="button" because
+               this sits inside the sign-in form and must not submit it. -->
+          <template v-if="inviteOpen">
+            <div class="divider"></div>
+            <div class="col gap-2">
+              <p class="hint" style="text-align:center">
+                Been sent an invite code? It makes your account here, and you choose the password yourself.
+              </p>
+              <button type="button" class="btn btn--block" @click="state.redeeming = true">
+                <app-icon name="link" :size="14"/> I have an invite code
+              </button>
+            </div>
+          </template>
         </div>
       </form>
     </div>`,

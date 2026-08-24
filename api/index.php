@@ -60,9 +60,12 @@ try {
 /* ------------------------------------------------------------------- routes */
 $router = new Router();
 
-// Reachable while signed out. `setup` exists only until the first account does.
+// Reachable while signed out. `setup` exists only until the first account does;
+// `redeem` is how an invite issued after that becomes the account it promises,
+// with the role written on the invite and no session to authorise it.
 $router->add('GET', 'setup', [SetupController::class, 'status'], auth: false);
 $router->add('POST', 'setup', [SetupController::class, 'create'], auth: false);
+$router->add('POST', 'redeem', [SetupController::class, 'redeem'], auth: false);
 
 $router->add('GET', 'session', [SessionController::class, 'show'], auth: false);
 $router->add('POST', 'session', [SessionController::class, 'login'], auth: false);
@@ -146,6 +149,37 @@ $router->add('POST', 'admin/update/rollback', [UpdateController::class, 'rollbac
 $router->add('GET', 'admin/update/history', [UpdateController::class, 'history'], admin: true);
 
 /* ----------------------------------------------------------------- dispatch */
+
+/**
+ * The routes an account that owes a password change may still reach: who am I,
+ * choose the password, and sign out - plus the setup screen, which belongs to
+ * an installation with no accounts at all and so cannot be owing anything.
+ */
+const PASSWORD_CHANGE_ROUTES = ['session', 'setup', 'account/password'];
+
+/**
+ * A bug, or something broken underneath the application: written to the server
+ * log in full and answered with as little as possible, because the client can
+ * do nothing with a stack trace except learn from it. app.debug puts the detail
+ * in the body as well, for an installation being worked on.
+ */
+$unexpected = static function (Throwable $e, string $message): never {
+    Runtime::log('request', $e);
+
+    $payload = ['ok' => false, 'error' => $message];
+    if (Runtime::debug()) {
+        $payload['error'] = $e::class . ': ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
+        $payload['detail'] = [
+            'class' => $e::class,
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => array_slice(explode("\n", $e->getTraceAsString()), 0, 12),
+        ];
+    }
+    Response::send($payload, 500);
+};
+
 try {
     $request = Request::capture();
 
@@ -169,25 +203,36 @@ try {
         $actor?->requireAdmin();
     }
 
+    /* An account holding a password an administrator chose for it may do three
+     * things: find out who it is, replace that password, and sign out. The rule
+     * is stated in the interface ("before it can do anything else") and used to
+     * be enforced by a dialog the Vue app refused to close, which curl and any
+     * MCP client walked straight past - including to mint a connection token
+     * that outlived the password it was owed. It is a rule, so it lives with
+     * the other checks a request has to pass. */
+    if ($actor !== null
+        && !in_array($request->path, PASSWORD_CHANGE_ROUTES, true)
+        && Auth::passwordChangeDue($actor)) {
+        throw new HttpException(
+            'Choose a new password before you use the rest of CourseForge.',
+            403,
+            ['must_change_password' => true]
+        );
+    }
+
     Response::ok($route['handler']($route['request'], $actor));
 } catch (HttpException $e) {
     Response::fail($e->getMessage(), $e->status(), $e->extra());
+} catch (PDOException $e) {
+    /* PDOException extends RuntimeException, so this has to come first or the
+     * branch below answers it. A database that is locked, read-only or missing
+     * a table is not the caller's mistake and its driver message is not the
+     * caller's business: it goes to the log the 500 tells the operator to read,
+     * and 5xx is what monitoring watches for. */
+    $unexpected($e, 'The database could not be read or written. Please check the server log.');
 } catch (RuntimeException $e) {
     // Domain errors that predate HttpException: "not found" is a 404, the rest a 400.
     Response::fail($e->getMessage(), stripos($e->getMessage(), 'not found') !== false ? 404 : 400);
 } catch (Throwable $e) {
-    Runtime::log('request', $e);
-
-    $payload = ['ok' => false, 'error' => 'Unexpected server error. Please check the server log.'];
-    if (Runtime::debug()) {
-        $payload['error'] = $e::class . ': ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
-        $payload['detail'] = [
-            'class' => $e::class,
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => array_slice(explode("\n", $e->getTraceAsString()), 0, 12),
-        ];
-    }
-    Response::send($payload, 500);
+    $unexpected($e, 'Unexpected server error. Please check the server log.');
 }

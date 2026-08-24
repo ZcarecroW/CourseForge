@@ -81,7 +81,7 @@ class OpenAiProvider extends OpenAiCompatibleProvider
     /** The families worth writing a course with, out of an unfiltered list. */
     private const CHAT_MODELS = '/^(gpt-5|gpt-4\.1|gpt-4o|o[134])/i';
 
-    /** Chat models whose ids the pattern above cannot describe. */
+    /** Chat models whose ids the pattern above cannot describe, as id endings. */
     private const ALSO_CHAT = ['chat-latest', 'chatgpt-4o-latest'];
 
     /** Substrings that mark a non-text model the pattern would otherwise keep. */
@@ -97,11 +97,16 @@ class OpenAiProvider extends OpenAiCompatibleProvider
     ];
 
     /**
-     * Models the queue will not take.
+     * Models the queue will not take, as id endings.
      *
      * Short and hardcoded because the API does not report it anywhere:
      * `chat-latest` is documented as unsupported by Batch, while the whole
      * gpt-5.6 family is supported.
+     *
+     * Endings rather than whole ids, because there is no model called
+     * `chat-latest`: the ids are `gpt-5-chat-latest` and `gpt-5.1-chat-latest`,
+     * and an entry matched against a whole id would exclude nothing at all
+     * while looking exactly like a list that works.
      */
     private const NO_BATCH = ['chat-latest', 'chatgpt-4o-latest'];
 
@@ -218,7 +223,7 @@ class OpenAiProvider extends OpenAiCompatibleProvider
         }
 
         foreach ($picked as $id) {
-            if (!in_array(strtolower($id), self::NO_BATCH, true)) {
+            if (!self::endsWithAny($id, self::NO_BATCH)) {
                 $this->batchAccepted[] = $id;
             }
         }
@@ -308,7 +313,28 @@ class OpenAiProvider extends OpenAiCompatibleProvider
                 return false;
             }
         }
-        return preg_match(self::CHAT_MODELS, $id) === 1 || in_array($id, self::ALSO_CHAT, true);
+        return preg_match(self::CHAT_MODELS, $id) === 1 || self::endsWithAny($id, self::ALSO_CHAT);
+    }
+
+    /**
+     * Whether a model id ends with any of a list of id endings.
+     *
+     * The two curated lists here name families by the tail of the id, which is
+     * the part OpenAI keeps stable while the prefix moves with the generation -
+     * `gpt-5-chat-latest` became `gpt-5.1-chat-latest` without the meaning
+     * changing.
+     *
+     * @param string[] $endings already lower case
+     */
+    private static function endsWithAny(string $id, array $endings): bool
+    {
+        $id = strtolower(trim($id));
+        foreach ($endings as $ending) {
+            if (str_ends_with($id, $ending)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether this really is OpenAI, rather than something wearing its API. */
