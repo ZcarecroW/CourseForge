@@ -1,0 +1,9 @@
+# The SQLite database, the user file and the configuration live here.
+# Nothing in this directory may ever be reachable over HTTP.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

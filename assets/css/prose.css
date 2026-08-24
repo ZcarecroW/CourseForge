@@ -1,0 +1,97 @@
+/* ============================================================================
+   CourseForge – rendered Markdown preview.
+   Mirrors how BookStack presents a page so the preview is a useful proxy.
+   ========================================================================== */
+
+.prose {
+  max-width: 78ch;
+  font-size: var(--t-md);
+  line-height: 1.72;
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+
+.prose > * + * { margin-top: 1em; }
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  margin-top: 1.9em;
+  margin-bottom: 0.55em;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+.prose > :first-child { margin-top: 0; }
+.prose h1 { font-size: 1.6em; }
+.prose h2 {
+  font-size: 1.32em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
+}
+.prose h3 { font-size: 1.12em; }
+.prose h4 { font-size: 1em; color: var(--text-muted); }
+
+.prose p { margin-block: 0.9em; }
+
+.prose ul, .prose ol { margin-block: 0.9em; padding-left: 1.5em; }
+.prose li { margin-block: 0.35em; }
+.prose li::marker { color: var(--text-faint); }
+.prose ul ul, .prose ol ol, .prose ul ol, .prose ol ul { margin-block: 0.35em; }
+
+.prose a { text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--accent-line); }
+.prose a:hover { text-decoration-color: var(--accent); }
+
+.prose strong { font-weight: 650; color: var(--text); }
+
+.prose code {
+  padding: 0.12em 0.38em;
+  border-radius: var(--r-xs);
+  background: var(--surface-3);
+  color: var(--accent);
+  font-size: 0.88em;
+}
+
+.prose pre {
+  margin-block: 1.1em;
+  padding: var(--s-4);
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  font-size: var(--t-sm);
+  line-height: 1.65;
+}
+.prose pre code { padding: 0; background: none; color: var(--text-muted); font-size: inherit; }
+
+.prose blockquote {
+  margin-block: 1.1em;
+  padding: 0.7em 1.1em;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.prose blockquote > :first-child { margin-top: 0; }
+.prose blockquote > :last-child { margin-bottom: 0; }
+
+.prose table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin-block: 1.1em;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+.prose th, .prose td {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.prose th { background: var(--surface-2); font-weight: 620; }
+.prose tbody tr:nth-child(even) { background: var(--surface-2); }
+
+.prose hr { margin-block: 1.8em; border-top: 1px solid var(--border); }
+
+.prose img { margin-block: 1.1em; border-radius: var(--r-md); }
+
+.prose--compact { font-size: var(--t-sm); line-height: 1.6; }
+.prose--compact h2 { font-size: 1.18em; }

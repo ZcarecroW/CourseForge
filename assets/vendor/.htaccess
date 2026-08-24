@@ -1,0 +1,12 @@
+# Vendored libraries. Every file here is version-pinned (see VENDOR.md), so it
+# may be cached for as long as the browser likes: a different version arrives
+# under a different name, or after an explicit replacement.
+#
+# There are over a hundred of them once the Shiki grammars are counted, which is
+# why this states the rule for the directory rather than listing files.
+# The MIME types for .js and .mjs are set by the .htaccess in the root.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|mjs)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>

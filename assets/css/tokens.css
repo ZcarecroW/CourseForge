@@ -1,0 +1,175 @@
+/* ============================================================================
+   CourseForge – design tokens
+   Every colour, radius, shadow and step of the type scale lives here. Nothing
+   else in the stylesheet hard-codes a colour, so both themes stay in sync by
+   construction. index.html stamps data-theme on <html> before the first paint.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* -- surfaces ---------------------------------------------------------- */
+  --bg:            #0a0e17;
+  --bg-grid:       #111827;
+  --surface:       #111826;
+  --surface-2:     #161f31;
+  --surface-3:     #1c2739;
+  --surface-hover: #1d2839;
+  --overlay:       rgb(4 8 15 / 72%);
+
+  /* -- lines ------------------------------------------------------------- */
+  --border:        #212d44;
+  --border-soft:   #1a2437;
+  --border-strong: #33425f;
+
+  /* -- text -------------------------------------------------------------- */
+  --text:          #e8eef9;
+  --text-muted:    #9baaC6;
+  --text-dim:      #6d7d9c;
+  --text-faint:    #4e5c78;
+
+  /* -- accents ----------------------------------------------------------- */
+  --accent:        #38bdf8;
+  --accent-hover:  #7dd3fc;
+  --accent-strong: #0284c7;
+  --accent-ink:    #04121e;
+  --accent-soft:   rgb(56 189 248 / 14%);
+  --accent-line:   rgb(56 189 248 / 34%);
+
+  --success:       #34d399;
+  --success-soft:  rgb(52 211 153 / 14%);
+  --success-line:  rgb(52 211 153 / 32%);
+  --success-ink:   #04231a;
+
+  --warning:       #fbbf24;
+  --warning-soft:  rgb(251 191 36 / 14%);
+  --warning-line:  rgb(251 191 36 / 32%);
+
+  --danger:        #fb7185;
+  --danger-hover:  #fda4af;
+  --danger-soft:   rgb(251 113 133 / 13%);
+  --danger-line:   rgb(251 113 133 / 32%);
+  --danger-ink:    #2a0910;
+
+  --magic:         #c084fc;              /* AI generated things */
+  --magic-soft:    rgb(192 132 252 / 14%);
+  --magic-line:    rgb(192 132 252 / 32%);
+
+  --neutral-soft:  rgb(148 163 184 / 12%);
+
+  /* -- the editor's own two backgrounds ---------------------------------- */
+  /* Selected text has to be obvious at a glance and still readable through,
+     so it is a wash rather than a fill; the current line is fainter still,
+     because it is only ever a hint and must never hide a selection under it. */
+  --select:        rgb(56 189 248 / 30%);
+  --select-blur:   rgb(148 163 184 / 20%);
+  --active-line:   rgb(148 163 184 / 7%);
+
+  /* -- shape ------------------------------------------------------------- */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 9px;
+  --r-lg: 13px;
+  --r-xl: 18px;
+  --r-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-md: 0 6px 18px -6px rgb(0 0 0 / 55%);
+  --shadow-lg: 0 24px 60px -18px rgb(0 0 0 / 70%);
+  --ring: 0 0 0 3px var(--accent-soft);
+
+  /* -- spacing ----------------------------------------------------------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+
+  /* -- type -------------------------------------------------------------- */
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --t-2xs: 10.5px;
+  --t-xs:  11.5px;
+  --t-sm:  13px;
+  --t-md:  14px;
+  --t-lg:  16px;
+  --t-xl:  19px;
+  --t-2xl: 24px;
+  --t-3xl: 30px;
+
+  /* -- layout ------------------------------------------------------------ */
+  --sidebar-w: 236px;
+  --outline-w: 320px;
+  --inspector-w: 380px;
+  --header-h: 58px;
+
+  --speed: 140ms;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --z-drawer: 40;
+  --z-popover: 60;
+  --z-modal: 80;
+  --z-toast: 100;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg:            #eef1f7;
+  --bg-grid:       #e3e8f1;
+  --surface:       #ffffff;
+  --surface-2:     #f6f8fc;
+  --surface-3:     #eef2f8;
+  --surface-hover: #eaeff7;
+  --overlay:       rgb(15 23 42 / 34%);
+
+  --border:        #dde3ee;
+  --border-soft:   #e8ecf4;
+  --border-strong: #c3ccdd;
+
+  --text:          #10192b;
+  --text-muted:    #55637f;
+  --text-dim:      #74809a;
+  --text-faint:    #97a2b8;
+
+  --accent:        #0284c7;
+  --accent-hover:  #0369a1;
+  --accent-strong: #0369a1;
+  --accent-ink:    #ffffff;
+  --accent-soft:   rgb(2 132 199 / 10%);
+  --accent-line:   rgb(2 132 199 / 28%);
+
+  --success:       #059669;
+  --success-soft:  rgb(5 150 105 / 10%);
+  --success-line:  rgb(5 150 105 / 28%);
+  --success-ink:   #ffffff;
+
+  --warning:       #b45309;
+  --warning-soft:  rgb(180 83 9 / 10%);
+  --warning-line:  rgb(180 83 9 / 26%);
+
+  --danger:        #dc2626;
+  --danger-hover:  #b91c1c;
+  --danger-soft:   rgb(220 38 38 / 9%);
+  --danger-line:   rgb(220 38 38 / 26%);
+  --danger-ink:    #ffffff;
+
+  --magic:         #7c3aed;
+  --magic-soft:    rgb(124 58 237 / 10%);
+  --magic-line:    rgb(124 58 237 / 26%);
+
+  --neutral-soft:  rgb(71 85 105 / 8%);
+
+  --select:        rgb(2 132 199 / 22%);
+  --select-blur:   rgb(100 116 139 / 15%);
+  --active-line:   rgb(15 23 42 / 4%);
+
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 8%);
+  --shadow-md: 0 8px 20px -10px rgb(15 23 42 / 22%);
+  --shadow-lg: 0 24px 56px -20px rgb(15 23 42 / 28%);
+}

@@ -1,0 +1,217 @@
+import { ref, reactive, computed, watch } from 'vue';
+import { state, loadProjects, openProject } from '@/core/store.js';
+import { post, del } from '@/core/api.js';
+import { toast, attempt } from '@/core/toast.js';
+import { useFuzzy } from '@/core/fuzzy.js';
+import { relativeTime, percent, plural } from '@/core/format.js';
+
+import AppIcon from '@/components/AppIcon.js';
+import AppModal from '@/components/AppModal.js';
+import EmptyState from '@/components/EmptyState.js';
+import ViewHeader from '@/components/ViewHeader.js';
+
+const SORTS = {
+  updated: (a, b) => b.updated_at - a.updated_at,
+  created: (a, b) => b.created_at - a.created_at,
+  name: (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  progress: (a, b) => percent(b.generated_count, b.page_count) - percent(a.generated_count, a.page_count),
+};
+
+export const ProjectsView = {
+  name: 'ProjectsView',
+  components: { AppIcon, AppModal, EmptyState, ViewHeader },
+  setup() {
+    const search = ref('');
+    const sort = ref('updated');
+    const showCreate = ref(false);
+    const creating = ref(false);
+    const draft = reactive({ name: '', topic: '', profile_id: null });
+    const confirmDelete = ref(null);
+
+    watch(() => state.profiles, (profiles) => {
+      if (draft.profile_id === null && profiles.length) draft.profile_id = profiles[0].id;
+    }, { immediate: true, deep: false });
+
+    const found = useFuzzy(computed(() => state.projects), search, { keys: ['name', 'topic'], limit: 200 });
+    const projects = computed(() => [...found.value].sort(SORTS[sort.value] ?? SORTS.updated));
+
+    const create = () => attempt(async () => {
+      if (!draft.topic.trim()) {
+        toast.error('Describe the course you want to build.');
+        return;
+      }
+      creating.value = true;
+      try {
+        const data = await post('projects', {
+          name: draft.name.trim() || 'Untitled course',
+          topic: draft.topic.trim(),
+          profile_id: draft.profile_id,
+        });
+        draft.name = '';
+        draft.topic = '';
+        showCreate.value = false;
+        await loadProjects();
+        state.project = data.project;
+        state.view = 'project';
+        state.projectTab = 'structure';
+      } finally {
+        creating.value = false;
+      }
+    }, 'Create course');
+
+    const remove = (project) => attempt(async () => {
+      await del(`projects/${project.id}`);
+      confirmDelete.value = null;
+      await loadProjects();
+      toast.success(`"${project.name}" deleted.`);
+    }, 'Delete course');
+
+    const profileName = (id) => state.profiles.find((p) => p.id === id)?.name ?? 'no profile';
+
+    return {
+      state, search, sort, projects, showCreate, creating, draft, confirmDelete,
+      create, remove, open: openProject, profileName,
+      relativeTime, percent, plural,
+    };
+  },
+  template: `
+    <view-header title="Courses" icon="book">
+      <template #actions>
+        <button class="btn btn--primary" @click="showCreate = true">
+          <app-icon name="plus" :size="15"/> New course
+        </button>
+      </template>
+    </view-header>
+
+    <div class="view-scroll">
+      <div class="view-pad container">
+        <div class="row wrap gap-3 mb-4" v-if="state.projects.length">
+          <div class="grow" style="max-width:420px;position:relative">
+            <app-icon name="search" :size="14"
+                      style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
+            <input v-model="search" placeholder="Search courses…" style="padding-left:30px" spellcheck="false">
+          </div>
+          <div class="row gap-2 none">
+            <span class="t-xs dim">Sort</span>
+            <select v-model="sort" style="width:auto">
+              <option value="updated">Last updated</option>
+              <option value="created">Newest</option>
+              <option value="name">Name</option>
+              <option value="progress">Progress</option>
+            </select>
+          </div>
+          <span class="badge push">{{ plural(projects.length, 'course') }}</span>
+        </div>
+
+        <div v-if="projects.length" class="grid grid-auto">
+          <article v-for="project in projects" :key="project.id" class="card">
+            <div class="card__body col gap-3">
+              <div class="row-top between gap-2">
+                <button class="grow" style="background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit"
+                        @click="open(project.id)">
+                  <h3 class="truncate" style="font-size:var(--t-md)">{{ project.name }}</h3>
+                </button>
+                <button class="btn btn--ghost btn--sm btn--icon none" title="Delete this course"
+                        @click="confirmDelete = project">
+                  <app-icon name="trash" :size="14"/>
+                </button>
+              </div>
+
+              <p class="t-xs dim clamp-2" style="min-height:2.6em">{{ project.topic || 'No topic set.' }}</p>
+
+              <div>
+                <div class="bar">
+                  <div class="bar__fill" :class="{ 'bar__fill--success': project.pushed_count === project.page_count && project.page_count }"
+                       :style="{ width: percent(project.generated_count, project.page_count) + '%' }"></div>
+                </div>
+                <div class="row between t-2xs dim mt-1">
+                  <span class="nums">{{ project.generated_count }}/{{ project.page_count }} pages written</span>
+                  <span class="nums">{{ percent(project.generated_count, project.page_count) }}%</span>
+                </div>
+              </div>
+
+              <div class="row wrap gap-1">
+                <span class="badge">{{ plural(project.chapter_count, 'chapter') }}</span>
+                <span v-if="project.pushed_count" class="badge badge--success">
+                  <app-icon name="upload" :size="10"/> {{ project.pushed_count }} published
+                </span>
+                <span v-if="project.auto_links" class="badge badge--accent">
+                  <app-icon name="link" :size="10"/> auto links
+                </span>
+              </div>
+
+              <div class="row between t-2xs faint">
+                <span class="truncate">{{ profileName(project.profile_id) }}</span>
+                <span class="none">{{ relativeTime(project.updated_at) }}</span>
+              </div>
+
+              <button class="btn btn--block" @click="open(project.id)">
+                Open <app-icon name="chevron-right" :size="14"/>
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <empty-state v-else-if="state.projects.length" icon="search"
+                     title="Nothing matches that search"
+                     hint="Try a different word, or clear the search box."/>
+
+        <empty-state v-else icon="book" title="No courses yet"
+                     hint="A course starts with one sentence: what should be taught, to whom, and up to which level.">
+          <button class="btn btn--primary mt-2" @click="showCreate = true">
+            <app-icon name="plus" :size="15"/> Create your first course
+          </button>
+        </empty-state>
+      </div>
+    </div>
+
+    <app-modal v-if="showCreate" title="New course" icon="sparkles" @close="showCreate = false">
+      <div class="col gap-4">
+        <div class="form-row">
+          <label for="new-topic">What should this course teach?</label>
+          <textarea id="new-topic" v-model="draft.topic" rows="3"
+                    placeholder="Vue.js – complete course from beginner to professional; IDE: PhpStorm"></textarea>
+          <p class="hint">Name the subject, the audience and the level span. The AI designs the outline from this.</p>
+        </div>
+        <div class="grid grid-2" style="gap:var(--s-4)">
+          <div class="form-row">
+            <label for="new-name">Course name</label>
+            <input id="new-name" v-model="draft.name" placeholder="Taken from the outline">
+          </div>
+          <div class="form-row">
+            <label for="new-profile">Profile</label>
+            <select id="new-profile" v-model="draft.profile_id">
+              <option :value="null">— none —</option>
+              <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
+            </select>
+          </div>
+        </div>
+        <p v-if="!state.profiles.length" class="hint c-warning">
+          There is no profile yet. You can create the course now, but generating anything needs a profile with an AI account.
+        </p>
+      </div>
+      <template #footer>
+        <button class="btn" @click="showCreate = false">Cancel</button>
+        <button class="btn btn--primary" :disabled="creating || !draft.topic.trim()" @click="create">
+          <app-icon v-if="creating" name="refresh" :size="14" spin/>
+          {{ creating ? 'Creating…' : 'Create course' }}
+        </button>
+      </template>
+    </app-modal>
+
+    <app-modal v-if="confirmDelete" title="Delete this course?" icon="alert" @close="confirmDelete = null">
+      <p class="t-sm">
+        <strong>{{ confirmDelete.name }}</strong> and all
+        {{ plural(confirmDelete.page_count, 'generated page') }} will be removed from CourseForge.
+      </p>
+      <p class="hint mt-2">Anything already published stays in BookStack — delete it there separately.</p>
+      <template #footer>
+        <button class="btn" @click="confirmDelete = null">Cancel</button>
+        <button class="btn btn--danger" @click="remove(confirmDelete)">
+          <app-icon name="trash" :size="14"/> Delete
+        </button>
+      </template>
+    </app-modal>`,
+};
+
+export default ProjectsView;

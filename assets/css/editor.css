@@ -1,0 +1,396 @@
+/* ============================================================================
+   CourseForge – the content editor and everything it renders.
+
+   Four things live here, in this order: the CodeMirror chrome, the Markdown
+   token colours, the same colours again for the fenced code CodeMirror parses,
+   and finally the three preview elements that need a library to appear —
+   highlighted blocks, Mermaid diagrams and MathJax formulas.
+
+   Not a single colour is spelled out. CodeMirror is told which class a token
+   gets, never which colour, so `tokens.css` remains the only place a palette
+   is defined and dark ⇄ light keeps working without the editor knowing.
+   ========================================================================== */
+
+/* -- the editor shell ------------------------------------------------------- */
+
+/* CodeMirror forces `position: relative` on itself and grows with its content
+   unless it is given a height, so the shell is a flex column and the editor is
+   the item that takes what is left. `overflow: auto` on the scroller is the
+   other half of that contract — without it the height is capped but nothing
+   scrolls. */
+.cf-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--bg);
+}
+.cf-editor .cm-editor { flex: 1 1 auto; min-height: 0; }
+.cf-editor .cm-editor.cm-focused { outline: none; }
+
+/* What stands in for the editor while it is being fetched, or if it never came. */
+.cf-editor--notice {
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-5);
+  color: var(--text-dim);
+  font-size: var(--t-sm);
+  text-align: center;
+}
+
+.cf-editor .cm-scroller {
+  overflow: auto;
+  overscroll-behavior: contain;
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  line-height: 1.7;
+}
+.cf-editor .cm-content {
+  padding: var(--s-4) 0 var(--s-10);
+  caret-color: var(--accent);
+}
+.cf-editor .cm-line { padding: 0 var(--s-5) 0 var(--s-3); }
+
+.cf-editor .cm-cursor, .cf-editor .cm-dropCursor {
+  border-left: 2px solid var(--accent);
+}
+
+/* -- what is selected ------------------------------------------------------- */
+
+/* `drawSelection` paints the selection into a layer of its own, underneath the
+   text, and CodeMirror's base theme claims it with a five-class selector
+   (`&dark.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`).
+   A shorter rule here loses that cast silently, which is how a focused
+   selection ended up drawn in CodeMirror's own near-black default. Both rules
+   below therefore match its shape and add one class, and the focused one comes
+   second so it wins on order rather than on weight.
+
+   Three things fight over the same pixels and only one of them may win:
+
+   - the selection layer, below the text — the wash defined here;
+   - `.cm-activeLine`, a background on the line the cursor is on, above the
+     layer. It is faint, and it steps aside entirely while anything is
+     selected: the line under the cursor is always part of the selection, so an
+     opaque hint there hides precisely the end an author is watching;
+   - `.cm-selectionMatch`, which marks every *other* copy of the selected text.
+     A second fill there makes the real selection indistinguishable from its
+     echoes, so it is drawn as a ring instead. */
+.cf-editor .cm-editor > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: var(--select-blur);
+  border-radius: 2px;
+}
+.cf-editor .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: var(--select);
+}
+
+.cf-editor .cm-activeLine { background: var(--active-line); }
+.cf-editor .cm-content.cm-has-selection .cm-activeLine { background: none; }
+
+.cf-editor .cm-selectionMatch {
+  background: none;
+  border-radius: var(--r-xs);
+  box-shadow: inset 0 0 0 1px var(--warning-line);
+}
+.cf-editor .cm-matchingBracket,
+.cf-editor .cm-focused .cm-matchingBracket {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent-line);
+}
+.cf-editor .cm-nonmatchingBracket { background: var(--danger-soft); }
+.cf-editor .cm-specialChar { color: var(--danger); }
+.cf-editor .cm-placeholder { color: var(--text-faint); font-style: italic; }
+
+.cf-editor .cm-gutters {
+  border-right: 1px solid var(--border-soft);
+  background: var(--bg);
+  color: var(--text-faint);
+  font-size: var(--t-2xs);
+}
+.cf-editor .cm-lineNumbers .cm-gutterElement { padding: 0 var(--s-2) 0 var(--s-3); min-width: 30px; }
+.cf-editor .cm-activeLineGutter { background: var(--surface-2); color: var(--text-dim); }
+
+/* the find panel, which arrives with the search keymap */
+.cf-editor .cm-panels {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.cf-editor .cm-panel.cm-search { padding: var(--s-2) var(--s-3); font-size: var(--t-xs); }
+.cf-editor .cm-panel.cm-search label { color: var(--text-muted); }
+.cf-editor .cm-textfield {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--t-xs);
+}
+.cf-editor .cm-button {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  background-image: none;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+.cf-editor .cm-button:hover { background: var(--surface-hover); color: var(--text); }
+
+/* -- Markdown structure ----------------------------------------------------- */
+
+.cf-editor .cm-md-h1, .cf-editor .cm-md-h2, .cf-editor .cm-md-h3,
+.cf-editor .cm-md-h4, .cf-editor .cm-md-h5, .cf-editor .cm-md-h6 {
+  color: var(--accent);
+  font-weight: 680;
+}
+.cf-editor .cm-md-h1 { font-size: 1.24em; }
+.cf-editor .cm-md-h2 { font-size: 1.14em; }
+.cf-editor .cm-md-h3 { font-size: 1.06em; }
+.cf-editor .cm-md-heading { color: var(--text); font-weight: 640; }
+
+.cf-editor .cm-md-mark { color: var(--text-faint); font-weight: 400; }
+.cf-editor .cm-md-strong { color: var(--text); font-weight: 700; }
+.cf-editor .cm-md-em { font-style: italic; }
+.cf-editor .cm-md-strike { color: var(--text-dim); text-decoration: line-through; }
+.cf-editor .cm-md-link { color: var(--accent); }
+.cf-editor .cm-md-url { color: var(--accent-hover); text-decoration: underline; }
+.cf-editor .cm-md-code { color: var(--success); }
+.cf-editor .cm-md-quote { color: var(--text-dim); font-style: italic; }
+.cf-editor .cm-md-list { color: var(--warning); font-weight: 600; }
+.cf-editor .cm-md-rule { color: var(--border-strong); }
+.cf-editor .cm-md-info { color: var(--text-dim); font-style: italic; }
+.cf-editor .cm-md-escape { color: var(--magic); }
+
+/* -- fenced code, as far as CodeMirror parses it ---------------------------- */
+
+.cf-editor .cm-tk-keyword { color: var(--magic); }
+.cf-editor .cm-tk-string { color: var(--success); }
+.cf-editor .cm-tk-atom { color: var(--warning); }
+/* One step brighter than the faintest text in the palette: a comment has to
+   stay legible with the selection wash behind it, which is where the dimmest
+   colour on the darkest background stops being readable at all. */
+.cf-editor .cm-tk-comment { color: var(--text-dim); font-style: italic; }
+.cf-editor .cm-tk-type { color: var(--accent); }
+.cf-editor .cm-tk-function { color: var(--accent-hover); }
+.cf-editor .cm-tk-definition { color: var(--text); }
+.cf-editor .cm-tk-name { color: var(--text-muted); }
+.cf-editor .cm-tk-tag { color: var(--danger); }
+.cf-editor .cm-tk-regexp { color: var(--success); }
+.cf-editor .cm-tk-meta { color: var(--text-dim); }
+.cf-editor .cm-tk-punct { color: var(--text-dim); }
+.cf-editor .cm-tk-invalid { color: var(--danger); text-decoration: underline wavy; }
+
+/* -- the two markers CourseForge writes into a page ------------------------- */
+
+.cf-editor .cm-cf-xref {
+  padding: 1px 2px;
+  border-radius: var(--r-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.cf-editor .cm-cf-cloze {
+  padding: 1px 2px;
+  border-radius: var(--r-xs);
+  background: var(--magic-soft);
+  color: var(--magic);
+}
+
+/* -- preview: fenced code blocks -------------------------------------------- */
+
+/* A block is a `figure`: a header naming the language and holding the three
+   controls, and the listing under it. The frame moves from the `pre` to the
+   figure so the header sits inside the same box, and the `pre` keeps only what
+   it needs to scroll.
+
+   Everything a reader can change — wrapping, line numbers — is a class on the
+   scroller rather than a property of the block, because those are one choice
+   for the whole document. Turning either on or off is a class flip; no block
+   is re-rendered and no grammar is fetched again. */
+
+.prose .cf-block {
+  margin-block: 1.2em;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  overflow: hidden;                    /* keeps the listing inside the corners */
+}
+
+.prose .cf-block__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 2px 4px 2px var(--s-3);
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+  font-family: var(--font);
+  font-size: var(--t-2xs);
+  line-height: 1.9;
+  user-select: none;
+}
+
+.prose .cf-block__lang {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A language nobody wrote on the fence says so, quietly and once. */
+.prose .cf-block__lang.is-detected { cursor: help; }
+.prose .cf-block__lang.is-detected::after {
+  content: "auto";
+  margin-left: 6px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  color: var(--text-faint);
+  font-size: 0.92em;
+}
+
+.prose .cf-block__tools { display: flex; flex: none; align-items: center; gap: 1px; }
+
+.prose .cf-block__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color var(--speed) var(--ease), background var(--speed) var(--ease);
+}
+.prose .cf-block:hover .cf-block__btn { color: var(--text-dim); }
+.prose .cf-block__btn:hover { background: var(--surface-2); color: var(--text); }
+.prose .cf-block__btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Each toggle carries both of its glyphs; which one shows is the state of the
+   preference, so flipping it touches no block at all. */
+.prose .cf-block__icon { display: none; }
+.cf-preview.is-wrap .cf-block__btn--wrap .is-on,
+.cf-preview:not(.is-wrap) .cf-block__btn--wrap .is-off,
+.cf-preview.is-numbered .cf-block__btn--numbers .is-on,
+.cf-preview:not(.is-numbered) .cf-block__btn--numbers .is-off,
+.cf-block__btn--copy .is-on { display: inline-block; }
+
+.prose .cf-block.is-copied .cf-block__btn--copy { color: var(--success); }
+.prose .cf-block.is-copied .cf-block__btn--copy .is-on { display: none; }
+.prose .cf-block.is-copied .cf-block__btn--copy .is-done { display: inline-block; }
+
+/* The listing. `prose.css` frames every other `pre`; inside a block the figure
+   has already done that, so this one only carries the padding and the scroll. */
+.prose .cf-block pre {
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  overflow-x: auto;
+}
+.prose .cf-block pre code { display: block; }
+.prose .cf-block pre:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Shiki writes both palettes into every token as custom properties, so the
+   theme switch is a selector rather than a re-render. Dark is the base and
+   light the override, the same way round as `tokens.css`. */
+.prose .shiki, .prose .shiki code, .prose .shiki span { color: var(--shiki-dark); }
+:root[data-theme="light"] .prose .shiki,
+:root[data-theme="light"] .prose .shiki code,
+:root[data-theme="light"] .prose .shiki span { color: var(--shiki-light); }
+
+/* -- preview: wrapping and line numbers ------------------------------------- */
+
+.cf-preview.is-wrap .prose .cf-block pre,
+.cf-preview.is-wrap .prose .cf-block pre code {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* The number is taken out of the flow rather than put in front of the line, so
+   a wrapped line hangs under its own first character instead of under its
+   number, and copying the block cannot pick a number up. It is a counter, so
+   the markup carries nothing that has to be renumbered when the text changes. */
+.cf-preview.is-numbered .prose .cf-block pre code {
+  counter-reset: cf-line;
+  padding-left: 3.4em;
+}
+.cf-preview.is-numbered .prose .cf-block .line { position: relative; }
+.cf-preview.is-numbered .prose .cf-block .line::before {
+  content: counter(cf-line);
+  counter-increment: cf-line;
+  position: absolute;
+  left: -3.4em;
+  width: 2.4em;
+  color: var(--text-faint);
+  text-align: right;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* -- preview: Mermaid diagrams ---------------------------------------------- */
+
+.prose .cf-diagram {
+  display: flex;
+  justify-content: center;
+  margin-block: 1.4em;
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow-x: auto;
+}
+.prose .cf-diagram svg { max-width: 100%; height: auto; }
+
+/* Before Mermaid answers, the element still holds the diagram source; it is the
+   placeholder that is shown instead, at the same width so nothing jumps. */
+.prose .cf-diagram:not(.is-rendered) {
+  border-style: dashed;
+  background: none;
+  font-size: 0;
+}
+.prose .cf-diagram:not(.is-rendered)::after {
+  content: "drawing diagram…";
+  color: var(--text-faint);
+  font-size: var(--t-xs);
+}
+
+.prose .cf-diagram.is-failed {
+  display: block;
+  border-color: var(--danger-line);
+  border-style: solid;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  white-space: pre-wrap;
+}
+
+/* -- preview: MathJax formulas ---------------------------------------------- */
+
+/* Until MathJax has loaded, a formula shows its own LaTeX rather than a gap. */
+.prose .cf-math:not(.is-rendered) {
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+.prose .cf-math--block {
+  margin-block: 1.2em;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.prose mjx-container { color: currentcolor; }
+.prose mjx-container[display="true"] { margin: 0 !important; }
+.prose mjx-container svg { max-width: 100%; }
+
+/* -- the split view --------------------------------------------------------- */
+
+.cf-preview { position: relative; scroll-behavior: auto; }
+
+/* The scroll link, in the editor header. It only appears in the split view, so
+   the pressed state is the whole of its affordance. */
+.btn.cf-sync.is-active { background: var(--accent-soft); color: var(--accent); }
+.btn.cf-sync.is-active:hover:not(:disabled) { background: var(--accent-line); color: var(--accent); }

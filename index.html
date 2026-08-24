@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <title>CourseForge</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+
+  <!-- Resolve the theme before the first paint so there is never a light flash. -->
+  <script>
+    (() => {
+      const stored = localStorage.getItem('cf.theme');
+      const system = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.dataset.theme = (stored === 'light' || stored === 'dark') ? stored : system;
+    })();
+  </script>
+
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/prose.css">
+  <link rel="stylesheet" href="assets/css/editor.css">
+
+  <!--
+    Buildless module resolution. Every dependency is vendored under
+    assets/vendor/ (see VENDOR.md for versions and licences) and reached through
+    a bare specifier, so application code imports 'vue' exactly as it would in a
+    bundled project – but nothing has to be built before deploying.
+  -->
+  <script type="importmap">
+    {
+      "imports": {
+        "vue": "./assets/vendor/vue.esm-browser.prod.js",
+        "marked": "./assets/vendor/marked.esm.js",
+        "dompurify": "./assets/vendor/purify.es.mjs",
+        "fuse": "./assets/vendor/fuse.mjs",
+
+        "shiki": "./assets/vendor/shiki/core.js",
+        "shiki/engine": "./assets/vendor/shiki/engine-javascript.js",
+
+        "@codemirror/state": "./assets/vendor/codemirror/state.js",
+        "@codemirror/view": "./assets/vendor/codemirror/view.js",
+        "@codemirror/language": "./assets/vendor/codemirror/language.js",
+        "@codemirror/commands": "./assets/vendor/codemirror/commands.js",
+        "@codemirror/search": "./assets/vendor/codemirror/search.js",
+        "@codemirror/autocomplete": "./assets/vendor/codemirror/autocomplete.js",
+        "@codemirror/lang-markdown": "./assets/vendor/codemirror/lang-markdown.js",
+        "@codemirror/lang-html": "./assets/vendor/codemirror/lang-html.js",
+        "@codemirror/lang-css": "./assets/vendor/codemirror/lang-css.js",
+        "@codemirror/lang-javascript": "./assets/vendor/codemirror/lang-javascript.js",
+        "@codemirror/lang-php": "./assets/vendor/codemirror/lang-php.js",
+        "@lezer/common": "./assets/vendor/codemirror/lezer-common.js",
+        "@lezer/highlight": "./assets/vendor/codemirror/lezer-highlight.js",
+        "@lezer/lr": "./assets/vendor/codemirror/lezer-lr.js",
+        "@lezer/markdown": "./assets/vendor/codemirror/lezer-markdown.js",
+        "@lezer/html": "./assets/vendor/codemirror/lezer-html.js",
+        "@lezer/css": "./assets/vendor/codemirror/lezer-css.js",
+        "@lezer/javascript": "./assets/vendor/codemirror/lezer-javascript.js",
+        "@lezer/php": "./assets/vendor/codemirror/lezer-php.js",
+        "@marijn/find-cluster-break": "./assets/vendor/codemirror/find-cluster-break.js",
+        "style-mod": "./assets/vendor/codemirror/style-mod.js",
+        "w3c-keyname": "./assets/vendor/codemirror/w3c-keyname.js",
+        "crelt": "./assets/vendor/codemirror/crelt.js",
+
+        "@/": "./assets/js/"
+      }
+    }
+  </script>
+  <link rel="modulepreload" href="assets/vendor/vue.esm-browser.prod.js">
+  <link rel="modulepreload" href="assets/js/main.js">
+</head>
+<body>
+<!-- Vue replaces the contents of #app; #app itself keeps whatever is on it,
+     so the boot styling lives on an inner element rather than on the mount point. -->
+<div id="app">
+  <div class="app-boot">
+    <div class="boot-splash">
+      <div class="boot-splash__mark" aria-hidden="true"></div>
+      <p>Loading CourseForge…</p>
+    </div>
+  </div>
+</div>
+
+<noscript>
+  <div style="padding:2rem;font:16px system-ui">CourseForge needs JavaScript to run.</div>
+</noscript>
+
+<script type="module" src="assets/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+Options -Indexes
+DirectoryIndex index.html
+
+# ---------------------------------------------------------------- file types
+# Belt and braces: works even when mod_rewrite is unavailable.
+<FilesMatch "\.(sqlite|sqlite3|db|db-wal|db-shm|json|md|log|ini|txt)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Under CGI/FastCGI Apache drops the Authorization header before PHP sees
+    # it, which would make every MCP request look unauthenticated.
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Never serve anything out of the private directories.
+    RewriteRule ^(data|src|tools)/ - [F,L]
+
+    # The MCP endpoint is its own front door: bearer token instead of a cookie
+    # session, JSON-RPC instead of REST. It has to be excluded before the
+    # catch-all below, which would otherwise hand it to the browser API.
+    RewriteRule ^api/mcp\.php$ - [L]
+    RewriteRule ^mcp/?$        api/mcp.php [QSA,L]
+
+    # Everything else under /api/ goes through the single front controller.
+    RewriteRule ^api/?$    api/index.php [QSA,L]
+    RewriteRule ^api/(.+)$ api/index.php [QSA,L]
+</IfModule>
+
+# --------------------------------------------------------------------- types
+# Some servers do not know .mjs yet; without this the module fails to load.
+<IfModule mod_mime.c>
+    AddType application/javascript .js .mjs
+    AddType image/svg+xml .svg
+</IfModule>
+
+# ------------------------------------------------------------------- headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "same-origin"
+</IfModule>
+
+# Caching of the vendored libraries is handled by assets/vendor/.htaccess, which
+# can state it once for the whole directory instead of naming every file.
+
+# --------------------------------------------------------------- compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>

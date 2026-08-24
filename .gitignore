@@ -1,0 +1,34 @@
+# --- runtime state, never in the repo ---------------------------------------
+data/app.sqlite
+data/app.sqlite-wal
+data/app.sqlite-shm
+data/*.sqlite
+data/*.sqlite-*
+data/users.json
+data/config.local.json
+data/sessions/
+data/logs/
+data/updates/
+data/backups/
+INVITE-CODE.txt
+
+# --- secrets ----------------------------------------------------------------
+.env
+*.pem
+*.ppk
+deploy.local.*
+.deploy/
+ftp-credentials*
+
+# --- editors / OS -----------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# --- scratch ----------------------------------------------------------------
+node_modules/
+*.log
+.cf-tmp/
