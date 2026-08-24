@@ -340,9 +340,13 @@ final class AdminTools
                 description: 'Every MCP connection on this installation: its name, the account it belongs to, the '
                     . 'tool groups it is limited to, when it was made, when it was last used and how often. Tokens '
                     . 'are stored only as hashes and can never be shown again. Use the connection_id from here with '
-                    . 'revoke_connection. Costs nothing.',
+                    . 'revoke_connection. Your own unless you name another account or ask for all of them. '
+                    . 'Costs nothing.',
                 properties: [
-                    'owner' => Schema::string('One account\'s connections only. Omit for every account.'),
+                    'owner' => Schema::string("One other account's connections."),
+                    'all' => Schema::bool(
+                        'Administrators only: widen to every account on the installation. Without it a listing is your own.'
+                    ),
                 ],
                 required: [],
                 handler: static fn(Actor $actor, array $args): array => self::listConnections($actor, Args::of($args)),
@@ -1019,7 +1023,7 @@ final class AdminTools
     {
         $actor->requireAdmin();
 
-        $owner = Access::listingOwner($actor, $args->str('owner'));
+        $owner = Access::workingSet($actor, $args->str('owner'), $args->bool('all'));
 
         $rows = [];
         foreach (McpClients::all($owner) as $client) {

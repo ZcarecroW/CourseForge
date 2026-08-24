@@ -1,0 +1,10 @@
+# The suite is not part of what the application serves. A test file is a PHP
+# file, and the root .htaccess cannot deny those - the application is made of
+# them - so the deny has to be stated here as well as in the rewrite rule.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

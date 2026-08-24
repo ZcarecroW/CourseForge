@@ -26,8 +26,11 @@ DirectoryIndex index.html
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Never serve anything out of the private directories.
-    RewriteRule ^(data|src|tools)/ - [F,L]
+    # Never serve anything out of the private directories. config/ has its own
+    # .htaccess as well, and tests/ is here because a release ships it and a
+    # test file is a PHP file, which the FilesMatch above deliberately does not
+    # cover - the application is made of those.
+    RewriteRule ^(data|src|tools|config|tests)/ - [F,L]
 
     # The MCP endpoint is its own front door: bearer token instead of a cookie
     # session, JSON-RPC instead of REST. It has to be excluded before the

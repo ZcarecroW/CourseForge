@@ -9,7 +9,7 @@ use CourseForge\Support\Config;
 /**
  * The prompt library: config defaults, profile overrides, placeholders.
  *
- * Every slot in data/config.json can be overridden per profile. An override
+ * Every slot in config/defaults.json can be overridden per profile. An override
  * that is an empty string is honoured on purpose – the UI documents it as
  * "send nothing for this slot", which is how a user switches a whole block of
  * instructions off without editing the config file.

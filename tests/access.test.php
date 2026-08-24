@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
 /**
  * Who may reach whose rows, and what a listing narrows to.
  *

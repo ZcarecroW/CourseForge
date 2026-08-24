@@ -1,4 +1,4 @@
-# CourseForge 3
+# CourseForge 4
 
 A self-hosted tool that turns a one-line brief into a complete course — outline,
 chapters, written pages, flashcards — and publishes it into a
@@ -8,138 +8,192 @@ chapters, written pages, flashcards — and publishes it into a
 "Vue.js – complete course from beginner to professional; IDE: PhpStorm"
         │
         ├─ AI designs the outline        20 chapters, 140 pages
-        ├─ AI writes each page           in parallel, resumable
+        ├─ AI writes each page           in the background, or at half price in a batch queue
         ├─ you steer what goes in        per course, chapter or page
         └─ CourseForge publishes it      into BookStack, links and all
 ```
+
+You can do all of that in a browser, or you can do all of it from Claude Code.
 
 ## What it is made of
 
 No build step, no package manager, no framework runtime to compile at load time.
 Copy the directory to a PHP host and it runs.
 
-| Layer     | Choice                                                             |
-|-----------|--------------------------------------------------------------------|
-| Frontend  | Vue 3 as native ES modules through an import map, hand-written CSS  |
-| Editor    | CodeMirror 6; Shiki, Mermaid and MathJax in the preview             |
-| Backend   | PHP 8.1+, no Composer, one front controller                        |
-| Storage   | SQLite, migrated automatically                                     |
-| AI        | OpenAI-compatible, Anthropic, OpenRouter, or a Claude subscription |
-| Bulk runs | In the background from cron, or a provider batch queue at half price |
-| Publishing| The BookStack REST API                                             |
+| Layer      | Choice                                                              |
+|------------|---------------------------------------------------------------------|
+| Frontend   | Vue 3 as native ES modules through an import map, hand-written CSS  |
+| Editor     | CodeMirror 6; Shiki, Mermaid and MathJax in the preview             |
+| Backend    | PHP 8.1+, no Composer, one front controller                         |
+| Storage    | SQLite, migrated automatically                                      |
+| AI         | Anthropic, OpenAI, Google Gemini, OpenRouter, twenty-odd gateways, or a local model |
+| Bulk runs  | In the background from cron, or a provider batch queue at half price |
+| Publishing | The BookStack REST API                                              |
+| Automation | A Model Context Protocol server with the whole application on it    |
 
 ## Getting started
 
 ```bash
 # 1. copy the directory to your web root
 # 2. make data/ writable by PHP
-# 3. set the first password
-$EDITOR data/users.json
-
-# 4. check the installation
-php tools/diagnose.php
-
-# 5. open index.html in a browser and sign in
+# 3. open it in a browser
 ```
 
-Then, inside the app: create a **Profile** (AI account, BookStack instance,
-models, language), create a **Course**, generate the **Structure**, write the
+There is no configuration file to edit before the first start. CourseForge
+writes `INVITE-CODE.txt` next to `index.html`, the setup screen asks for the code
+in it, and the account it creates is the first administrator. Everything after
+that — the AI accounts, the scheduler, the security policy, the whole prompt
+library — is set from inside the application.
+
+```bash
+php tools/diagnose.php     # checks the installation, if you have a shell
+```
+
+Then: create a **Profile** (an AI account, a BookStack instance, models,
+language), create a **Course**, generate the **Structure**, write the
 **Content**, and **Publish**.
 
 Full documentation, including the nginx configuration and the technical
 background, is in [docs.md](docs.md).
 
-## What is new in 3.2
+## What is new in 4
 
-**Close the browser.** Starting "write all missing pages" used to be a loop in
-the browser tab: it stopped when the window did, which is fine for three pages
-and useless for five hundred. Now it is a *run* — written down on the server
-before any work starts, and carried out by CourseForge itself from cron, or by
-the provider's own batch queue. Reopen the course tomorrow and the run is still
-there, still counting. Point your host at `/cron.php?token=...` once a minute
-and a course writes itself overnight.
+### The whole application, over MCP
 
-**Anthropic, natively.** Not through a compatibility shim: the Messages API as
-it actually is, with the system prompt in its own field, `max_tokens` supplied
-because it is mandatory, and the answer read out of the content blocks rather
-than assumed to be the first one. The models that refuse a `temperature` are
-known about, and a model released after this was written that also refuses one
-is retried without it rather than failed.
+CourseForge 3.2 offered a Claude client six tools, all of them variations on
+"here is a writing brief, give me the page back". That is still here, and it is
+still the cheapest way to write a course: the writing happens inside Claude, on
+your own subscription, and the server never holds a credential.
 
-**`:batch` models, at half price.** Write `claude-opus-5:batch`, or tick the box
-in Profiles, and a whole course goes to the provider's batch queue instead.
-Anthropic's Message Batches, OpenAI's Batch API and OpenRouter's queue are all
-spoken natively — and OpenRouter's own `:batch` model slugs are exactly the same
-convention, so picking one from the list does what its name says.
-
-**Let Claude write your courses.** Open **Connect**, create a connection, paste
-one line into Claude Code or the Claude desktop app. CourseForge then hands
-Claude the same writing brief it would have sent a model itself — the course
-structure, the page's place in it, the resolved content details — and takes the
-finished page back. The writing happens inside Claude, on your own Pro or Max
-plan, and the server never holds a credential.
+Version 4 adds the other half — everything the browser can do:
 
 ```bash
-claude mcp add --transport http courseforge https://your-install/api/mcp.php   --header "Authorization: Bearer cf3_..."
+claude mcp add --transport http courseforge https://your-install/api/mcp.php \
+  --header "Authorization: Bearer cf4_..."
 ```
 
-There is also a **Claude subscription** account type that drives the `claude`
-CLI directly, for a CourseForge running on your own machine. It is local only —
-there is no HTTP endpoint anywhere that bills a subscription, and lifting the
-OAuth token out of `~/.claude` is prohibited by Anthropic's terms. On a hosted
-install, Connect is the answer.
+> *"Create a Vue 3 course in CourseForge, design the outline, then queue the
+> whole thing to Anthropic's batch queue and tell me what it will cost."*
 
-A 3.0 or 3.1 profile keeps working untouched: an AI account with no type
-recorded is read as the OpenAI-compatible one it was.
+Create courses, design outlines with the profile's own model, edit pages and
+chapters, set content details at any level, manage tags, start and watch
+generation runs, publish to BookStack, resolve cross references — and, for an
+administrator, manage accounts, change any setting, rotate the cron token, read
+the diagnostics and install an update. Seventy-odd tools in ten groups.
 
-## What is new in 3.1
+A connection can be **narrowed to some of those groups**, so a token that only
+writes pages cannot delete a course or read your settings. It inherits the role
+of the account that made it, and inherits it *on every request* — demote somebody
+and their connections lose the administrator tools immediately, rather than
+whenever they happen to reconnect.
 
-The Content tab stopped being a textarea next to a rough preview and became a
-place you would willingly write a page in.
+The endpoint speaks **both eras of the protocol**. Revision `2026-07-28` rebuilt
+MCP as a stateless protocol with no `initialize` handshake and no session; every
+client installed today still speaks the older one, and an old client has no way
+to fall forward. So CourseForge answers `server/discover` for the new ones and
+`initialize` for the old ones, on the same URL, with the same tools.
 
-- **A real Markdown editor.** CodeMirror 6 with syntax highlighting the way an
-  IDE does it: headings that read as headings, emphasis that is emphasised,
-  line numbers, bracket matching and find. A fenced block is highlighted in its
-  own language, and the two markers CourseForge itself writes — `(🔗 Title)`
-  cross references and `{{c1::…}}` cloze deletions — are picked out so a broken
-  one is visible before it is published.
-- **Diagrams and formulas in the preview.** Mermaid draws the ```mermaid blocks
-  and MathJax typesets `\( … \)` and `$$ … $$`, both with the delimiters
-  BookStack uses — so a diagram that will not parse is caught while the page is
-  being written rather than after a publish.
-- **Code highlighting in 232 languages**, via Shiki and the same TextMate
-  grammars VS Code uses; 121 of them in the editor as well, as you type. Both
-  palettes are baked into one render, so switching the theme costs nothing.
-- **Blocks whose fence is wrong or missing are worked out from the code.** A
-  conservative detector reads the block itself, and only answers when the
-  evidence is one-sided — so ```text holding a JSON document is highlighted as
-  JSON and a stack trace is left alone. Every guess is labelled as one.
-- **A header on every block in the preview**, naming the language, with a copy
-  button and switches for line numbers and line wrapping — both on by default,
-  both remembered.
-- **Linked scrolling.** In the split view the two halves stay on the same
-  passage, matched on real positions in the text rather than on a percentage of
-  the scroll height — so a page with one long diagram does not drift. The link
-  can be switched off, and the choice is remembered.
+### Accounts, with roles
 
-Everything new is fetched only when it is needed: signing in costs exactly what
-it did in 3.0, and a course with no diagrams never downloads Mermaid.
+An installation is no longer one password in a JSON file.
 
-## What is new in 3
+- The first administrator is created from a **setup screen**, gated on the code
+  in `INVITE-CODE.txt`. Somebody who can read that file can already read
+  `config/`, so it proves exactly the right thing — and an installation that is
+  reachable from the internet before you have finished setting it up is not a
+  race you can lose.
+- An administrator **creates accounts**, changes anybody's role afterwards,
+  disables and deletes them. Deleting an account never silently deletes its
+  courses: you choose between removing them and handing them to somebody else.
+- Everyone's courses, profiles and tags are their own. An administrator can see
+  and manage all of them, and a course opened by an administrator still resolves
+  *its owner's* profile, tags and BookStack instance — never theirs.
+- The last enabled administrator cannot be deleted, disabled or demoted, because
+  an installation with no administrator can only be repaired from the file
+  system.
 
-- **Content details** — thirteen switchable elements (summary, exercises,
-  diagrams, formulas, flashcards, …) and seven values (minimum and **maximum
-  length**, diagram count, card count, audience, …), each settable on the
-  course, a chapter or a single page, with real inheritance.
-- **Auto links** — the AI marks cross references as plain text while writing;
-  after publishing, CourseForge rewrites them into real BookStack links without
-  calling the AI again.
-- **A prompt library you can actually navigate** — 41 slots in four groups, each
-  documented, overridable per profile, with clickable placeholder chips.
-- **A rebuilt UI** — three-pane workspace on a Full HD desktop, collapsing to a
-  single column on a phone, in a dark or a light theme.
-- **A rewritten codebase** — namespaced PHP with a declarative router, ES
-  modules with explicit imports, and a design system instead of a runtime CSS
-  compiler.
+### Everything is configurable in the UI
 
-A CourseForge 2.x database is migrated in place on first start; nothing is lost.
+The configuration is now two layers. `config/defaults.json` ships with the
+release and is replaced wholesale by an update. `data/config.json` holds only
+what this installation changed, and nothing else touches it — so an update
+brings new defaults and new prompt slots along with it without ever stepping on
+a decision you made.
+
+Every setting is declared once, in one place, and three things read that
+declaration: the Settings screen, which renders a field per entry; the API,
+which validates against it; and the MCP tools, which describe and change
+settings without a second catalogue that could disagree. A setting added later
+appears in all three without a line of frontend code.
+
+That includes the **cron token**, which is what makes background work possible
+at all. The Settings screen generates one and hands you the finished URL to
+paste into your hosting control panel.
+
+### Updates, from GitHub, in one click
+
+An administrator can check whether a newer release exists and install it —
+or turn on unattended updates at, say, five in the morning.
+
+An update takes a backup first, stages the release, replaces the files, runs the
+database migration in a *child process* so that a broken release cannot pass by
+reusing the current one's connection, and rolls back automatically if the new
+version fails to start. The backup is a single archive rather than a live tree,
+because a directory full of executable PHP under the document root is an old
+version of the application waiting to be served next to the new one.
+
+### More providers, and batch generation that is worth using
+
+CourseForge speaks the **Anthropic Messages API**, **OpenAI**, the **Google
+Gemini Developer API** and **OpenRouter** natively — not through a compatibility
+shim, because every one of those four reports at least one kind of failure with
+an HTTP 200 and a body that has to be read properly. An empty course page is a
+worse outcome than a loud error.
+
+Everything else that speaks `/chat/completions` is a **preset**: Groq, DeepSeek,
+xAI, Together, Fireworks, Cerebras, DeepInfra, Nebius, Moonshot, Z.ai, Mistral,
+a LiteLLM proxy, and the local servers — Ollama, LM Studio, vLLM, llama.cpp —
+which never ask for an API key and always let you type a model id by hand.
+
+Batch queues are the point of all this. A course does not need to be written
+quickly; it needs to be written well, and a provider's batch queue answers within
+a day at about half the price. Write `claude-opus-5:batch`, or tick the box, and
+the whole course goes to the queue.
+
+- **Four queue shapes are implemented**, because there is no common one:
+  Anthropic's inline Message Batches, OpenAI's upload-a-JSONL-file flow (which
+  also serves Groq and every preset whose queue is OpenAI-shaped), Gemini's
+  long-running operation, and OpenRouter's beta endpoint.
+- **Work is split by bytes, not by row count.** OpenAI's 200 MB input limit binds
+  at around 25,000 course prompts — half its 50,000-row cap — so chunking by rows
+  silently produces failures.
+- **Two expiry dates are tracked, not one:** when the batch dies, and when the
+  results stop being downloadable. Gemini's batches expire after 48 hours
+  returning *nothing*, and results are kept for between 29 days and six weeks
+  depending on the provider.
+- **An endpoint is asked whether it has a queue** rather than assumed, with three
+  free GET requests. The most useful thing that probe catches is a provider that
+  has a batch API but no compatible file upload, which would fail only on submit.
+- **`estimate_run` tells you the size of it before you spend anything.**
+
+## What was new in 3
+
+The 3.x notes — the content-detail system, auto links, the prompt library, the
+Markdown editor with 232 languages of syntax highlighting, diagrams and formulas
+in the preview, and runs that survive a closed browser — are in
+[docs.md](docs.md). All of it is still here.
+
+## Upgrading
+
+From **3.x**: copy your `data/` directory across. The database gains its new
+tables on first start, `users.json` is imported once into the accounts table and
+renamed, and `data/config.json` is reduced to the settings you actually changed
+so that the new defaults apply to everything else. An AI account with no type
+recorded is still read as the OpenAI-compatible one it was.
+
+From **2.x**: see [docs.md](docs.md). Take a copy of `app.sqlite` first.
+
+## Licence
+
+[MIT](LICENSE). The libraries vendored under `assets/vendor/` keep their own
+licences, listed in [assets/vendor/VENDOR.md](assets/vendor/VENDOR.md).

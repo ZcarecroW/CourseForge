@@ -57,9 +57,12 @@ final class TagTools
                 description: 'One account\'s tag library: every tag with its name, its value, and how many courses, '
                     . 'chapters and pages it is attached to. Tags belong to an account, not to a course, so the same '
                     . 'tag is reused everywhere. An administrator sees every account\'s tags, each marked with its '
-                    . 'owner. Costs nothing.',
+                    . 'owner - a library stays your own unless you widen it. Costs nothing.',
                 properties: [
-                    'owner' => Schema::string('Administrators only: read one account\'s library instead of all of them.'),
+                    'owner' => Schema::string("Administrators only: one other account's library."),
+                    'all' => Schema::bool(
+                        'Administrators only: widen to every account on the installation. Without it a listing is your own.'
+                    ),
                 ],
                 required: [],
                 handler: static fn(Actor $actor, array $args): array => self::listTags($actor, Args::of($args)),
@@ -249,7 +252,7 @@ final class TagTools
     /** @return array<string,mixed> */
     private static function listTags(Actor $actor, Args $args): array
     {
-        $owner = Access::listingOwner($actor, $args->str('owner'));
+        $owner = Access::workingSet($actor, $args->str('owner'), $args->bool('all'));
 
         $tags = [];
         foreach (Tags::all($owner) as $tag) {

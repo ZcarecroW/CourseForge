@@ -106,8 +106,19 @@ final class Access
      */
     public static function workingSetOwner(Actor $actor, Request $request): ?string
     {
-        $requested = $request->query('owner');
-        if ($requested === '' && !$request->queryBool('all')) {
+        return self::workingSet($actor, $request->query('owner'), $request->queryBool('all'));
+    }
+
+    /**
+     * The same rule, for a caller that has arguments rather than a request.
+     *
+     * The MCP tools ask it with the arguments a model passed them. Both front
+     * doors have to answer this the same way or the same account sees a
+     * different tag library depending on which one it came through.
+     */
+    public static function workingSet(Actor $actor, string $requested = '', bool $all = false): ?string
+    {
+        if (trim($requested) === '' && !$all) {
             return $actor->username;
         }
         return self::listingOwner($actor, $requested);

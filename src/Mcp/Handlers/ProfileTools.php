@@ -76,9 +76,13 @@ final class ProfileTools
                     . 'accounts each one holds and what kind they are, whether each account has a key stored, the '
                     . 'models chosen for the outline and the page slot, the BookStack instances, and the language. '
                     . 'API keys are never included - only whether one is set. An administrator sees every account\'s '
-                    . 'profiles, each marked with its owner. Costs nothing.',
+                    . 'profiles, each marked with its owner - a working set stays your own unless you widen it. '
+                    . 'Costs nothing.',
                 properties: [
-                    'owner' => Schema::string('Administrators only: list one account\'s profiles instead of all of them.'),
+                    'owner' => Schema::string("Administrators only: one other account's profiles."),
+                    'all' => Schema::bool(
+                        'Administrators only: widen to every account on the installation. Without it a listing is your own.'
+                    ),
                 ],
                 required: [],
                 handler: static fn(Actor $actor, array $args): array => self::listProfiles($actor, Args::of($args)),
@@ -321,7 +325,7 @@ final class ProfileTools
     /** @return array<string,mixed> */
     private static function listProfiles(Actor $actor, Args $args): array
     {
-        $owner = Access::listingOwner($actor, $args->str('owner'));
+        $owner = Access::workingSet($actor, $args->str('owner'), $args->bool('all'));
 
         $out = [];
         foreach (Profiles::all($owner) as $profile) {

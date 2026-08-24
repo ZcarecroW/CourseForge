@@ -13,7 +13,8 @@ declare(strict_types=1);
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $path = '/' . ltrim($path, '/');
 
-if (preg_match('#^/(data|src|tools)/#', $path) || preg_match('#\.(sqlite|sqlite-wal|sqlite-shm|db|log|ini)$#', $path)) {
+if (preg_match('#^/(data|src|tools|config|tests)/#', $path)
+    || preg_match('#\.(sqlite|sqlite3|sqlite-wal|sqlite-shm|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh)$#', $path)) {
     http_response_code(403);
     header('Content-Type: application/json');
     echo '{"ok":false,"error":"Forbidden."}';

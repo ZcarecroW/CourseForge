@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
 /**
  * The two configuration layers, and the reduction that keeps them apart.
  *

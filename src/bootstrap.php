@@ -1,6 +1,6 @@
 <?php
 /**
- * CourseForge 3 – bootstrap.
+ * CourseForge 4 – bootstrap.
  *
  * Defines the two paths the whole application is anchored on and registers a
  * PSR-4 style autoloader for the `CourseForge\` namespace. No Composer, no
@@ -14,8 +14,10 @@ const CF_VERSION = '4.0.0';
 define('CF_ROOT', dirname(__DIR__));
 
 /**
- * Writable directory holding config.json, users.json and app.sqlite.
- * Set COURSEFORGE_DATA_DIR to move it outside the document root.
+ * Writable directory holding everything that belongs to this installation
+ * rather than to the release: app.sqlite, the settings it has overridden and
+ * the update backups. Set COURSEFORGE_DATA_DIR to move it outside the document
+ * root, which is the safest arrangement on any server.
  */
 define('CF_DATA', rtrim((string)(getenv('COURSEFORGE_DATA_DIR') ?: CF_ROOT . '/data'), "/\\"));
 
