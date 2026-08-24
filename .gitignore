@@ -1,15 +1,10 @@
-# --- runtime state, never in the repo ---------------------------------------
-data/app.sqlite
-data/app.sqlite-wal
-data/app.sqlite-shm
-data/*.sqlite
-data/*.sqlite-*
-data/users.json
-data/config.local.json
-data/sessions/
-data/logs/
-data/updates/
-data/backups/
+# --- runtime state, never in the repo -----------------------------------------
+# data/ is the server's, not the release's: the database, the settings this
+# installation has changed, the deploy credentials, the update backups. The rule
+# is a blanket one rather than a list of names, because the next thing written
+# there will not be on the list.
+data/*
+!data/.htaccess
 INVITE-CODE.txt
 
 # --- secrets ----------------------------------------------------------------

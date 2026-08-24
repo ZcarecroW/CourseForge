@@ -2,8 +2,13 @@ Options -Indexes
 DirectoryIndex index.html
 
 # ---------------------------------------------------------------- file types
-# Belt and braces: works even when mod_rewrite is unavailable.
-<FilesMatch "\.(sqlite|sqlite3|db|db-wal|db-shm|json|md|log|ini|txt)$">
+# Belt and braces: works even when mod_rewrite is unavailable, and on the hosts
+# where a deny in a subdirectory .htaccess is silently ignored. `zip` is here
+# because an update stores the version it replaced as one, under data/; nothing
+# CourseForge serves is a zip. `.php` deliberately is NOT here - the application
+# is made of PHP files - which is why an update backup is a single archive
+# rather than a live tree of executable files.
+<FilesMatch "\.(sqlite|sqlite3|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
