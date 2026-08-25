@@ -6,6 +6,7 @@ namespace CourseForge\Api;
 use CourseForge\Ai\PageGenerator;
 use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Pages;
+use CourseForge\Domain\Structure;
 use CourseForge\Domain\Profiles;
 use CourseForge\Domain\Projects;
 use CourseForge\Security\Access;
@@ -44,7 +45,11 @@ final class PageController
             }
         }
         if (isset($fields['title'])) {
-            $fields['title'] = trim($fields['title']);
+            // The same rule the MCP tool is held to, in the same words: a title
+            // is stored in the form the outline can carry unchanged, because
+            // applyStructure matches by title and a title that reads back
+            // differently orphans its own page. See Structure::canonicalTitle.
+            $fields['title'] = Structure::canonicalTitle($fields['title']);
             if ($fields['title'] === '') {
                 throw HttpException::unprocessable('The page title must not be empty.');
             }
@@ -107,7 +112,7 @@ final class PageController
 
         $fields = [];
         if ($request->has('title')) {
-            $title = $request->str('title');
+            $title = Structure::canonicalTitle($request->str('title'));
             if ($title === '') {
                 throw HttpException::unprocessable('The chapter title must not be empty.');
             }

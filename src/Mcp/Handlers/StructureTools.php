@@ -286,7 +286,12 @@ final class StructureTools
                     ))
                     . (count($atRisk) > 20 ? "\n  - and " . (count($atRisk) - 20) . ' more' : '')
                     . "\n\nThis cannot be undone.",
-                self::removalRefusal($atRisk)
+                self::removalRefusal($atRisk),
+                // The pages this question is about. If that set changes while
+                // the question is outstanding - somebody writes a page in the
+                // browser, a background run finishes - the answer no longer
+                // covers what would happen, and the question is put again.
+                self::fingerprint($atRisk)
             );
 
             if (!$confirmed) {
@@ -403,9 +408,60 @@ final class StructureTools
 
         // The stored Markdown and the stored rows are kept in step by
         // resyncStructure, so a disagreement means something wrote around it.
-        $liveChapters = count(Chapters::ordered($courseId));
-        $livePages = count(Pages::ordered($courseId));
-        $inStep = $liveChapters === count($chapters) && $livePages === $pageCount;
+        //
+        // Compared by title and in order, not by counting. Counting answered
+        // the wrong question: applyStructure matches existing content BY TITLE,
+        // so an outline naming the same number of pages under different names
+        // is the disagreement that destroys work - and it was the one case this
+        // field called "in step".
+        $liveChapterRows = Chapters::ordered($courseId);
+        $livePageRows = Pages::ordered($courseId);
+        $liveChapters = count($liveChapterRows);
+        $livePages = count($livePageRows);
+
+        $live = [];
+        foreach ($liveChapterRows as $chapterRow) {
+            $chapterId = (int)$chapterRow['id'];
+            $pages = [];
+            foreach ($livePageRows as $pageRow) {
+                if ((int)$pageRow['chapter_id'] === $chapterId) {
+                    $pages[] = (string)$pageRow['title'];
+                }
+            }
+            $live[] = ['title' => (string)$chapterRow['title'], 'pages' => $pages];
+        }
+
+        $outlined = array_map(
+            static fn(array $c): array => ['title' => $c['title'], 'pages' => $c['pages']],
+            $chapters
+        );
+
+        $inStep = $live === $outlined;
+
+        $differences = [];
+        foreach ($outlined as $i => $chapter) {
+            $there = $live[$i] ?? null;
+            if ($there === null) {
+                $differences[] = 'the outline has a chapter "' . $chapter['title'] . '" the course does not';
+                continue;
+            }
+            if ($there['title'] !== $chapter['title']) {
+                $differences[] = 'chapter ' . ($i + 1) . ' is "' . $there['title']
+                    . '" in the course and "' . $chapter['title'] . '" in the outline';
+            }
+            foreach ($chapter['pages'] as $j => $pageTitle) {
+                $therePage = $there['pages'][$j] ?? null;
+                if ($therePage === null) {
+                    $differences[] = 'the outline has a page "' . $pageTitle . '" the course does not';
+                } elseif ($therePage !== $pageTitle) {
+                    $differences[] = 'a page is "' . $therePage . '" in the course and "'
+                        . $pageTitle . '" in the outline';
+                }
+            }
+        }
+        foreach (array_slice($live, count($outlined)) as $extra) {
+            $differences[] = 'the course has a chapter "' . $extra['title'] . '" the outline does not name';
+        }
 
         return [
             'course_id' => $courseId,
@@ -423,9 +479,15 @@ final class StructureTools
             'matches_course' => $inStep,
             'note' => $inStep
                 ? null
-                : 'The stored outline describes ' . count($chapters) . ' chapters and ' . $pageCount . ' pages, but '
-                    . 'the course holds ' . $liveChapters . ' chapters and ' . $livePages . ' pages. Read the course '
-                    . 'itself with get_course before revising.',
+                : 'The stored outline and the course itself disagree. The outline describes ' . count($chapters)
+                    . ' chapters and ' . $pageCount . ' pages; the course holds ' . $liveChapters . ' chapters and '
+                    . $livePages . ' pages'
+                    . ($differences === []
+                        ? '.'
+                        : ', and: ' . implode('; ', array_slice($differences, 0, 8))
+                            . (count($differences) > 8 ? '; and ' . (count($differences) - 8) . ' more' : '') . '.')
+                    . ' Read the course itself with get_course before revising - applying an outline matches pages by '
+                    . 'title, so a title that differs is a page that would be replaced rather than kept.',
             'next' => 'Call get_structure_brief with feedback to revise this outline, or apply_structure to replace '
                 . 'it outright. Titles you want to keep must be reproduced exactly.',
         ];
@@ -647,6 +709,21 @@ final class StructureTools
      *
      * @param string[] $atRisk
      */
+    /**
+     * A stable fingerprint of the pages a question was asked about.
+     *
+     * Order must not matter: the same pages arriving in a different order are
+     * the same pages, and asking again for that would be noise.
+     *
+     * @param array<int,string> $atRisk
+     */
+    private static function fingerprint(array $atRisk): string
+    {
+        $sorted = $atRisk;
+        sort($sorted);
+        return hash('sha256', (string)json_encode($sorted));
+    }
+
     private static function removalRefusal(array $atRisk): string
     {
         $count = count($atRisk);

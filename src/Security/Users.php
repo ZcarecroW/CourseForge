@@ -297,6 +297,12 @@ final class Users
         Db::transaction(static function () use ($user, $username, $owner, $content, $heir): void {
             self::writeKeepingAnAdmin('DELETE FROM users WHERE id = ?', [(int)$user['id']], $username, 'delete');
 
+            // The account's credentials die with it, whatever is chosen for its
+            // content. A token that outlives its account is a way back in for
+            // whoever still holds it; under 'transfer' it was worse than that,
+            // because it came back as somebody else.
+            Db::run('DELETE FROM mcp_clients WHERE username = ? COLLATE NOCASE', [$owner]);
+
             if ($content === 'transfer') {
                 self::transferContent($owner, $heir);
             } else {
@@ -305,11 +311,23 @@ final class Users
         });
     }
 
-    /** Moves everything one account owns to another. */
+    /**
+     * Moves the CONTENT one account owns to another.
+     *
+     * mcp_clients is deliberately not in this list. A connection token is the
+     * account's credential, not one of its possessions: the only thing binding
+     * a token to a person is the username on its row, and the role and scopes
+     * it carries are re-derived from that account on every request. Moving the
+     * row would not hand the heir a token - it would turn a token somebody else
+     * is still holding into one that authenticates as the heir, and where the
+     * heir is an administrator, into an administrator's.
+     *
+     * The caller deletes them instead, in the same transaction as the account.
+     */
     public static function transferContent(string $from, string $to): void
     {
         Db::transaction(static function () use ($from, $to): void {
-            foreach (['projects', 'profiles', 'batch_jobs', 'mcp_clients'] as $table) {
+            foreach (['projects', 'profiles', 'batch_jobs'] as $table) {
                 Db::run('UPDATE ' . $table . ' SET username = ? WHERE username = ? COLLATE NOCASE', [$to, $from]);
             }
             // Tags are unique per (owner, name), so a collision has to be

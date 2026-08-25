@@ -207,7 +207,17 @@ final class Projects
                 $existingChapter = $plan['chapters'][$ci];
                 if ($existingChapter !== null) {
                     $chapterId = (int)$existingChapter['id'];
-                    Chapters::update($chapterId, ['idx' => $ci, 'description' => $chapter['description']]);
+                    // The title goes in too. Matching is case-insensitive so
+                    // that a change of capitalisation keeps the content rather
+                    // than replacing the row - but the outline is still asking
+                    // for that capitalisation, and not writing it left the rows
+                    // and the stored outline disagreeing about the same
+                    // chapter, which is exactly what breaks the next apply.
+                    Chapters::update($chapterId, [
+                        'idx' => $ci,
+                        'title' => $chapter['title'],
+                        'description' => $chapter['description'],
+                    ]);
                 } else {
                     Db::run('INSERT INTO chapters (project_id, idx, title, description) VALUES (?,?,?,?)',
                         [$projectId, $ci, $chapter['title'], $chapter['description']]);
@@ -219,7 +229,11 @@ final class Projects
                     $existingPage = $plan['pages'][$ci][$pi];
                     if ($existingPage !== null) {
                         $pageId = (int)$existingPage['id'];
-                        Pages::update($pageId, ['idx' => $pi, 'chapter_id' => $chapterId]);
+                        Pages::update($pageId, [
+                            'idx' => $pi,
+                            'chapter_id' => $chapterId,
+                            'title' => (string)$page['title'],
+                        ]);
                     } else {
                         Db::run('INSERT INTO pages (project_id, chapter_id, idx, title, status, updated_at) VALUES (?,?,?,?,?,?)',
                             [$projectId, $chapterId, $pi, (string)$page['title'], 'pending', time()]);

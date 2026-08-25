@@ -125,9 +125,34 @@ final class SettingsController
 
         return [
             'token' => $token,
-            'scheduler' => self::scheduler(),
+            'scheduler' => self::scheduler(true),
             'settings' => Settings::describe($me),
         ];
+    }
+
+    /**
+     * The scheduler URL with the real token in it.
+     *
+     * Its own endpoint rather than a field on the settings list, because
+     * handing out a credential is an event worth recording, and because a
+     * screen that is read on every visit should not carry one.
+     *
+     * @return array<string,mixed>
+     */
+    public static function cronUrl(Request $request, ?Actor $actor): array
+    {
+        $me = self::admin($actor);
+
+        $token = Config::str('app.cron_token', '');
+        if ($token === '') {
+            throw HttpException::unprocessable(
+                'There is no cron token yet, so there is no URL. Generate one first.'
+            );
+        }
+
+        Audit::record($me->username, 'settings.cron_url', '', 'revealed');
+
+        return ['url' => Cron::publicUrl($token)];
     }
 
     /** The prompt library, as the release ships it plus this installation's edits. */
@@ -198,14 +223,30 @@ final class SettingsController
     /* -------------------------------------------------------------- helpers */
 
     /** Everything the Scheduler card needs, including the URL to paste. */
-    private static function scheduler(): array
+    /**
+     * The scheduler card.
+     *
+     * The URL carries the cron token, which is the credential that lets anybody
+     * who has it run the scheduler. Two fields above it, Settings::describe
+     * blanks app.cron_token as a secret and says so; sending the same token
+     * whole in this field made one of those two statements false on every read
+     * of the screen.
+     *
+     * So the list masks it. Deleting the URL outright was not an option - an
+     * administrator has to paste it into a control panel, and a URL that can
+     * never be read again would mean regenerating the token to see it, which
+     * breaks the cron job already running against the old one. It is revealed
+     * by one call that exists to reveal it, and that call is audited.
+     */
+    private static function scheduler(bool $revealToken = false): array
     {
         $status = RunManager::cronStatus();
         $token = Config::str('app.cron_token', '');
 
         return $status + [
             'configured' => $token !== '',
-            'url' => $token === '' ? '' : Cron::publicUrl($token),
+            'url' => $token === '' ? '' : Cron::publicUrl($revealToken ? $token : self::MASKED_TOKEN),
+            'url_is_masked' => $token !== '' && !$revealToken,
             // A line somebody is meant to copy into a crontab or a control
             // panel, so the path in it is spelled for the platform it will run
             // on rather than left half and half.
@@ -214,6 +255,9 @@ final class SettingsController
             'seconds' => Config::int('app.cron_seconds', 50),
         ];
     }
+
+    /** What stands in for the token on a screen that is read constantly. */
+    private const MASKED_TOKEN = '<your-cron-token>';
 
     private static function admin(?Actor $actor): Actor
     {

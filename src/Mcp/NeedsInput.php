@@ -19,6 +19,15 @@ use RuntimeException;
  *     did before MRTR existed, and it stays the behaviour for the clients that
  *     are installed today.
  *
+ * `covers` is a fingerprint of the situation the question was asked about - for
+ * a confirmation, the thing that would happen. It is signed into the
+ * continuation and compared on the way back, because a question about the world
+ * is only answered for the world as it was: the arguments to apply_structure do
+ * not change when somebody writes a page while the question is outstanding, but
+ * the set of pages that would be destroyed does. When it differs, the answer is
+ * not refusal - the client did nothing wrong - it is to ask again, naming what
+ * would happen now.
+ *
  * `settled` marks the case where the question was already put and came back
  * without an answer - declined or dismissed. There is nothing to ask again, so
  * the server must not pause a second time; it reports what happened and stops.
@@ -38,6 +47,7 @@ final class NeedsInput extends RuntimeException
         public readonly array $required,
         public readonly string $insteadSay,
         public readonly bool $settled = false,
+        public readonly string $covers = '',
     ) {
         parent::__construct($insteadSay);
     }

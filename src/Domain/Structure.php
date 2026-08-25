@@ -194,6 +194,37 @@ final class Structure
         return [trim(rtrim(trim($text), " -–—:")), $tags];
     }
 
+    /**
+     * A title in the only shape the outline format can carry unchanged.
+     *
+     * The outline is written by toMarkdown() and read back by parse(), and the
+     * two are not inverses for every string: parse() strips `**bold**`,
+     * `__underscored__`, a leading `#`, and a trailing `{{tag}}` marker, and a
+     * title containing a newline stops being one line at all - it is read back
+     * as chapters and pages that do not exist.
+     *
+     * Since applyStructure matches existing pages BY TITLE, any such title
+     * orphans its own content on the next apply: the page is seen as removed
+     * and re-added, and the text goes with it. Storing the canonical form
+     * instead makes writing and reading agree by construction.
+     *
+     * Titles that arrive through an outline are already canonical - they came
+     * out of parse(). This is for the doors that bypass it, and it makes them
+     * behave the way those already did.
+     */
+    public static function canonicalTitle(string $raw): string
+    {
+        // Every kind of line break, and every run of whitespace, becomes one
+        // space. A line-based format cannot hold a title with a newline in it,
+        // and silently inventing structure is worse than flattening.
+        $text = preg_replace('/\s+/u', ' ', $raw) ?? $raw;
+
+        // The same order parse() uses, so the answer is what parse() would give.
+        [$text] = self::extractTags(self::clean($text));
+
+        return $text;
+    }
+
     private static function clean(string $text): string
     {
         $text = trim($text);

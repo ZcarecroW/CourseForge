@@ -6,6 +6,7 @@ namespace CourseForge\Mcp\Handlers;
 use CourseForge\Ai\PageGenerator;
 use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Pages;
+use CourseForge\Domain\Structure;
 use CourseForge\Mcp\Args;
 use CourseForge\Mcp\Resolve;
 use CourseForge\Mcp\Schema;
@@ -296,7 +297,18 @@ final class PageTools
 
         $fields = [];
         if ($args->has('title')) {
-            $fields['title'] = $args->requiredStr('title');
+            // Stored in the form the outline can carry unchanged. A title with
+            // a newline, a leading #, bold markers or a trailing {{tag}} reads
+            // back differently from how it was written, and applyStructure
+            // matches by title - so it would orphan this page's own text on the
+            // next apply. See Structure::canonicalTitle.
+            $fields['title'] = Structure::canonicalTitle($args->requiredStr('title'));
+            if ($fields['title'] === '') {
+                throw HttpException::unprocessable(
+                    'That title is empty once the outline format has been applied to it. A title cannot be only '
+                    . 'formatting marks or a tag marker.'
+                );
+            }
         }
         if ($args->has('content')) {
             $fields['content'] = $args->raw('content');
@@ -336,7 +348,18 @@ final class PageTools
 
         $fields = [];
         if ($args->has('title')) {
-            $fields['title'] = $args->requiredStr('title');
+            // Stored in the form the outline can carry unchanged. A title with
+            // a newline, a leading #, bold markers or a trailing {{tag}} reads
+            // back differently from how it was written, and applyStructure
+            // matches by title - so it would orphan this page's own text on the
+            // next apply. See Structure::canonicalTitle.
+            $fields['title'] = Structure::canonicalTitle($args->requiredStr('title'));
+            if ($fields['title'] === '') {
+                throw HttpException::unprocessable(
+                    'That title is empty once the outline format has been applied to it. A title cannot be only '
+                    . 'formatting marks or a tag marker.'
+                );
+            }
         }
         if ($args->has('description')) {
             $fields['description'] = $args->raw('description');

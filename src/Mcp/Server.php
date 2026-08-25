@@ -306,6 +306,7 @@ final class Server
         // burned before the tool runs, so a forged, expired, reused or
         // redirected one never reaches a handler at all.
         $answers = [];
+        $covered = [];
         $state = (string)($params['requestState'] ?? '');
         if ($state !== '') {
             $redeemed = RequestState::redeem(
@@ -319,9 +320,10 @@ final class Server
                 return self::toolResult(['text' => $redeemed['why'], 'data' => null], true);
             }
             $answers = is_array($params['inputResponses'] ?? null) ? $params['inputResponses'] : [];
+            $covered = is_array($redeemed['carry']['covers'] ?? null) ? $redeemed['carry']['covers'] : [];
         }
 
-        Ask::begin($answers, self::$canElicit);
+        Ask::begin($answers, self::$canElicit, $covered);
 
         // A tool call may sit on a provider for minutes, or write five hundred
         // rows. Releasing the session lock and the time limit first is what
@@ -382,7 +384,11 @@ final class Server
                 $context['client_id'],
                 $context['actor']->username,
                 $name,
-                $arguments
+                $arguments,
+                // What the question was about, so the answer cannot be applied
+                // to a different situation. The arguments alone do not capture
+                // it: they do not change when the world does.
+                ['covers' => [$question->key => $question->covers]]
             ),
         ];
     }

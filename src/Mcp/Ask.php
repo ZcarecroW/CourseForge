@@ -38,6 +38,9 @@ final class Ask
     /** Answers the client sent back with a retried call, keyed as they were asked for. */
     private static array $answers = [];
 
+    /** What each outstanding question was asked about, carried in the signed continuation. */
+    private static array $covered = [];
+
     /** Whether the client on this request said it can put a question to somebody. */
     private static bool $available = false;
 
@@ -46,10 +49,11 @@ final class Ask
      *
      * @param array<string,mixed> $answers
      */
-    public static function begin(array $answers, bool $available): void
+    public static function begin(array $answers, bool $available, array $covered = []): void
     {
         self::$answers = $answers;
         self::$available = $available;
+        self::$covered = $covered;
     }
 
     /** Forgets it again, so nothing leaks into the next call in the same process. */
@@ -57,6 +61,7 @@ final class Ask
     {
         self::$answers = [];
         self::$available = false;
+        self::$covered = [];
     }
 
     public static function canAsk(): bool
@@ -91,9 +96,21 @@ final class Ask
         string $message,
         array $schema,
         array $required,
-        string $insteadSay
+        string $insteadSay,
+        string $covers = ''
     ): array {
         $answer = self::answer($key);
+
+        $answered = $answer === null ? '' : (string)(self::$covered[$key] ?? '');
+
+        if ($answer !== null && $covers !== '' && $answered !== $covers) {
+            // The answer is genuine, and it is an answer to a different
+            // question. Somebody agreed to lose three pages and five are now at
+            // stake, or the reverse. Ask again rather than refuse: the client
+            // did nothing wrong, and a refusal would leave it with no way
+            // forward except to guess.
+            throw new NeedsInput($key, $message, $schema, $required, $insteadSay, covers: $covers);
+        }
 
         if ($answer !== null) {
             $action = (string)($answer['action'] ?? 'cancel');
@@ -127,7 +144,7 @@ final class Ask
             return is_array($content) ? $content : [];
         }
 
-        throw new NeedsInput($key, $message, $schema, $required, $insteadSay);
+        throw new NeedsInput($key, $message, $schema, $required, $insteadSay, covers: $covers);
     }
 
     /**
@@ -137,7 +154,7 @@ final class Ask
      * dismissal, a client that cannot ask - stops the call, because the
      * default for an irreversible thing is not to do it.
      */
-    public static function confirm(string $key, string $message, string $insteadSay): bool
+    public static function confirm(string $key, string $message, string $insteadSay, string $covers = ''): bool
     {
         $answers = self::form(
             $key,
@@ -150,7 +167,8 @@ final class Ask
                 ],
             ],
             ['confirm'],
-            $insteadSay
+            $insteadSay,
+            $covers
         );
 
         return ($answers['confirm'] ?? false) === true;
