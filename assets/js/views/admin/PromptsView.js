@@ -118,7 +118,6 @@ export const PromptsView = {
 
     const matches = useFuzzy(searchable, search, {
       keys: ['label', 'key', 'description', 'text'],
-      limit: 200,
     });
 
     const visibleSlots = computed(() =>

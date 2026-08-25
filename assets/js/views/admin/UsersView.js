@@ -141,7 +141,6 @@ export const UsersView = {
     // match fails on a transposed letter or the two words the other way round.
     const visible = useFuzzy(computed(() => state.users), search, {
       keys: ['username', 'display_name'],
-      limit: 500,
     });
 
     /** What one account owns, as a list of phrases - empty when it owns nothing. */

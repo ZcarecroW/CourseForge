@@ -26,7 +26,7 @@ export const TagsView = {
     const edit = reactive({ name: '', value: '' });
     const confirmDelete = ref(null);
 
-    const found = useFuzzy(computed(() => state.tags), search, { keys: ['name', 'value'], limit: 5000 });
+    const found = useFuzzy(computed(() => state.tags), search, { keys: ['name', 'value'] });
 
     const sorted = computed(() => {
       const direction = sortDir.value === 'asc' ? 1 : -1;

@@ -11,6 +11,7 @@ use CourseForge\Support\Cron;
 use CourseForge\Support\Diagnostics;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Request;
+use CourseForge\Update\GitHub;
 use CourseForge\Support\Php;
 use CourseForge\Support\Settings;
 use CourseForge\Support\Text;
@@ -83,6 +84,17 @@ final class SettingsController
 
         if ($write !== []) {
             Config::setMany($write);
+
+            // A remembered update failure is evidence about a token, a
+            // repository or a channel. Change any of those and it stops being
+            // evidence, so it must not be replayed for another fifteen minutes
+            // at somebody who has just done what it told them to.
+            foreach (['updates.github_token', 'updates.repository', 'updates.channel'] as $key) {
+                if (array_key_exists($key, $write)) {
+                    GitHub::forgetFailure();
+                    break;
+                }
+            }
             Audit::record($me->username, 'settings.update', implode(', ', $changed));
         }
 
@@ -121,6 +133,12 @@ final class SettingsController
         }
         foreach ($keys as $key) {
             Config::reset($key);
+        }
+
+        // Resetting one of these changes the thing a remembered update failure
+        // was about, exactly as writing it would.
+        if (array_intersect($keys, ['updates.github_token', 'updates.repository', 'updates.channel']) !== []) {
+            GitHub::forgetFailure();
         }
         Audit::record($me->username, 'settings.reset', implode(', ', $keys));
 

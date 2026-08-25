@@ -103,7 +103,7 @@ export const ContentTab = {
      * that loop would run it as many times as there are chapters.
      */
     const allPages = computed(() => project.value.chapters.flatMap((chapter) => chapter.pages));
-    const found = useFuzzy(allPages, search, { keys: ['title'], limit: 5000 });
+    const found = useFuzzy(allPages, search, { keys: ['title'] });
     const foundIds = computed(() => new Set(found.value.map((page) => page.id)));
 
     const matches = (page) => FILTERS[filter.value](page)

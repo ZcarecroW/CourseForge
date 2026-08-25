@@ -12,18 +12,27 @@ const DEFAULTS = { threshold: 0.4, ignoreLocation: true, minMatchCharLength: 1 }
  *
  * @param {import('vue').Ref<Array>|Array} items
  * @param {import('vue').Ref<string>|string} query
+ * There is no limit unless one is asked for. A default cap belongs to a
+ * dropdown, where showing five hundred rows helps nobody - but the same cap on
+ * a full-page list quietly drops rows off the end, and a list that states a
+ * total in its header and then renders fewer than that is giving a confidently
+ * wrong answer to the only question it exists to answer. The screens that want
+ * a cap say so.
+ *
  * @param {object} [options]
  * @param {string[]} [options.keys]  object keys to index; omit for a list of strings
- * @param {number}  [options.limit=60]
+ * @param {number}  [options.limit]  omit for everything
  */
-export function useFuzzy(items, query, { keys = [], limit = 60 } = {}) {
+export function useFuzzy(items, query, { keys = [], limit = Infinity } = {}) {
   const index = computed(() => new Fuse(unref(items) ?? [], { ...DEFAULTS, keys }));
 
   return computed(() => {
     const term = String(unref(query) ?? '').trim();
     const list = unref(items) ?? [];
-    if (term === '') return list.slice(0, limit);
-    return index.value.search(term).slice(0, limit).map((hit) => hit.item);
+    if (term === '') return limit === Infinity ? [...list] : list.slice(0, limit);
+
+    const hits = index.value.search(term).map((hit) => hit.item);
+    return limit === Infinity ? hits : hits.slice(0, limit);
   });
 }
 

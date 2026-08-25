@@ -69,7 +69,7 @@ export const ProjectsView = {
       ? state.projects.filter((project) => project.owner === ownerFilter.value)
       : state.projects));
 
-    const found = useFuzzy(pool, search, { keys: ['name', 'topic'], limit: 200 });
+    const found = useFuzzy(pool, search, { keys: ['name', 'topic'] });
     const projects = computed(() => [...found.value].sort(SORTS[sort.value] ?? SORTS.updated));
 
     // An account whose last course was deleted would otherwise leave the list

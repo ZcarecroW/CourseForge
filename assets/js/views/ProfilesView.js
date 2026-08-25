@@ -28,8 +28,8 @@
  * the pages come back within a day, for roughly half the money, and the tab can
  * be closed while it happens.
  */
-import { ref, reactive, computed, watch, nextTick } from 'vue';
-import { state, loadProfiles } from '@/core/store.js';
+import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue';
+import { state, loadProfiles, loadCatalogue, declareUnsaved } from '@/core/store.js';
 import { post, put, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
@@ -169,16 +169,60 @@ export const ProfilesView = {
     const providerSearch = ref('');
     const textareas = {};
 
-    const select = (profile) => {
+    /**
+     * What the selected profile looked like when it was opened.
+     *
+     * Kept so the screen can tell whether anything has been typed since. The
+     * admin Prompts screen protects the same edits, and a profile is the harder
+     * of the two to redo - it is where an override lives.
+     */
+    const pristine = ref('');
+
+    const isDirty = computed(() =>
+      draft.value !== null && JSON.stringify(draft.value) !== pristine.value);
+
+    const open = (profile) => {
       selectedId.value = profile.id;
       draft.value = { id: profile.id, name: profile.name, data: clone(profile.data) };
       if (!draft.value.data.prompts || Array.isArray(draft.value.data.prompts)) draft.value.data.prompts = {};
+      pristine.value = JSON.stringify(draft.value);
       listOpen.value = false;
     };
 
+    const select = (profile) => {
+      // Switching away from unsaved typing used to throw it away in silence.
+      if (isDirty.value && draft.value && profile.id !== draft.value.id) {
+        const keep = draft.value;
+        toast.error(
+          'That profile has unsaved changes. Save or discard them before opening another.',
+        );
+        draft.value = keep;
+        return;
+      }
+      open(profile);
+    };
+
+    /** Puts the draft back to what the server holds. */
+    const discard = () => {
+      const current = state.profiles.find((profile) => profile.id === selectedId.value);
+      if (current) {
+        open(current);
+        toast.info('Changes discarded.');
+      }
+    };
+
+    // The same guard the admin screens use, so leaving the screen asks first.
+    declareUnsaved(() => (isDirty.value ? 'unsaved changes to this profile' : ''));
+
     watch(() => state.profiles.length, () => {
-      if (!draft.value && state.profiles.length) select(state.profiles[0]);
+      if (!draft.value && state.profiles.length) open(state.profiles[0]);
     }, { immediate: true });
+
+    // The prompt catalogue is what this screen calls "the config default", and
+    // it was read once at sign-in. After somebody saved on the admin Prompts
+    // screen it was stale here, so adding a sentence to a slot stored the OLD
+    // text plus the sentence and quietly reverted their edit.
+    onMounted(() => { attempt(() => loadCatalogue(), 'Load the prompt catalogue'); });
 
     /* ------------------------------------------------------------ CRUD */
 
@@ -213,7 +257,11 @@ export const ProfilesView = {
         await put(`profiles/${draft.value.id}`, { name: draft.value.name, data: draft.value.data });
         await loadProfiles();
         const fresh = state.profiles.find((p) => p.id === draft.value.id);
-        if (fresh) select(fresh);              // pick up the redacted secrets
+        // open(), not select(): this is the same profile being re-read after a
+        // successful write, so it must not go through the guard that stops
+        // you leaving unsaved work - and it resets the snapshot the dirty
+        // marker is measured against.
+        if (fresh) open(fresh);                // pick up the redacted secrets
         if (!silent) toast.success('Profile saved.');
         return true;
       }, 'Save profile');
@@ -626,7 +674,6 @@ export const ProfilesView = {
 
     const promptMatches = useFuzzy(promptHaystack, promptSearch, {
       keys: ['label', 'key', 'description', 'text'],
-      limit: 200,
     });
 
     const promptsInGroup = (id) => promptSlotList.value.filter((slot) => slot.group === id);
@@ -654,6 +701,7 @@ export const ProfilesView = {
 
     const pickPrompt = (slot) => {
       promptKey.value = slot.key;
+      listOpen.value = false;
       // Choosing a search result from another group takes the group with it, so
       // clearing the search does not make the open prompt disappear.
       if (slot.group !== promptGroup.value) promptGroup.value = slot.group;
@@ -710,6 +758,7 @@ export const ProfilesView = {
       toggleGroup, groupOpen, plural, relativeTime,
       promptGroup, promptSearch, promptKey, promptSearching, visiblePrompts,
       currentPromptGroup, currentPrompt, pickPromptGroup, pickPrompt, promptGroupLabel,
+      isDirty, discard,
     };
   },
   template: `
@@ -754,7 +803,12 @@ export const ProfilesView = {
             <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show all profiles"
                     @click="listOpen = true"><app-icon name="menu" :size="15"/></button>
             <input v-model="draft.name" class="grow" style="max-width:340px" placeholder="Profile name">
-            <button class="btn btn--primary push" :disabled="saving" @click="save()">
+            <!-- The same signal the admin screens give: a badge that says
+                 there is unsaved typing, and a way to throw it away on purpose
+                 rather than by clicking somewhere else. -->
+            <span v-if="isDirty" class="badge badge--warning push">unsaved changes</span>
+            <button v-if="isDirty" class="btn btn--ghost btn--sm" @click="discard()">Discard</button>
+            <button class="btn btn--primary" :class="{ push: !isDirty }" :disabled="saving" @click="save()">
               <app-icon v-if="saving" name="refresh" :size="14" spin/><app-icon v-else name="save" :size="14"/>
               {{ saving ? 'Saving…' : 'Save' }}
             </button>
@@ -1044,6 +1098,13 @@ export const ProfilesView = {
               </div>
 
               <nav class="tabbar">
+                <!-- Below 1024px the slot pane is a drawer, so there has to be
+                     something that opens it - without this, 37 of 41 prompts
+                     and the whole search were unreachable on a narrow window. -->
+                <button class="tab outline-toggle" title="Show the prompt list"
+                        aria-label="Show the prompt list" @click="listOpen = true">
+                  <app-icon name="list" :size="14"/>
+                </button>
                 <button v-for="group in groups" :key="group.id" class="tab"
                         :class="{ 'is-active': !promptSearching && promptGroup === group.id }"
                         @click="pickPromptGroup(group.id)">
@@ -1053,14 +1114,19 @@ export const ProfilesView = {
               </nav>
 
               <div class="workspace workspace--two">
+                <div v-if="listOpen" class="scrim" @click="listOpen = false"></div>
+
                 <!-- ------------------------------------------ prompts in a group -->
-                <aside class="pane pane--left">
+                <aside class="pane pane--left" :class="{ 'is-open': listOpen }">
                   <div class="pane__head">
                     <span class="eyebrow grow truncate">
                       {{ promptSearching ? 'Matches in every group'
                                          : (currentPromptGroup ? currentPromptGroup.label : 'Prompts') }}
                     </span>
                     <span class="badge none">{{ visiblePrompts.length }}</span>
+                    <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Close"
+                            aria-label="Close the prompt list"
+                            @click="listOpen = false"><app-icon name="x" :size="14"/></button>
                   </div>
 
                   <div class="pane__body">
