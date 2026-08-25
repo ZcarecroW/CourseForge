@@ -303,28 +303,31 @@ final class AdminTools
                 scope: Scopes::ADMIN,
                 title: 'Measure PHP and raise what is too low',
                 description: 'Reads the PHP configuration this host gives CourseForge, works out which limits are '
-                    . 'below what it needs, and writes a .user.ini raising exactly those. Every number is a floor: a '
-                    . 'limit the host is already generous about is left alone, never lowered. Reports what it could '
-                    . 'not change, because some directives are fixed by the host and a line for them would be '
-                    . 'ignored in silence. Idempotent - running it twice writes nothing the second time. Pass '
-                    . 'dry_run to see the plan without writing anything. Costs nothing.',
+                    . 'below what it needs, and writes a .user.ini raising exactly those. Every number is a floor '
+                    . 'and every run only ever raises: a directive already set is never removed or lowered, and a '
+                    . 'limit the host is generous about is left alone. Reports what it could not change, because '
+                    . 'some directives are fixed by the host and a line for them would be ignored in silence. '
+                    . 'Idempotent - running it twice writes nothing the second time. Pass dry_run to see the plan '
+                    . 'without touching anything at all. Pass release to take CourseForge\'s settings back out and '
+                    . 'let the host\'s own values return, which is what moving to different hosting wants. '
+                    . 'Costs nothing.',
                 properties: [
-                    'dry_run' => Schema::bool('Report what would change without writing the file.'),
-                    'remeasure' => Schema::bool(
-                        'Forget what this host gave before CourseForge changed anything, and measure it again. '
-                        . 'Only after moving to different hosting: at any other time the reading would include '
-                        . 'the values CourseForge itself set, and recording those as the host\'s own would freeze '
-                        . 'them in place.'
+                    'dry_run' => Schema::bool('Report what would happen, writing and storing nothing.'),
+                    'release' => Schema::bool(
+                        'Remove CourseForge\'s block from .user.ini and let this host\'s own values return. '
+                        . 'They come back once PHP re-reads the file, which takes up to user_ini.cache_ttl seconds.'
                     ),
                 ],
                 required: [],
                 handler: static function (Actor $actor, array $args): array {
                     $arguments = Args::of($args);
-                    $remeasure = $arguments->bool('remeasure');
 
-                    return $arguments->bool('dry_run')
-                        ? Php::plan($remeasure)
-                        : Php::apply($actor->username, $remeasure);
+                    if ($arguments->bool('dry_run')) {
+                        return Php::plan();
+                    }
+                    return $arguments->bool('release')
+                        ? Php::release($actor->username)
+                        : Php::apply($actor->username);
                 },
                 readOnly: false,
                 idempotent: true,

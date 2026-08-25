@@ -285,12 +285,14 @@ final class SettingsController
     {
         $me = self::admin($actor);
 
-        // Re-measuring forgets what the host gave before CourseForge touched
-        // anything and looks again. Only worth doing after moving hosts or
-        // changing the plan - at any other time the reading would include the
-        // values CourseForge itself set, and recording those as the host's own
-        // is the mistake the stored baseline exists to prevent.
-        return ['php' => Php::apply($me->username, $request->bool('remeasure'))];
+        // Two different acts, and the difference matters: applying only ever
+        // raises, while releasing hands the settings back and lets the host's
+        // own values return. There is no "measure again" in between, because
+        // any reading taken while our own block is in force is a reading of
+        // ourselves.
+        return ['php' => $request->bool('release')
+            ? Php::release($me->username)
+            : Php::apply($me->username)];
     }
 
     /** What stands in for the token on a screen that is read constantly. */

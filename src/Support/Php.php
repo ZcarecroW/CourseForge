@@ -20,22 +20,38 @@ namespace CourseForge\Support;
  * deliberately does not write that unattended, because one bad line there is a
  * 500 for the whole site rather than a setting that did not take.
  *
- * Three rules this file keeps, and they are the whole of its judgement:
+ * THE HARD PART, AND HOW THIS SOLVES IT
  *
- *   - **Never lower a limit the host already grants.** Every numeric target is
- *     a floor, not a value. A host giving 768M of memory keeps 768M; a host
- *     giving 128M is asked for 256M. A configuration tool that quietly halved
- *     somebody's memory limit because a constant said 256M would be worse than
- *     no tool at all.
+ * There is one measurement this code cannot take: what the host would give if
+ * our own file were not there. `ini_get()` answers with what is in effect, and
+ * once we have raised something, that includes our own answer.
  *
- *   - **Say what could not be done.** A directive the host has fixed at the
- *     system level cannot be changed from here, and a `.user.ini` line for it
- *     is ignored in silence. Those are reported, not written.
+ * An earlier version tried to solve this by measuring the host once and
+ * remembering it. That was worse in two ways. A remembered reading goes stale,
+ * so a host that later raises its limits gets our older, smaller numbers
+ * written back over the better ones - breaking the one promise this file
+ * makes. And any re-measurement reads through our own block, records our values
+ * as the host's, and then deletes every raise on the next run while reporting
+ * success.
  *
- *   - **Be idempotent, and re-check.** The file is rewritten only when it
- *     differs from what it should be, so an update that replaces it is repaired
- *     on the next admin page load rather than staying wrong until somebody
- *     notices.
+ * So nothing is remembered. The decision is made MONOTONIC instead, which needs
+ * no memory at all:
+ *
+ *   - a directive our block already sets is never removed and never lowered -
+ *     removing it is precisely what would drop the host back, and that is the
+ *     whole trap;
+ *   - a directive our block does not set is raised only if what is in effect is
+ *     below the floor;
+ *   - nothing is ever written below what is in effect.
+ *
+ * Those three rules together mean a run can only leave things the same or
+ * better, whatever state the file is in and whatever the host changed
+ * underneath. Running it twice writes nothing the second time - not because a
+ * signature said so, but because there is nothing left to raise.
+ *
+ * The way back is explicit rather than inferred: `release()` takes the block
+ * out and lets the host's own values return, which is what somebody moving
+ * hosts actually wants and the only honest way to get a clean reading.
  */
 final class Php
 {
@@ -45,19 +61,6 @@ final class Php
     /** Marks the block this application owns, so anything else in the file survives. */
     private const BEGIN = '; >>> CourseForge - managed block, edited by Settings > Set up PHP';
     private const END = '; <<< CourseForge';
-
-    /** Whether this installation has ever been set up, and against what. */
-    public const META_APPLIED = 'php.setup_signature';
-
-    /**
-     * What this host gave us before we changed anything.
-     *
-     * Measured once and kept. Every decision is made against this rather than
-     * against what is in effect now, because once our own .user.ini is being
-     * read those two numbers are different - and deciding from the second one
-     * makes the tool undo its own work on the next run, then redo it, for ever.
-     */
-    public const META_BASELINE = 'php.host_baseline';
 
     /**
      * What CourseForge asks for, and why.
@@ -140,38 +143,43 @@ final class Php
     }
 
     /**
-     * What is true here now.
+     * What is true here now, and what a run would do about it.
+     *
+     * Reads only - no file is written and no row is stored - which is what
+     * makes it safe to call from a dry run and from every admin page load.
      *
      * @return array<string,mixed>
      */
-    public static function inspect(bool $remeasure = false): array
+    public static function inspect(): array
     {
         $mechanism = self::mechanism();
         $entries = ini_get_all(null, true);
-        $baseline = self::baseline($remeasure);
+        $body = self::read();
+        $ours = self::blockValues($body);
 
         $rows = [];
         foreach (self::wanted() as $name => $spec) {
             $entry = is_array($entries) ? ($entries[$name] ?? null) : null;
             $effective = (string)($entry['local_value'] ?? (string)ini_get($name));
             $access = (int)($entry['access'] ?? 0);
+            $mine = $ours[$name] ?? null;
 
-            // Decided against what the host gave before we touched anything.
-            // Deciding against what is in effect would mean deciding against
-            // our own last answer, which is how the loop this replaced began.
-            $host = (string)($baseline['values'][$name] ?? $effective);
-            $target = self::target($host, $spec);
+            $target = self::target($effective, $mine, $spec);
 
             $rows[] = [
                 'name' => $name,
-                'current' => $host,
-                'current_label' => self::label($host, $spec),
                 'effective' => $effective,
                 'effective_label' => self::label($effective, $spec),
-                'raised' => $effective !== $host,
+                // What our own block sets, so a reader can tell "the host gives
+                // this" from "we asked for this" without being told a number
+                // nobody can actually measure.
+                'ours' => $mine,
+                'ours_label' => $mine === null ? '' : self::label($mine, $spec),
+                'from_host' => $mine === null,
                 'target' => $target,
                 'target_label' => $target === null ? '' : self::label($target, $spec),
                 'satisfied' => $target === null,
+                'keeping' => $target !== null && $mine !== null && $target === $mine,
                 // .user.ini honours PHP_INI_USER (1) and PHP_INI_PERDIR (2).
                 // Anything that is only PHP_INI_SYSTEM (4) is the host's to
                 // decide and a line here would be ignored in silence.
@@ -186,47 +194,10 @@ final class Php
             'mechanism' => $mechanism,
             'file' => $mechanism === 'user-ini' ? Text::path(self::path()) : '',
             'file_exists' => is_file(self::path()),
+            'has_block' => self::spans($body) !== [],
             'cache_ttl' => (int)ini_get('user_ini.cache_ttl'),
-            'measured_at' => (int)($baseline['at'] ?? 0),
             'settings' => $rows,
         ];
-    }
-
-    /**
-     * What this host gave before CourseForge changed anything.
-     *
-     * Measured the first time and kept. Re-measured only when asked, or when
-     * the host is demonstrably a different one - a new PHP version or a new
-     * SAPI. Notably NOT re-measured because the file went missing: an update
-     * replaces it routinely, and PHP caches it for five minutes either way, so
-     * a reading taken then would record our own value as the host's and freeze
-     * the mistake in place.
-     *
-     * @return array{values:array<string,string>,php:string,sapi:string,at:int}
-     */
-    private static function baseline(bool $remeasure = false): array
-    {
-        $stored = json_decode(Meta::get(self::META_BASELINE, ''), true);
-
-        $usable = is_array($stored)
-            && is_array($stored['values'] ?? null)
-            && ($stored['php'] ?? '') === PHP_VERSION
-            && ($stored['sapi'] ?? '') === PHP_SAPI;
-
-        if ($usable && !$remeasure) {
-            /** @var array{values:array<string,string>,php:string,sapi:string,at:int} $stored */
-            return $stored;
-        }
-
-        $values = [];
-        foreach (array_keys(self::wanted()) as $name) {
-            $values[$name] = (string)ini_get($name);
-        }
-
-        $fresh = ['values' => $values, 'php' => PHP_VERSION, 'sapi' => PHP_SAPI, 'at' => time()];
-        Meta::set(self::META_BASELINE, (string)json_encode($fresh));
-
-        return $fresh;
     }
 
     /**
@@ -234,31 +205,38 @@ final class Php
      *
      * @return array<string,mixed>
      */
-    public static function plan(bool $remeasure = false): array
+    public static function plan(): array
     {
-        $state = self::inspect($remeasure);
+        $state = self::inspect();
+        $possible = $state['mechanism'] === 'user-ini';
 
         $change = [];
         $blocked = [];
+        $held = 0;
         foreach ($state['settings'] as $row) {
+            if ($row['keeping']) {
+                $held++;
+                continue;
+            }
             if ($row['satisfied']) {
                 continue;
             }
-            if (!$row['settable']) {
+            // On a host that reads no .user.ini, nothing is about to be raised
+            // by anybody here - so it belongs on the list of things the host
+            // decides, not on the list of what this run will do.
+            if (!$row['settable'] || !$possible) {
                 $blocked[] = $row;
                 continue;
             }
             $change[] = $row;
         }
 
-        $possible = $state['mechanism'] === 'user-ini';
-
         return $state + [
             'possible' => $possible,
-            'change' => $possible ? $change : [],
-            'blocked' => $possible ? $blocked : array_merge($change, $blocked),
+            'change' => $change,
+            'blocked' => $blocked,
             'already_right' => $change === [] && $blocked === [],
-            'note' => self::note($state['mechanism'], $change, $blocked),
+            'note' => self::note($state['mechanism'], $change, $blocked, $held),
         ];
     }
 
@@ -267,64 +245,95 @@ final class Php
      *
      * @return array<string,mixed>
      */
-    public static function apply(string $by = '', bool $remeasure = false): array
+    public static function apply(string $by = ''): array
     {
-        $plan = self::plan($remeasure);
+        $plan = self::plan();
 
         if (!$plan['possible']) {
-            return $plan + ['written' => false, 'error' => $plan['note']];
+            return $plan + ['written' => false, 'released' => false, 'error' => $plan['note']];
         }
 
-        $desired = self::compose($plan['settings']);
-        $path = self::path();
-        $existing = is_file($path) ? (string)@file_get_contents($path) : '';
+        $existing = self::read();
+        $body = self::merge($existing, self::compose($plan['settings']));
 
-        if (self::merge($existing, $desired) === $existing) {
-            Meta::set(self::META_APPLIED, self::signature());
-            return $plan + ['written' => false, 'error' => '', 'unchanged' => true];
+        if ($body === $existing) {
+            return $plan + ['written' => false, 'released' => false, 'error' => '', 'unchanged' => true];
         }
 
-        $body = self::merge($existing, $desired);
+        $error = self::put($body);
+        if ($error !== '') {
+            return $plan + ['written' => false, 'released' => false, 'error' => $error];
+        }
 
-        // Written beside the target and renamed over it, so a request arriving
-        // mid-write reads one file or the other and never half of one. A broken
-        // .user.ini is not a syntax error somebody sees - it is a directive
-        // silently ignored, which is worse.
-        $temporary = $path . '.' . bin2hex(random_bytes(4)) . '.tmp';
-        if (@file_put_contents($temporary, $body, LOCK_EX) === false) {
-            return $plan + [
+        Audit::record($by, 'php.setup', Text::path(self::path()), count($plan['change']) . ' setting(s) written');
+
+        return $plan + ['written' => true, 'released' => false, 'error' => '', 'unchanged' => false];
+    }
+
+    /**
+     * Takes CourseForge's block out and lets the host's own values return.
+     *
+     * The honest way back, and what somebody moving hosts actually wants. It is
+     * a separate act from applying, and it does not pretend to have measured
+     * anything: PHP caches this file, so what the host gives is not observable
+     * until that cache expires, and any reading taken before then is still ours.
+     * Saying so and waiting is the only correct answer.
+     *
+     * @return array<string,mixed>
+     */
+    public static function release(string $by = ''): array
+    {
+        $state = self::plan();
+
+        if (!$state['possible']) {
+            return $state + ['written' => false, 'released' => false, 'error' => $state['note']];
+        }
+
+        $existing = self::read();
+        $body = self::strip($existing);
+
+        if ($body === $existing) {
+            return array_merge($state, [
                 'written' => false,
-                'error' => 'Could not write ' . Text::path($path) . '. The directory is not writable by PHP, so '
-                    . 'these values have to be set in your hosting control panel instead.',
-            ];
-        }
-        @chmod($temporary, 0644);
-
-        if (!@rename($temporary, $path)) {
-            @unlink($temporary);
-            return $plan + ['written' => false, 'error' => 'Could not replace ' . Text::path($path) . '.'];
+                'released' => false,
+                'error' => '',
+                'note' => 'There is nothing of CourseForge\'s in that file to remove.',
+            ]);
         }
 
-        Meta::set(self::META_APPLIED, self::signature());
-        Audit::record($by, 'php.setup', Text::path($path), count($plan['change']) . ' setting(s) written');
+        $error = self::put($body);
+        if ($error !== '') {
+            return $state + ['written' => false, 'released' => false, 'error' => $error];
+        }
 
-        return $plan + ['written' => true, 'error' => '', 'unchanged' => false];
+        Audit::record($by, 'php.release', Text::path(self::path()), 'managed block removed');
+
+        // array_merge, not +: PHP's + keeps the LEFT operand for a duplicate
+        // key, and $state already carries a note from plan() - so the sentence
+        // below was silently discarded and the plan's shown in its place,
+        // which said everything was in place just after it had been removed.
+        return array_merge($state, [
+            'written' => true,
+            'released' => true,
+            'error' => '',
+            'note' => 'CourseForge\'s settings are out of that file. This host\'s own values come back within '
+                . max(1, (int)ini_get('user_ini.cache_ttl')) . ' seconds, and Set up PHP will then decide from '
+                . 'those rather than from ours. Give it that long before pressing it.',
+        ]);
     }
 
     /**
      * The cheap check that runs when an administrator opens the application.
      *
-     * Does nothing at all in the ordinary case: a signature of what the file
-     * should contain is compared against what was last written, and only a
-     * difference costs anything. That is what makes it safe to call on every
-     * admin page load, and what repairs a file an update replaced.
+     * Calls apply(), which compares what the file should say against what it
+     * does and writes only on a difference. That comparison IS the check - an
+     * earlier version short-circuited on a stored signature plus is_file(), so
+     * an update that replaced the file with the shipped one passed both tests
+     * and the raised limits stayed gone.
      */
     public static function ensure(string $by = ''): bool
     {
         if (PHP_SAPI === 'cli') {
-            return false;
-        }
-        if (Meta::get(self::META_APPLIED) === self::signature() && is_file(self::path())) {
             return false;
         }
 
@@ -357,28 +366,76 @@ final class Php
         return CF_ROOT . '/' . (trim((string)ini_get('user_ini.filename')) ?: self::FILE);
     }
 
+    private static function read(): string
+    {
+        $path = self::path();
+        return is_file($path) ? str_replace("\r\n", "\n", (string)@file_get_contents($path)) : '';
+    }
+
+    /** Writes atomically, or says why it could not. */
+    private static function put(string $body): string
+    {
+        $path = self::path();
+
+        // Written beside the target and renamed over it, so a request arriving
+        // mid-write reads one file or the other and never half of one. A broken
+        // .user.ini is not a syntax error somebody sees - it is a directive
+        // silently ignored, which is worse.
+        $temporary = $path . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        if (@file_put_contents($temporary, $body, LOCK_EX) === false) {
+            return 'Could not write ' . Text::path($path) . '. The directory is not writable by PHP, so these '
+                . 'values have to be set in your hosting control panel instead.';
+        }
+        @chmod($temporary, 0644);
+
+        if (!@rename($temporary, $path)) {
+            @unlink($temporary);
+            return 'Could not replace ' . Text::path($path) . '.';
+        }
+        return '';
+    }
+
     /**
-     * The value to write for one directive, or null when the host is already
-     * doing at least as well.
+     * The value to write for one directive, or null when nothing is needed.
+     *
+     * Monotonic, which is the whole design:
+     *
+     *   - a directive our block already sets is kept, whatever is in effect -
+     *     removing it is exactly what would drop the host back to its own lower
+     *     value, and doing that silently is the failure this guards against;
+     *   - anything else is raised only when what is in effect falls short.
+     *
+     * So a run leaves things the same or better and never worse, with no memory
+     * of what the host used to give.
      *
      * @param array<string,mixed> $spec
      */
-    private static function target(string $current, array $spec): ?string
+    private static function target(string $effective, ?string $ours, array $spec): ?string
     {
         if ($spec['kind'] === 'fixed') {
             $want = (string)$spec['value'];
-            return self::sameFlag($current, $want) ? null : $want;
-        }
-
-        if (in_array(trim($current), (array)($spec['unlimited'] ?? []), true)) {
-            return null;
+            if ($ours !== null) {
+                return $want;
+            }
+            return self::sameFlag($effective, $want) ? null : $want;
         }
 
         $floor = (string)$spec['floor'];
-        $have = self::bytes($current);
-        $need = self::bytes($floor);
 
-        return $have >= $need ? null : $floor;
+        // Already ours: keep the largest of what we set, the floor, and what is
+        // actually in effect. The third is not usually different - our own line
+        // is what is in effect - but it is when the host has fixed the directive
+        // at system level and ignored us. Writing our smaller number then would
+        // be a reduction waiting to happen the day the host stops fixing it.
+        if ($ours !== null) {
+            return self::largest($ours, $floor, $effective);
+        }
+
+        if (in_array(trim($effective), (array)($spec['unlimited'] ?? []), true)) {
+            return null;
+        }
+
+        return self::bytes($effective) >= self::bytes($floor) ? null : $floor;
     }
 
     /**
@@ -386,8 +443,8 @@ final class Php
      *
      * Not every one of these is a plain boolean. output_buffering is off, on,
      * or a buffer size in bytes - so "4096" means ON, and reading it as a word
-     * that is not "on" made a buffered host look like an unbuffered one and
-     * report itself already correct.
+     * that is not "on" made a buffered host look unbuffered and report itself
+     * already correct.
      */
     private static function sameFlag(string $a, string $b): bool
     {
@@ -399,11 +456,22 @@ final class Php
             if (in_array($value, ['', '0', 'off', 'false', 'no', '-1'], true)) {
                 return false;
             }
-            // A size rather than a word: any positive number is switched on.
             return is_numeric($value) && (float)$value > 0;
         };
 
         return $read($a) === $read($b);
+    }
+
+    /** Whichever of these means the most, kept in the spelling it arrived in. */
+    private static function largest(string ...$values): string
+    {
+        $best = $values[0];
+        foreach ($values as $value) {
+            if ($value !== '' && self::bytes($value) > self::bytes($best)) {
+                $best = $value;
+            }
+        }
+        return $best;
     }
 
     /** A shorthand size, in bytes. -1 and 0 mean "no limit", which beats any floor. */
@@ -435,13 +503,91 @@ final class Php
         if ($value === '') {
             return 'not set';
         }
-        if (in_array($spec['kind'], ['seconds'], true)) {
+        if ($spec['kind'] === 'seconds') {
             return $value === '0' || $value === '-1' ? 'no limit' : $value . 's';
         }
         if ($spec['kind'] === 'bytes') {
             return $value === '0' || $value === '-1' ? 'no limit' : $value;
         }
         return $value;
+    }
+
+    /* ------------------------------------------------------------- the block */
+
+    /**
+     * Every managed block in the file, as [start, end-after] offsets.
+     *
+     * All of them, not the first: PHP reads a repeated directive last-wins, so
+     * a second block left behind silently overrides the one just written.
+     *
+     * @return array<int,array{0:int,1:int}>
+     */
+    private static function spans(string $body): array
+    {
+        $spans = [];
+        $from = 0;
+
+        while (($start = strpos($body, self::BEGIN, $from)) !== false) {
+            $end = strpos($body, self::END, $start + strlen(self::BEGIN));
+
+            if ($end === false) {
+                // A BEGIN with no END is a damaged or half-edited file. It is
+                // NOT a licence to delete down to the next END this tool writes
+                // later - doing that swallowed the directives somebody had put
+                // below it. An unpaired block ends where the file ends, so
+                // there is nothing beyond it to lose.
+                $spans[] = [$start, strlen($body)];
+                break;
+            }
+
+            $after = $end + strlen(self::END);
+            $spans[] = [$start, $after];
+            $from = $after;
+        }
+
+        return $spans;
+    }
+
+    /**
+     * The directives our own block currently sets.
+     *
+     * Read from the file rather than remembered, so it is always what is
+     * actually there. A repeated directive takes its last value, which is what
+     * PHP itself would do.
+     *
+     * @return array<string,string>
+     */
+    private static function blockValues(string $body): array
+    {
+        $known = self::wanted();
+        $values = [];
+
+        foreach (self::spans($body) as [$start, $after]) {
+            foreach (explode("\n", substr($body, $start, $after - $start)) as $line) {
+                $line = trim($line);
+                if ($line === '' || $line[0] === ';' || !str_contains($line, '=')) {
+                    continue;
+                }
+                [$name, $value] = explode('=', $line, 2);
+                $name = trim($name);
+                if (isset($known[$name])) {
+                    $values[$name] = trim($value);
+                }
+            }
+        }
+
+        return $values;
+    }
+
+    /** Removes every managed block, leaving everything else exactly as it was. */
+    private static function strip(string $body): string
+    {
+        // Back to front, so removing one does not shift the offsets of the next.
+        foreach (array_reverse(self::spans($body)) as [$start, $after]) {
+            $body = substr($body, 0, $start) . substr($body, $after);
+        }
+
+        return $body;
     }
 
     /**
@@ -455,17 +601,15 @@ final class Php
             self::BEGIN,
             ';',
             '; Written by CourseForge to suit this host. Every number here is a',
-            '; FLOOR that was not already met - a limit the host grants more of',
-            '; is left exactly as it was. Anything outside this block is yours',
-            '; and is never touched.',
+            '; FLOOR this host did not already meet - a limit it grants more of',
+            '; is left alone. Anything outside this block is yours and is never',
+            '; touched.',
             ';',
-            '; The host was measured once, before any of this was written, and',
-            '; that measurement is what these values were decided from - not',
-            '; what is in effect now, which includes them. After changing hosts,',
-            '; use "Measure this host again" in Settings; deleting this block by',
-            '; hand is not enough, because PHP caches the file either way and a',
-            '; reading taken in that window would record these values as the',
-            '; host\'s own.',
+            '; A line here is never removed by CourseForge, because removing it',
+            '; is what would drop the host back to its own lower value. To hand',
+            '; these settings back - after moving to different hosting, say -',
+            '; use "Remove these settings" in Settings, which takes the whole',
+            '; block out in one go and lets the host decide again.',
             ';',
             '; PHP caches this file for ' . max(0, (int)ini_get('user_ini.cache_ttl'))
                 . ' seconds, so a change can take that long to take effect.',
@@ -474,7 +618,7 @@ final class Php
 
         $wrote = false;
         foreach ($rows as $row) {
-            if ($row['satisfied'] || !$row['settable']) {
+            if ($row['target'] === null || !$row['settable']) {
                 continue;
             }
             foreach (explode("\n", wordwrap((string)$row['why'], 68)) as $line) {
@@ -496,44 +640,19 @@ final class Php
         return implode("\n", $lines) . "\n";
     }
 
-    /** Replaces the managed block in an existing file, or appends it. */
+    /** Replaces every managed block with exactly one, or appends it. */
     private static function merge(string $existing, string $block): string
     {
-        $existing = str_replace("\r\n", "\n", $existing);
+        $rest = self::strip($existing);
 
-        $start = strpos($existing, self::BEGIN);
-        $end = strpos($existing, self::END);
-
-        if ($start !== false && $end !== false && $end > $start) {
-            $before = substr($existing, 0, $start);
-            $after = substr($existing, $end + strlen(self::END));
-            return rtrim($before) === ''
-                ? $block . ltrim($after)
-                : rtrim($before) . "\n\n" . $block . ltrim($after);
-        }
-
-        return trim($existing) === '' ? $block : rtrim($existing) . "\n\n" . $block;
-    }
-
-    /** What the file should contain, reduced to something comparable. */
-    private static function signature(): string
-    {
-        // Built from the host baseline and the targets, both of which are
-        // stable once measured - so a second run produces the same signature
-        // and writes nothing, which is what makes ensure() cheap enough to
-        // call on every admin request.
-        $parts = [PHP_VERSION, PHP_SAPI, self::mechanism()];
-        foreach (self::inspect()['settings'] as $row) {
-            $parts[] = $row['name'] . '=' . $row['current'] . '/' . ($row['target'] ?? '-');
-        }
-        return hash('sha256', implode('|', $parts));
+        return trim($rest) === '' ? $block : rtrim($rest) . "\n\n" . $block;
     }
 
     /**
      * @param array<int,array<string,mixed>> $change
      * @param array<int,array<string,mixed>> $blocked
      */
-    private static function note(string $mechanism, array $change, array $blocked): string
+    private static function note(string $mechanism, array $change, array $blocked, int $held = 0): string
     {
         if ($mechanism === 'cli') {
             return 'This is the command line, which reads no .user.ini. Nothing to do here.';
@@ -545,11 +664,19 @@ final class Php
                 . 'not a risk worth taking unattended.';
         }
         if ($mechanism === 'none') {
-            return 'This server does not read a per-directory PHP configuration file, so these values have to be '
-                . 'set in your hosting control panel.';
+            return 'This server does not read a per-directory PHP configuration file, so nothing here can be '
+                . 'changed from inside the application - these values have to be set in your hosting control '
+                . 'panel.';
         }
         if ($change === [] && $blocked === []) {
-            return 'This host already meets everything CourseForge asks for. Nothing needs changing.';
+            // Saying "the host already meets everything" while holding ten
+            // directives up ourselves credits the host with our own work, and
+            // would read as licence to delete the file.
+            return $held > 0
+                ? 'Everything CourseForge needs is in place. ' . $held . ' of these '
+                    . ($held === 1 ? 'is' : 'are') . ' held by the .user.ini it wrote - removing that file would '
+                    . 'put this host back to its own lower limits.'
+                : 'This host already meets everything CourseForge asks for. Nothing needs changing.';
         }
         if ($blocked !== []) {
             return 'Some of these are fixed by the host and cannot be changed from here - they are listed so you '

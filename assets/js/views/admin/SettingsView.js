@@ -347,14 +347,17 @@ export const SettingsView = {
     const php = computed(() => state.settingsPhp ?? {});
     const phpBusy = ref(false);
 
-    const setUpPhp = (remeasure = false) => attempt(async () => {
+    const setUpPhp = (release = false) => attempt(async () => {
       if (phpBusy.value) return;
       phpBusy.value = true;
       try {
-        const data = await post('admin/settings/php', remeasure ? { remeasure: true } : undefined);
+        const data = await post('admin/settings/php', release ? { release: true } : undefined);
         state.settingsPhp = data.php;
+
         if (data.php?.error) toast.error(data.php.error);
+        else if (data.php?.released) toast.success(data.php.note);
         else if (data.php?.written) toast.success('PHP settings written. They take effect within a few minutes.');
+        else if (release) toast.info(data.php?.note ?? 'There was nothing to remove.');
         else toast.info('Nothing to change - this host already meets everything CourseForge asks for.');
       } finally {
         phpBusy.value = false;
@@ -746,10 +749,10 @@ export const SettingsView = {
               </p>
             </div>
             <div class="row gap-2 none">
-              <button class="btn btn--ghost btn--sm" :disabled="phpBusy || !php.possible"
-                      title="Forget what this host gave before CourseForge changed anything, and look again. Only worth doing after moving to different hosting."
+              <button v-if="php.has_block" class="btn btn--ghost btn--sm" :disabled="phpBusy || !php.possible"
+                      title="Take CourseForge's block out of .user.ini and let this host's own values come back. Do this before moving to different hosting, or to hand the settings back."
                       @click="setUpPhp(true)">
-                <app-icon name="search" :size="13"/> Measure this host again
+                <app-icon name="inherit" :size="13"/> Remove these settings
               </button>
               <button class="btn btn--primary" :disabled="phpBusy || !php.possible" @click="setUpPhp(false)">
                 <app-icon :name="phpBusy ? 'refresh' : 'zap'" :size="14" :spin="phpBusy"/>
@@ -776,8 +779,7 @@ export const SettingsView = {
               <thead>
                 <tr>
                   <th>Directive</th>
-                  <th title="What this host gave before CourseForge changed anything">This host</th>
-                  <th title="What PHP is actually using right now, including anything CourseForge set">In effect</th>
+                  <th title="What PHP is using right now, whoever set it">In effect</th>
                   <th>CourseForge wants</th>
                   <th>State</th>
                 </tr>
@@ -788,16 +790,24 @@ export const SettingsView = {
                     <code class="t-2xs">{{ row.name }}</code>
                     <p class="hint t-2xs" style="margin:2px 0 0">{{ row.why }}</p>
                   </td>
-                  <td class="mono t-xs">{{ row.current_label }}</td>
-                  <td class="mono t-xs" :class="row.raised ? 'c-accent' : 'dim'">
+                  <td class="mono t-xs">
                     {{ row.effective_label }}
-                    <span v-if="row.raised" title="Raised by CourseForge"> ↑</span>
+                    <span v-if="!row.from_host" class="t-2xs c-accent" title="Set by CourseForge, not by the host">
+                      · ours
+                    </span>
                   </td>
-                  <td class="mono t-xs">{{ row.satisfied ? '—' : row.target_label }}</td>
+                  <td class="mono t-xs">{{ row.satisfied || row.keeping ? '—' : row.target_label }}</td>
                   <td>
-                    <span v-if="row.satisfied" class="badge badge--ok">already fine</span>
-                    <span v-else-if="row.settable" class="badge badge--warning">will be raised</span>
-                    <span v-else class="badge badge--danger" title="Fixed by the host - a line for it would be ignored">
+                    <!-- On a host that reads no .user.ini nothing here is about
+                         to be raised by anybody, and badging six rows "will be
+                         raised" under a warning saying the opposite was the
+                         card contradicting itself. -->
+                    <span v-if="row.satisfied || row.keeping" class="badge badge--ok">
+                      {{ row.keeping ? 'held by us' : 'already fine' }}
+                    </span>
+                    <span v-else-if="row.settable && php.possible" class="badge badge--warning">will be raised</span>
+                    <span v-else class="badge badge--danger"
+                          title="Nothing in the application can change this one - it is the host's to decide">
                       host decides
                     </span>
                   </td>
