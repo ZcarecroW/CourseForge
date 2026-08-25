@@ -20,6 +20,7 @@ use CourseForge\Security\Users;
 use CourseForge\Support\Config;
 use CourseForge\Support\Db;
 use CourseForge\Support\Settings;
+use CourseForge\Update\GitHub;
 
 /* ------------------------------------------ 1 & 2: titles the outline can hold */
 
@@ -154,4 +155,29 @@ test('deleting an account revokes its connections rather than moving them', func
         (int)(Db::row('SELECT COUNT(*) n FROM mcp_clients WHERE username = ?', ['heir'])['n'] ?? 0),
         'rather than being handed to the heir, where it would have authenticated as them'
     );
+});
+
+/* ------------------------- an hour-old cache stated in the present tense */
+
+test('the Updates screen asks for a fresher answer than the scheduler does', function () {
+    // Publishing a release and then opening the screen said, flatly, that the
+    // newest release was the previous one. It had been true an hour earlier.
+    // The cache is right for a scheduler polling every minute and wrong for
+    // somebody who has just opened the screen to ask the question.
+    ok(
+        GitHub::SCREEN_MAX_AGE > 0 && GitHub::SCREEN_MAX_AGE <= 600,
+        'the screen window is short enough to be honest: ' . GitHub::SCREEN_MAX_AGE . 's'
+    );
+
+    $check = new ReflectionMethod(GitHub::class, 'check');
+    $names = array_map(static fn(ReflectionParameter $p): string => $p->getName(), $check->getParameters());
+    ok(in_array('maxAge', $names, true), 'check() takes a window rather than only a force flag');
+
+    $status = new ReflectionMethod('CourseForge\Update\Updater', 'status');
+    $through = array_map(static fn(ReflectionParameter $p): string => $p->getName(), $status->getParameters());
+    ok(in_array('maxAge', $through, true), 'and status() passes one through');
+
+    // The rate limit is the reason the cache exists at all: anonymous GitHub
+    // allows sixty an hour, so the screen must not be able to spend it.
+    ok(3600 / GitHub::SCREEN_MAX_AGE <= 20, 'a screen left open cannot exhaust the anonymous rate limit');
 });

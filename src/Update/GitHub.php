@@ -56,6 +56,16 @@ final class GitHub
     /** Nothing here downloads a release, so this is a metadata call and short. */
     private const TIMEOUT = 30;
 
+    /**
+     * How fresh an answer a screen somebody just opened should get.
+     *
+     * Short enough that "the newest release is X" is true when it is read, long
+     * enough that refreshing the page repeatedly cannot spend the anonymous
+     * rate limit: twelve calls an hour against a limit of sixty, and only while
+     * somebody is looking.
+     */
+    public const SCREEN_MAX_AGE = 300;
+
     /** How many releases the pre-release channel looks at. */
     private const PAGE_SIZE = 20;
 
@@ -78,7 +88,7 @@ final class GitHub
      *
      * @return array{release:?Release,checked_at:int,attempted_at:int,cached:bool,error:string,repository:string,channel:string}
      */
-    public static function check(bool $force = false): array
+    public static function check(bool $force = false, ?int $maxAge = null): array
     {
         $repository = self::repository();
         $channel = self::channel();
@@ -103,7 +113,14 @@ final class GitHub
             return array_merge($answer, ['error' => 'No GitHub repository is configured.']);
         }
         if (!$force) {
-            if ($checkedAt > 0 && time() - $checkedAt < self::CACHE_SECONDS) {
+            // How old an answer the CALLER is willing to accept. The scheduler
+            // polls in the background and takes the hour; a screen somebody has
+            // just opened is a person asking the question, and an hour-old
+            // answer stated in the present tense is the wrong answer to give
+            // them.
+            $window = $maxAge ?? self::CACHE_SECONDS;
+
+            if ($checkedAt > 0 && time() - $checkedAt < $window) {
                 return $answer;
             }
             // The scheduler calls this every minute. Without the second window a

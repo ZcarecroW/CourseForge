@@ -125,9 +125,9 @@ final class Updater
      *
      * @return array<string,mixed>
      */
-    public static function status(bool $force = false): array
+    public static function status(bool $force = false, ?int $maxAge = null): array
     {
-        $check = GitHub::check($force);
+        $check = GitHub::check($force, $maxAge);
         $release = $check['release'];
 
         return [

@@ -8,6 +8,7 @@ use CourseForge\Support\Audit;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Request;
 use CourseForge\Support\Runtime;
+use CourseForge\Update\GitHub;
 use CourseForge\Update\Updater;
 
 /**
@@ -46,7 +47,9 @@ final class UpdateController
         // administrator has open.
         Runtime::beginLongRequest();
 
-        $status = Updater::status(false);
+        // Not the scheduler's hour: somebody has this screen open and is
+        // reading a sentence written in the present tense.
+        $status = Updater::status(false, GitHub::SCREEN_MAX_AGE);
 
         // Recorded only when a fresh answer came back from GitHub. The screen
         // polls status(); this installation asking GitHub for a version is an
