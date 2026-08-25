@@ -11,6 +11,7 @@ use CourseForge\Support\Cron;
 use CourseForge\Support\Diagnostics;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Request;
+use CourseForge\Support\Php;
 use CourseForge\Support\Settings;
 use CourseForge\Support\Text;
 
@@ -32,8 +33,15 @@ final class SettingsController
     {
         $me = self::admin($actor);
 
+        // Run once, and again whenever what should be in .user.ini stops
+        // matching what is. In the ordinary case this is one hash comparison;
+        // it costs something only when there is something to repair - which
+        // includes the case where an update replaced the file.
+        Php::ensure($me->username);
+
         return [
             'groups' => Settings::groups(),
+            'php' => Php::plan(),
             'settings' => Settings::describe($me),
             'scheduler' => self::scheduler(),
             'prompt_groups' => Config::promptGroups(),
@@ -264,6 +272,20 @@ final class SettingsController
             'workers' => Config::int('app.cron_workers', 2),
             'seconds' => Config::int('app.cron_seconds', 50),
         ];
+    }
+
+    /**
+     * Measures PHP, writes what it can, and reports what it could not.
+     *
+     * Idempotent: running it twice writes nothing the second time.
+     *
+     * @return array<string,mixed>
+     */
+    public static function setUpPhp(Request $request, ?Actor $actor): array
+    {
+        $me = self::admin($actor);
+
+        return ['php' => Php::apply($me->username)];
     }
 
     /** What stands in for the token on a screen that is read constantly. */

@@ -27,6 +27,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { state, loadUsers, minPassword } from '@/core/store.js';
 import { post, put, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
+import { useFuzzy } from '@/core/fuzzy.js';
 import { formatDateTime, relativeTime, plural } from '@/core/format.js';
 
 import AppIcon from '@/components/AppIcon.js';
@@ -135,11 +136,12 @@ export const UsersView = {
 
     const roleLabel = (key) => roles.value.find((r) => r.key === key)?.label ?? key;
 
-    const visible = computed(() => {
-      const needle = search.value.trim().toLowerCase();
-      if (!needle) return state.users;
-      return state.users.filter((user) =>
-        `${user.username} ${user.display_name}`.toLowerCase().includes(needle));
+    // Fuzzy, like every other list in the application: a display name and a
+    // user name are exactly the pair somebody half-remembers, and a substring
+    // match fails on a transposed letter or the two words the other way round.
+    const visible = useFuzzy(computed(() => state.users), search, {
+      keys: ['username', 'display_name'],
+      limit: 500,
     });
 
     /** What one account owns, as a list of phrases - empty when it owns nothing. */

@@ -139,6 +139,7 @@ $router->add('PUT', 'admin/settings', [SettingsController::class, 'update'], adm
 $router->add('POST', 'admin/settings/reset', [SettingsController::class, 'reset'], admin: true);
 $router->add('POST', 'admin/settings/cron-token', [SettingsController::class, 'cronToken'], admin: true);
 $router->add('POST', 'admin/settings/cron-url', [SettingsController::class, 'cronUrl'], admin: true);
+$router->add('POST', 'admin/settings/php', [SettingsController::class, 'setUpPhp'], admin: true);
 $router->add('GET', 'admin/prompts', [SettingsController::class, 'prompts'], admin: true);
 $router->add('PUT', 'admin/prompts', [SettingsController::class, 'savePrompts'], admin: true);
 $router->add('GET', 'admin/diagnostics', [SettingsController::class, 'diagnostics'], admin: true);

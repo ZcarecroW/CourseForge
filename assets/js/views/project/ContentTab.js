@@ -5,6 +5,7 @@ import {
 import { state, openCourse, allPages, concurrency, mergePage, markPageStatus, refreshProject } from '@/core/store.js';
 import { get, put, post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
+import { useFuzzy } from '@/core/fuzzy.js';
 import { useScrollSync } from '@/core/scrollsync.js';
 import { compactNumber, plural } from '@/core/format.js';
 import { busy, patchDetails, tagAdd, tagRemove, tagInherit, tagToggle, inheritedTags, saveChapter } from './actions.js';
@@ -95,8 +96,18 @@ export const ContentTab = {
 
     /* -- tree ----------------------------------------------------------- */
     const term = computed(() => search.value.trim().toLowerCase());
+
+    /**
+     * Fuzzy over the page titles, resolved once per search rather than per
+     * page: the tree is rebuilt for every chapter, and running a search inside
+     * that loop would run it as many times as there are chapters.
+     */
+    const allPages = computed(() => project.value.chapters.flatMap((chapter) => chapter.pages));
+    const found = useFuzzy(allPages, search, { keys: ['title'], limit: 5000 });
+    const foundIds = computed(() => new Set(found.value.map((page) => page.id)));
+
     const matches = (page) => FILTERS[filter.value](page)
-      && (term.value === '' || page.title.toLowerCase().includes(term.value));
+      && (term.value === '' || foundIds.value.has(page.id));
 
     const tree = computed(() => project.value.chapters
       .map((chapter) => ({ ...chapter, visible: chapter.pages.filter(matches) }))

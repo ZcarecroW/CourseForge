@@ -602,6 +602,72 @@ export const ProfilesView = {
     const slotCount = computed(() => Object.keys(state.promptSlots).length);
     const customInGroup = (group) => group.slots.filter((slot) => isCustom(slot.key)).length;
 
+    /* The same shape as the admin Prompts screen: a tab per group, a search
+     * that looks through all of them, and one prompt open at a time. */
+
+    const promptGroup = ref('');
+    const promptSearch = ref('');
+    const promptKey = ref('');
+
+    const promptSlotList = computed(() =>
+      groups.value.flatMap((group) => group.slots.map((slot) => ({ ...slot, group: group.id }))));
+
+    const promptSearching = computed(() => promptSearch.value.trim() !== '');
+
+    // The text currently in the slot is indexed too: somebody hunting for the
+    // prompt that mentions Mermaid remembers the phrase, not the slot name.
+    const promptHaystack = computed(() => promptSlotList.value.map((slot) => ({
+      slot,
+      label: slot.label,
+      key: slot.key,
+      description: slot.description ?? '',
+      text: textOf(slot.key),
+    })));
+
+    const promptMatches = useFuzzy(promptHaystack, promptSearch, {
+      keys: ['label', 'key', 'description', 'text'],
+      limit: 200,
+    });
+
+    const promptsInGroup = (id) => promptSlotList.value.filter((slot) => slot.group === id);
+
+    const visiblePrompts = computed(() =>
+      promptSearching.value
+        ? promptMatches.value.map((hit) => hit.slot)
+        : promptsInGroup(promptGroup.value));
+
+    const currentPromptGroup = computed(() =>
+      groups.value.find((group) => group.id === promptGroup.value) ?? null);
+
+    const currentPrompt = computed(() =>
+      promptSlotList.value.find((slot) => slot.key === promptKey.value) ?? null);
+
+    const pickPromptGroup = (id) => {
+      promptGroup.value = id;
+      promptSearch.value = '';
+      if (!promptsInGroup(id).some((slot) => slot.key === promptKey.value)) {
+        promptKey.value = promptsInGroup(id)[0]?.key ?? '';
+      }
+    };
+
+    const promptGroupLabel = (id) => groups.value.find((group) => group.id === id)?.label ?? id;
+
+    const pickPrompt = (slot) => {
+      promptKey.value = slot.key;
+      // Choosing a search result from another group takes the group with it, so
+      // clearing the search does not make the open prompt disappear.
+      if (slot.group !== promptGroup.value) promptGroup.value = slot.group;
+    };
+
+    // The first group, and the first slot in it, so the tab is never blank.
+    watch(groups, (list) => {
+      if (!list.length) return;
+      if (!list.some((group) => group.id === promptGroup.value)) promptGroup.value = list[0].id;
+      if (!promptSlotList.value.some((slot) => slot.key === promptKey.value)) {
+        promptKey.value = promptsInGroup(promptGroup.value)[0]?.key ?? '';
+      }
+    }, { immediate: true });
+
     const resetAllPrompts = () => {
       if (!draft.value || !customCount.value) return;
       draft.value.data.prompts = {};
@@ -642,6 +708,8 @@ export const ProfilesView = {
       groups, defaultOf, textOf, isCustom, setPrompt, resetPrompt, resetAllPrompts,
       customCount, slotCount, customInGroup, insertPlaceholder, registerTextarea,
       toggleGroup, groupOpen, plural, relativeTime,
+      promptGroup, promptSearch, promptKey, promptSearching, visiblePrompts,
+      currentPromptGroup, currentPrompt, pickPromptGroup, pickPrompt, promptGroupLabel,
     };
   },
   template: `
@@ -975,56 +1043,97 @@ export const ProfilesView = {
                 </button>
               </div>
 
-              <section v-for="group in groups" :key="group.id" class="card section" :class="{ 'is-open': groupOpen(group.id) }">
-                <button class="section__head" @click="toggleGroup(group.id)">
-                  <app-icon class="section__chevron" name="chevron-right" :size="14"/>
-                  <span class="grow">
-                    <span class="strong">{{ group.label }}</span>
-                    <span class="t-xs dim"> · {{ group.slots.length }} prompt(s)</span>
-                  </span>
-                  <span v-if="customInGroup(group)" class="badge badge--warning">{{ customInGroup(group) }} customised</span>
+              <nav class="tabbar">
+                <button v-for="group in groups" :key="group.id" class="tab"
+                        :class="{ 'is-active': !promptSearching && promptGroup === group.id }"
+                        @click="pickPromptGroup(group.id)">
+                  {{ group.label }}
+                  <span v-if="customInGroup(group)" class="badge badge--warning">{{ customInGroup(group) }}</span>
                 </button>
+              </nav>
 
-                <div v-if="groupOpen(group.id)" class="section__body col gap-4">
-                  <p class="hint">{{ group.description }}</p>
+              <div class="workspace workspace--two">
+                <!-- ------------------------------------------ prompts in a group -->
+                <aside class="pane pane--left">
+                  <div class="pane__head">
+                    <span class="eyebrow grow truncate">
+                      {{ promptSearching ? 'Matches in every group'
+                                         : (currentPromptGroup ? currentPromptGroup.label : 'Prompts') }}
+                    </span>
+                    <span class="badge none">{{ visiblePrompts.length }}</span>
+                  </div>
 
-                  <article v-for="slot in group.slots" :key="slot.key" class="card card--flat card--pad col gap-2">
-                    <div class="row wrap between gap-2">
-                      <div class="row gap-2">
-                        <h4>{{ slot.label }}</h4>
-                        <code class="t-2xs dim">{{ slot.key }}</code>
-                      </div>
-                      <div class="row gap-2">
-                        <span class="badge" :class="isCustom(slot.key) ? 'badge--warning' : ''">
-                          {{ isCustom(slot.key) ? 'customised' : 'config default' }}
-                        </span>
-                        <button class="btn btn--ghost btn--sm" :disabled="!isCustom(slot.key)" @click="resetPrompt(slot.key)">
-                          Reset
-                        </button>
+                  <div class="pane__body">
+                    <div style="padding:var(--s-3) var(--s-3) 0">
+                      <div style="position:relative">
+                        <app-icon name="search" :size="13"
+                                  style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
+                        <input v-model="promptSearch" placeholder="Find a prompt…" spellcheck="false"
+                               style="padding-left:28px">
                       </div>
                     </div>
 
-                    <p class="hint">{{ slot.description }}</p>
+                    <p v-if="currentPromptGroup && !promptSearching" class="hint" style="padding:0 var(--s-3)">
+                      {{ currentPromptGroup.description }}
+                    </p>
 
-                    <div v-if="slot.placeholders.length" class="row wrap gap-1">
-                      <button v-for="placeholder in slot.placeholders" :key="placeholder"
-                              class="placeholder-token" :title="'Insert this placeholder'"
-                              @click="insertPlaceholder(slot.key, placeholder)">{{ placeholder }}</button>
+                    <button v-for="slot in visiblePrompts" :key="slot.key"
+                            class="tree__page" :class="{ 'is-active': promptKey === slot.key }"
+                            :title="slot.label" @click="pickPrompt(slot)">
+                      <span class="grow truncate">
+                        {{ slot.label }}
+                        <span v-if="promptSearching" class="t-2xs faint"> · {{ promptGroupLabel(slot.group) }}</span>
+                      </span>
+                      <span v-if="isCustom(slot.key)" class="dot none" style="background:var(--warning)"
+                            title="Overridden by this profile"></span>
+                    </button>
+
+                    <p v-if="!visiblePrompts.length" class="hint" style="padding:var(--s-3)">
+                      Nothing matches that.
+                    </p>
+                  </div>
+                </aside>
+
+                <!-- --------------------------------------------------- one prompt -->
+                <section v-if="currentPrompt" class="pane pane--main col gap-3" style="padding:var(--s-4)">
+                  <div class="row wrap between gap-2">
+                    <div class="col">
+                      <h4>{{ currentPrompt.label }}</h4>
+                      <code class="t-2xs dim">{{ currentPrompt.key }}</code>
                     </div>
+                    <div class="row gap-2">
+                      <span class="badge" :class="isCustom(currentPrompt.key) ? 'badge--warning' : ''">
+                        {{ isCustom(currentPrompt.key) ? 'customised' : 'config default' }}
+                      </span>
+                      <button class="btn btn--ghost btn--sm" :disabled="!isCustom(currentPrompt.key)"
+                              @click="resetPrompt(currentPrompt.key)">
+                        <app-icon name="inherit" :size="13"/> Reset
+                      </button>
+                    </div>
+                  </div>
 
-                    <textarea :ref="el => registerTextarea(slot.key, el)"
-                              :value="textOf(slot.key)"
-                              @input="setPrompt(slot.key, $event.target.value)"
-                              rows="9" spellcheck="false" class="mono"
-                              placeholder="Empty → nothing is sent for this slot"></textarea>
+                  <p class="hint">{{ currentPrompt.description }}</p>
 
-                    <details v-if="isCustom(slot.key) && defaultOf(slot.key)">
-                      <summary class="t-xs dim" style="cursor:pointer">Show the config default</summary>
-                      <pre class="log mt-2" style="white-space:pre-wrap;max-height:280px">{{ defaultOf(slot.key) }}</pre>
-                    </details>
-                  </article>
-                </div>
-              </section>
+                  <div v-if="currentPrompt.placeholders.length" class="row wrap gap-1">
+                    <button v-for="placeholder in currentPrompt.placeholders" :key="placeholder"
+                            class="placeholder-token" title="Insert this placeholder"
+                            @click="insertPlaceholder(currentPrompt.key, placeholder)">{{ placeholder }}</button>
+                  </div>
+
+                  <textarea :ref="el => registerTextarea(currentPrompt.key, el)"
+                            :value="textOf(currentPrompt.key)"
+                            @input="setPrompt(currentPrompt.key, $event.target.value)"
+                            rows="16" spellcheck="false" class="mono"
+                            placeholder="Empty → nothing is sent for this slot"></textarea>
+
+                  <details v-if="isCustom(currentPrompt.key) && defaultOf(currentPrompt.key)">
+                    <summary class="t-xs dim" style="cursor:pointer">Show the config default</summary>
+                    <pre class="log mt-2" style="white-space:pre-wrap;max-height:280px">{{ defaultOf(currentPrompt.key) }}</pre>
+                  </details>
+                </section>
+
+                <empty-state v-else class="pane pane--main" icon="file-text" title="No prompt selected"/>
+              </div>
             </div>
           </div>
         </template>

@@ -17,6 +17,7 @@ use CourseForge\Support\Audit;
 use CourseForge\Support\Config;
 use CourseForge\Support\Cron;
 use CourseForge\Support\HttpException;
+use CourseForge\Support\Php;
 use CourseForge\Support\Runtime;
 use CourseForge\Support\Settings;
 use Throwable;
@@ -295,6 +296,29 @@ final class AdminTools
                 required: [],
                 handler: static fn(Actor $actor, array $args): array => self::generateCronToken($actor),
                 admin: true,
+            ),
+
+            new Tool(
+                name: 'set_up_php',
+                scope: Scopes::ADMIN,
+                title: 'Measure PHP and raise what is too low',
+                description: 'Reads the PHP configuration this host gives CourseForge, works out which limits are '
+                    . 'below what it needs, and writes a .user.ini raising exactly those. Every number is a floor: a '
+                    . 'limit the host is already generous about is left alone, never lowered. Reports what it could '
+                    . 'not change, because some directives are fixed by the host and a line for them would be '
+                    . 'ignored in silence. Idempotent - running it twice writes nothing the second time. Pass '
+                    . 'dry_run to see the plan without writing anything. Costs nothing.',
+                properties: [
+                    'dry_run' => Schema::bool('Report what would change without writing the file.'),
+                ],
+                required: [],
+                handler: static fn(Actor $actor, array $args): array => Args::of($args)->bool('dry_run')
+                    ? Php::plan()
+                    : Php::apply($actor->username),
+                readOnly: false,
+                idempotent: true,
+                admin: true,
+                maxResultChars: 40000,
             ),
 
             new Tool(

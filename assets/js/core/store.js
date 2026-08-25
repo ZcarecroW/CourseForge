@@ -60,6 +60,7 @@ export const state = reactive({
 
   /* administration - fetched when an admin screen opens, never at sign-in */
   settings: [],
+  settingsPhp: null,
   settingGroups: [],
   settingsFiles: { defaults: '', overrides: '' },
   scheduler: null,
@@ -264,6 +265,10 @@ export async function loadSettings() {
   state.settings = data.settings ?? [];
   state.scheduler = data.scheduler ?? null;
   state.settingsFiles = { defaults: data.defaults_file ?? '', overrides: data.overrides_file ?? '' };
+  // What PHP is doing on this host, measured on the way in - the settings
+  // screen shows it, and the server has already repaired .user.ini if it
+  // needed repairing.
+  state.settingsPhp = data.php ?? null;
   return data;
 }
 
@@ -271,6 +276,7 @@ export async function loadSettings() {
 export function applySettings(payload) {
   if (payload?.settings) state.settings = payload.settings;
   if (payload?.scheduler) state.scheduler = payload.scheduler;
+  if (payload?.php) state.settingsPhp = payload.php;
   return payload;
 }
 

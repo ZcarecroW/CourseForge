@@ -26,6 +26,7 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { get, put } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
+import { useFuzzy } from '@/core/fuzzy.js';
 import { plural } from '@/core/format.js';
 import { declareUnsaved } from '@/core/store.js';
 
@@ -102,16 +103,27 @@ export const PromptsView = {
      */
     const searching = computed(() => search.value.trim() !== '');
 
-    const visibleSlots = computed(() => {
-      const query = search.value.trim().toLowerCase();
-      if (!query) return inGroup(groupKey.value);
-      return slotList.value.filter((slot) =>
-        slot.label.toLowerCase().includes(query)
-        || slot.key.toLowerCase().includes(query)
-        || (slot.description ?? '').toLowerCase().includes(query)
-        || (draft[slot.key] ?? '').toLowerCase().includes(query)
-      );
+    /**
+     * Searchable text for one slot, including whatever is currently written in
+     * it - somebody looking for the prompt that mentions Mermaid is far more
+     * likely to remember a phrase from the text than the slot's name.
+     */
+    const searchable = computed(() => slotList.value.map((slot) => ({
+      slot,
+      label: slot.label,
+      key: slot.key,
+      description: slot.description ?? '',
+      text: draft[slot.key] ?? '',
+    })));
+
+    const matches = useFuzzy(searchable, search, {
+      keys: ['label', 'key', 'description', 'text'],
+      limit: 200,
     });
+
+    const visibleSlots = computed(() =>
+      searching.value ? matches.value.map((hit) => hit.slot) : inGroup(groupKey.value)
+    );
 
     const current = computed(() => {
       const slot = slots.value[selectedKey.value];

@@ -10,6 +10,7 @@ use CourseForge\Security\Session;
 use CourseForge\Security\Users;
 use CourseForge\Support\Audit;
 use CourseForge\Support\Config;
+use CourseForge\Support\Php;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Request;
 use CourseForge\Support\Response;
@@ -20,6 +21,18 @@ final class SessionController
     /** @return array<string,mixed> */
     public static function show(Request $request, ?Actor $actor): array
     {
+        // The first call the application makes, and the first moment an
+        // administrator can be recognised - so it is where "run once when the
+        // admin interface is opened" actually means that, rather than "when
+        // somebody happens to visit Settings".
+        //
+        // In the ordinary case this is one hash comparison against what was
+        // last written. It costs something only when there is something to
+        // repair, which includes an update having replaced the file.
+        if ($actor !== null && $actor->isAdmin()) {
+            Php::ensure($actor->username);
+        }
+
         return [
             'csrf' => Session::csrf(),
             'user' => Auth::describe(),

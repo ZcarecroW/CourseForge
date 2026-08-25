@@ -342,6 +342,25 @@ export const SettingsView = {
       await copy(revealedCronUrl.value, 'URL', 'scheduler-url');
     }, 'Copy the cron URL');
 
+    /* ------------------------------------------------------------- PHP */
+
+    const php = computed(() => state.settingsPhp ?? {});
+    const phpBusy = ref(false);
+
+    const setUpPhp = () => attempt(async () => {
+      if (phpBusy.value) return;
+      phpBusy.value = true;
+      try {
+        const data = await post('admin/settings/php');
+        state.settingsPhp = data.php;
+        if (data.php?.error) toast.error(data.php.error);
+        else if (data.php?.written) toast.success('PHP settings written. They take effect within a few minutes.');
+        else toast.info('Nothing to change - this host already meets everything CourseForge asks for.');
+      } finally {
+        phpBusy.value = false;
+      }
+    }, 'Set up PHP');
+
     const cronLine = computed(() => (scheduler.value.cli ? `* * * * * ${scheduler.value.cli}` : ''));
     const cronCurlLine = computed(() =>
       cronUrlShown.value ? `* * * * * curl -fsS "${cronUrlShown.value}" > /dev/null` : ''
@@ -423,6 +442,7 @@ export const SettingsView = {
       groups, fieldsOf, advancedShown, toggleAdvanced,
       isDirty, dirtyCount, overridden, defaultText, hasRange, resetField, resetEverything,
       scheduler, schedulerHealth, cronLine, cronCurlLine, cronUrlShown, copyCronUrl, revealedCronUrl,
+      php, phpBusy, setUpPhp,
       confirmToken, confirmResetAll, confirmSecret, removeSecret, freshToken, generateToken, CRON_TOKEN,
       report, diagBusy, diagOpen, toggleDiagnostics, runDiagnostics, statusOf, troubled, hintTone,
       copy, copied, relativeTime, formatDateTime, plural,
@@ -711,6 +731,69 @@ export const SettingsView = {
 
         <empty-state v-if="!loading && !state.settings.length" icon="cog" title="No settings came back"
                      hint="The server answered without a catalogue. Reload the page; if it keeps happening, the installation is incomplete."/>
+
+        <!-- ======================================================= PHP -->
+        <section class="card card--pad col gap-3">
+          <div class="row wrap between gap-3">
+            <div class="col gap-1 grow" style="min-width:280px">
+              <h3 class="t-md">How PHP is configured here</h3>
+              <p class="hint">
+                Shared hosting hands out a PHP configuration nobody chose for this application: sixty seconds
+                of execution, a socket timeout shorter than a model takes to answer. CourseForge can raise the
+                ones it needs by writing a <code>.user.ini</code> beside itself.
+                <strong>Every number below is a floor</strong> - a limit this host is already generous about is
+                left exactly as it is, never lowered.
+              </p>
+            </div>
+            <button class="btn btn--primary none" :disabled="phpBusy || !php.possible" @click="setUpPhp">
+              <app-icon :name="phpBusy ? 'refresh' : 'zap'" :size="14" :spin="phpBusy"/>
+              {{ phpBusy ? 'Writing…' : 'Set up PHP' }}
+            </button>
+          </div>
+
+          <p v-if="php.note" class="hint row gap-2">
+            <app-icon :name="php.possible ? 'info' : 'alert-triangle'" :size="14"
+                      :class="php.possible ? 'c-accent none' : 'c-warning none'" style="margin-top:2px"/>
+            <span>{{ php.note }}</span>
+          </p>
+
+          <div class="row wrap gap-2">
+            <span class="badge none">PHP {{ php.php }}</span>
+            <span class="badge none">{{ php.sapi }}</span>
+            <span v-if="php.file" class="badge none mono">{{ php.file }}</span>
+            <span v-if="php.cache_ttl" class="badge none">cached {{ php.cache_ttl }}s</span>
+          </div>
+
+          <div style="overflow-x:auto">
+            <table class="table" v-if="(php.settings || []).length">
+              <thead>
+                <tr>
+                  <th>Directive</th>
+                  <th>This host</th>
+                  <th>CourseForge wants</th>
+                  <th>State</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in php.settings" :key="row.name">
+                  <td>
+                    <code class="t-2xs">{{ row.name }}</code>
+                    <p class="hint t-2xs" style="margin:2px 0 0">{{ row.why }}</p>
+                  </td>
+                  <td class="mono t-xs">{{ row.current_label }}</td>
+                  <td class="mono t-xs">{{ row.satisfied ? '—' : row.target_label }}</td>
+                  <td>
+                    <span v-if="row.satisfied" class="badge badge--ok">already fine</span>
+                    <span v-else-if="row.settable" class="badge badge--warning">will be raised</span>
+                    <span v-else class="badge badge--danger" title="Fixed by the host - a line for it would be ignored">
+                      host decides
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
         <!-- ============================================== installation check -->
         <section class="card section" :class="{ 'is-open': diagOpen }">
