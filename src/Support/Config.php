@@ -151,25 +151,61 @@ final class Config
      */
     public static function setMany(array $values): void
     {
-        $overrides = self::overrides();
-        $defaults = self::defaults();
-
-        foreach ($values as $path => $value) {
-            $default = self::dig($defaults, (string)$path, null);
-            $overrides = ($value === null || $value === $default)
-                ? self::forget($overrides, (string)$path)
-                : self::plant($overrides, (string)$path, $value);
-        }
-
-        Json::write(self::file(), $overrides);
-        self::flush();
+        self::rewrite(static function (array $overrides) use ($values): array {
+            $defaults = self::defaults();
+            foreach ($values as $path => $value) {
+                $default = self::dig($defaults, (string)$path, null);
+                $overrides = ($value === null || $value === $default)
+                    ? self::forget($overrides, (string)$path)
+                    : self::plant($overrides, (string)$path, $value);
+            }
+            return $overrides;
+        });
     }
 
     /** Drops an override so the shipped default applies again. */
     public static function reset(string $path): void
     {
-        Json::write(self::file(), self::forget(self::overrides(), $path));
-        self::flush();
+        self::rewrite(static fn(array $overrides): array => self::forget($overrides, $path));
+    }
+
+    /**
+     * Applies a change to what is on disk, not to what was read earlier.
+     *
+     * The overrides document is cached the first time it is read, and something
+     * reads a setting before routing - so on every request the cache is filled
+     * at the start and the whole file was written back from it at the end. The
+     * window between reading and writing was not a few instructions, it was the
+     * request. Two people saving different settings at the same time both got
+     * HTTP 200 and a list of what they had saved, and one of the two saves was
+     * simply gone.
+     *
+     * Re-reading here means the change lands on the current document, so a
+     * concurrent save of a different key survives; the lock means two callers
+     * cannot interleave their read and write; and two saves of the SAME key
+     * resolve to the later one, which is what last-write-wins should mean.
+     *
+     * A lock that cannot be taken is not a reason to lose a write, so the write
+     * still happens - a re-read without exclusion is worth far more than the
+     * request-long stale copy it replaces.
+     *
+     * @param callable(array<string,mixed>):array<string,mixed> $change
+     */
+    private static function rewrite(callable $change): void
+    {
+        $owner = bin2hex(random_bytes(8));
+        $held = Lock::acquire('config-write', 10, $owner) !== false;
+
+        try {
+            self::flush();
+            $overrides = $change(self::overrides());
+            Json::write(self::file(), $overrides);
+        } finally {
+            if ($held) {
+                Lock::release('config-write', $owner);
+            }
+            self::flush();
+        }
     }
 
     /** True when this installation has changed the value at $path. */

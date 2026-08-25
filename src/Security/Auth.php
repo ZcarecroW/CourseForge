@@ -85,15 +85,33 @@ final class Auth
             ];
         }
 
+        // Recorded BEFORE the password is checked, not after.
+        //
+        // password_verify is bcrypt and takes about a quarter of a second on
+        // purpose. Counting afterwards meant every request that arrived inside
+        // that window read the same pre-burst total, so all of them passed a
+        // cap of five and all of them got a real guess - the cap counted
+        // attempts that had FINISHED rather than attempts that had started.
+        // Fifty concurrent requests bought fifty guesses.
+        //
+        // Writing the row first costs an insert per attempt and makes the
+        // counter mean what it says. A success removes it again below, so an
+        // ordinary sign-in leaves nothing behind.
+        LoginThrottle::record($ip, $username, false);
+
         try {
             $user = Users::verify($username, $password);
         } catch (HttpException $e) {
-            // A disabled account is a real answer, not a throttled guess.
-            LoginThrottle::record($ip, $username, false);
+            // A disabled account is a real answer, not a throttled guess - but
+            // the attempt is already recorded, which is correct: somebody is
+            // still trying passwords at a name.
             return ['ok' => false, 'error' => $e->getMessage(), 'locked_for' => 0];
         }
 
-        LoginThrottle::record($ip, $username, $user !== null);
+        if ($user !== null) {
+            // It was a real sign-in, so the row written above is not a failure.
+            LoginThrottle::record($ip, $username, true);
+        }
 
         if ($user === null) {
             $left = max(0, Config::int('security.max_login_attempts', 5) - LoginThrottle::failuresInWindow($ip, $username));

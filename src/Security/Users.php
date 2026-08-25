@@ -5,6 +5,7 @@ namespace CourseForge\Security;
 
 use CourseForge\Support\Db;
 use CourseForge\Support\HttpException;
+use PDOException;
 use CourseForge\Support\Json;
 
 /**
@@ -151,26 +152,43 @@ final class Users
         $username = self::validateUsername($username);
         self::validatePassword($password);
 
+        // Asked before the expensive part, because it answers the ordinary
+        // case with the ordinary message. It is not the guarantee, though: the
+        // hash below takes about a quarter of a second, and every request that
+        // arrives inside it passes this check too. The unique index is what
+        // actually decides, and the catch below turns it into this same
+        // sentence rather than "the database could not be written".
         if (self::find($username) !== null) {
             throw HttpException::unprocessable('An account called "' . $username . '" already exists.');
         }
 
         $now = time();
-        Db::run(
-            'INSERT INTO users (username, display_name, password_hash, role, disabled, created_at, updated_at, created_by, must_change_password, password_reset_at)
-             VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
-            [
-                $username,
-                trim($displayName) !== '' ? trim($displayName) : $username,
-                self::hash($password),
-                Actor::normaliseRole($role),
-                $now,
-                $now,
-                trim($createdBy),
-                $mustChangePassword ? 1 : 0,
-                $now,
-            ]
-        );
+        try {
+            Db::run(
+                'INSERT INTO users (username, display_name, password_hash, role, disabled, created_at, updated_at, created_by, must_change_password, password_reset_at)
+                 VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+                [
+                    $username,
+                    trim($displayName) !== '' ? trim($displayName) : $username,
+                    self::hash($password),
+                    Actor::normaliseRole($role),
+                    $now,
+                    $now,
+                    trim($createdBy),
+                    $mustChangePassword ? 1 : 0,
+                    $now,
+                ]
+            );
+        } catch (PDOException $e) {
+            // The only unique index on this table is the user name, and hitting
+            // it means somebody created the same account inside the quarter of
+            // a second the hash above takes. Anything else a database can raise
+            // is not that.
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+            throw HttpException::unprocessable('An account called "' . $username . '" already exists.');
+        }
 
         return self::publicView(self::require($username));
     }

@@ -98,10 +98,20 @@ final class SettingsController
             throw HttpException::unprocessable('Name the settings to reset.');
         }
 
+        // Every key is checked before any key is reset. Validating and
+        // resetting in one pass meant an unknown name at position three
+        // answered 422 with the first two already thrown away - and a reset is
+        // a deletion of the override, so "nothing happened", which is what a
+        // 422 means everywhere else, was false. update() next door has always
+        // validated first; this is the same rule.
         foreach ($keys as $key) {
             if (Settings::field($key) === null) {
-                throw HttpException::unprocessable('There is no setting called "' . $key . '".');
+                throw HttpException::unprocessable(
+                    'There is no setting called "' . $key . '". Nothing was reset.'
+                );
             }
+        }
+        foreach ($keys as $key) {
             Config::reset($key);
         }
         Audit::record($me->username, 'settings.reset', implode(', ', $keys));
@@ -257,7 +267,7 @@ final class SettingsController
     }
 
     /** What stands in for the token on a screen that is read constantly. */
-    private const MASKED_TOKEN = '<your-cron-token>';
+    private const MASKED_TOKEN = 'YOUR-CRON-TOKEN';
 
     private static function admin(?Actor $actor): Actor
     {

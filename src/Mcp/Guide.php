@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace CourseForge\Mcp;
 
 use CourseForge\Domain\Projects;
+use CourseForge\Mcp\Handlers\PublishTools;
 use CourseForge\Security\Access;
 use CourseForge\Security\Actor;
 
@@ -96,12 +97,20 @@ final class Guide
 
         $list = [];
         foreach ($courses as $course) {
-            $list[] = [
+            $row = [
                 'course_id' => (int)$course['id'],
                 'name' => (string)$course['name'],
                 'pages' => (int)$course['page_count'],
                 'written' => (int)$course['generated_count'],
             ];
+            // An administrator sees everybody's courses, and two people can
+            // easily name one the same thing. list_courses marks the owner for
+            // exactly this reason; a list you are being asked to choose from
+            // needs it more, not less.
+            if ($actor->isAdmin()) {
+                $row['owner'] = (string)$course['owner'];
+            }
+            $list[] = $row;
         }
 
         return self::step(
@@ -150,6 +159,28 @@ final class Guide
 
         /* ------------------------------------------------------- no outline */
 
+        if ($pages === 0 && (int)($row['chapter_count'] ?? 0) > 0) {
+            // An outline that names chapters but no pages is accepted and
+            // stored - applyStructure warns about it at the time. Calling that
+            // "no outline yet" contradicts get_structure on the same course,
+            // and sends the client to write one it already has.
+            return self::step(
+                self::STATE_NEEDS_OUTLINE,
+                '"' . $name . '" has an outline, but it names no pages - only '
+                    . (int)$row['chapter_count'] . ' chapter'
+                    . ((int)$row['chapter_count'] === 1 ? '' : 's') . '. There is nothing to write until it does.',
+                'get_structure_brief',
+                Scopes::STRUCTURE,
+                ['course_id' => $courseId],
+                'Read the current outline with get_structure first - it is stored and it is not empty, it just has '
+                    . 'no pages under its chapters. get_structure_brief hands you the format and the rules; add '
+                    . 'pages to the chapters and store it with apply_structure.',
+                $progress,
+                $course,
+                'Then call get_next_step again.'
+            );
+        }
+
         if ($pages === 0) {
             return self::step(
                 self::STATE_NEEDS_OUTLINE,
@@ -191,9 +222,12 @@ final class Guide
 
         /* -------------------------------------------------- ready to publish */
 
-        $hasDestination = ($project['bs_instance_id'] ?? '') !== '' && $project['profile_id'] !== null;
+        // Asked of the code that actually publishes rather than worked out
+        // again here. The two rules agreed when this was written, which is how
+        // every pair of duplicated rules starts.
+        $blocking = PublishTools::blockingReasons($project, $owner);
 
-        if (!$hasDestination) {
+        if ($blocking !== []) {
             return self::step(
                 self::STATE_WRITTEN,
                 '"' . $name . '" is fully written: all ' . $pages . ' pages have text. '
@@ -201,9 +235,9 @@ final class Guide
                 null,
                 null,
                 [],
-                'The course is finished. Publishing is optional and needs a profile with a BookStack instance on it, '
-                    . 'which this course does not have. Set one under Profiles in the browser if you want the course '
-                    . 'pushed into BookStack; otherwise the work is done.',
+                'The course is finished. Publishing is optional, and this course cannot publish yet: '
+                    . implode(' ', $blocking)
+                    . ' If you do not intend to publish into BookStack, the work is done.',
                 $progress,
                 $course,
                 null,

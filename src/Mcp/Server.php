@@ -133,7 +133,12 @@ final class Server
         }
 
         $id = $message['id'] ?? null;
-        $rpc = (string)($message['method'] ?? '');
+
+        // Everything below comes out of a decoded request and has been checked
+        // by nobody. A (string) cast on an array emits "Array to string
+        // conversion" into the log and yields the word "Array", which was then
+        // reported back as though it were the method the client had asked for.
+        $rpc = self::text($message['method'] ?? null);
         $params = is_array($message['params'] ?? null) ? $message['params'] : [];
         $meta = is_array($params['_meta'] ?? null) ? $params['_meta'] : [];
 
@@ -218,7 +223,7 @@ final class Server
 
             // Legacy. Answered with the client's own revision when we speak it.
             'initialize' => [
-                'protocolVersion' => self::negotiate((string)($params['protocolVersion'] ?? '')),
+                'protocolVersion' => self::negotiate(self::text($params['protocolVersion'] ?? null)),
                 'capabilities' => self::capabilities(),
                 'serverInfo' => self::serverInfo(),
                 'instructions' => self::instructions($context),
@@ -261,7 +266,7 @@ final class Server
      */
     private static function getPrompt(array $context, array $params): array
     {
-        $name = (string)($params['name'] ?? '');
+        $name = self::text($params['name'] ?? null);
         $arguments = is_array($params['arguments'] ?? null) ? $params['arguments'] : [];
 
         if ($name === '') {
@@ -278,7 +283,7 @@ final class Server
      */
     private static function callTool(array $context, array $params): array
     {
-        $name = (string)($params['name'] ?? '');
+        $name = self::text($params['name'] ?? null);
         $arguments = is_array($params['arguments'] ?? null) ? $params['arguments'] : [];
 
         if ($name === '') {
@@ -307,7 +312,7 @@ final class Server
         // redirected one never reaches a handler at all.
         $answers = [];
         $covered = [];
-        $state = (string)($params['requestState'] ?? '');
+        $state = self::text($params['requestState'] ?? null);
         if ($state !== '') {
             $redeemed = RequestState::redeem(
                 $state,
@@ -449,6 +454,18 @@ final class Server
      *
      * @param array<string,mixed> $meta
      */
+    /**
+     * A string from the request, or '' for anything that is not one.
+     *
+     * Never a cast. Casting an array emits a warning into the log and produces
+     * the word "Array", which then travels back to the client inside a message
+     * about what it asked for.
+     */
+    private static function text(mixed $value): string
+    {
+        return is_string($value) ? trim($value) : '';
+    }
+
     private static function declaresElicitation(array $meta): bool
     {
         $capabilities = $meta['io.modelcontextprotocol/clientCapabilities'] ?? null;
@@ -465,7 +482,7 @@ final class Server
 
     private static function requestedVersion(array $meta): string
     {
-        $version = trim((string)($meta['io.modelcontextprotocol/protocolVersion'] ?? ''));
+        $version = trim(self::text($meta['io.modelcontextprotocol/protocolVersion'] ?? null));
         return $version !== '' ? $version : trim(self::header('MCP_PROTOCOL_VERSION') ?? '');
     }
 

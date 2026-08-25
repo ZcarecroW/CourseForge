@@ -188,6 +188,21 @@ final class PageTools
             ? Resolve::page($project, $args->id('page_id'))
             : Resolve::nextUnwritten($project);
 
+        // nextUnwritten() answers null for two different situations, and
+        // saying "everything is written" for the second is a lie that stops a
+        // client dead: it has been told the job is finished before it started.
+        if ($page === null && !$args->has('page_id') && Pages::ordered((int)$project['id']) === []) {
+            return [
+                'done' => false,
+                'course_id' => (int)$project['id'],
+                'pages' => 0,
+                'message' => 'This course has no pages, so there is nothing to write yet. It needs an outline '
+                    . 'first: call get_structure_brief to be handed the instructions, design the outline, and store '
+                    . 'it with apply_structure.',
+                'next' => 'get_structure_brief',
+            ];
+        }
+
         if ($page === null) {
             return [
                 'done' => true,

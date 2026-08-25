@@ -5,6 +5,7 @@ namespace CourseForge\Domain;
 
 use CourseForge\Support\Db;
 use CourseForge\Support\HttpException;
+use PDOException;
 use CourseForge\Support\Text;
 
 /**
@@ -88,8 +89,19 @@ final class Tags
             throw HttpException::unprocessable('A tag named "' . $name . '" already exists.');
         }
         $now = time();
-        Db::run('INSERT INTO tags (username, name, value, created_at, updated_at) VALUES (?,?,?,?,?)',
-            [$username, $name, trim($value), $now, $now]);
+        try {
+            Db::run('INSERT INTO tags (username, name, value, created_at, updated_at) VALUES (?,?,?,?,?)',
+                [$username, $name, trim($value), $now, $now]);
+        } catch (PDOException $e) {
+            // The unique index is (username, name). Hitting it means the same
+            // tag was created concurrently - which happens more than the tag
+            // screen suggests, because ensure() is called while an outline is
+            // applied and two applies can overlap.
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+            throw HttpException::unprocessable('A tag named "' . $name . '" already exists.');
+        }
         return self::require($username, Db::lastId());
     }
 

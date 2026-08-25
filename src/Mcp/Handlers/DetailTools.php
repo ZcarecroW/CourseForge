@@ -240,6 +240,29 @@ final class DetailTools
             );
         }
 
+        // Each value is range-checked on its own, which lets a pair through
+        // that is impossible together. A page brief then carries "between 5000
+        // and 100 words", which is not a hard instruction - it is an
+        // unsatisfiable one, and it is written into the prompt the writer sees.
+        // The browser has warned about this pair for as long as it has existed.
+        // Resolved the same way the reader does it, so the pair being checked
+        // is the pair a page brief would actually carry - a min set here can
+        // contradict a max inherited from the chapter or the course.
+        $ancestors = array_map(
+            static fn(array $a): array => $a['settings'],
+            (array)($target['ancestors'] ?? [])
+        );
+        $resolved = Details::describe($target['own'], ...$ancestors);
+        $effective = $resolved['effective']['params'] ?? [];
+        $min = (int)($values['min_length'] ?? $effective['min_length'] ?? 0);
+        $max = (int)($values['max_length'] ?? $effective['max_length'] ?? 0);
+        if ($min > 0 && $max > 0 && $min > $max) {
+            throw HttpException::unprocessable(
+                'Minimum length (' . $min . ') is above maximum length (' . $max . '), so every page here would ask '
+                . 'for a length no page can have. Raise the maximum, or lower the minimum.'
+            );
+        }
+
         $projectId = (int)$target['project']['id'];
         match ($target['level']) {
             // Every one of these takes the level's own identifiers, and the

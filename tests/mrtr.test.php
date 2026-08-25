@@ -219,6 +219,7 @@ test('the guide names a tool only when the connection holds its group', function
     $step = Guide::nextStep($actor, null);
     Scopes::using($previous);
 
+
     ok(isset($step['state']), 'it answers with a state');
     if (($step['next'] ?? null) !== null) {
         ok(
@@ -229,21 +230,31 @@ test('the guide names a tool only when the connection holds its group', function
 });
 
 test('outside a tool call the guide assumes nothing is narrowed', function () {
-    // Scopes::holds() is asked by the guide, and the tests, the catalogue and
-    // anything else that reaches a handler directly are not inside a call. If
-    // an empty set meant "holds nothing", the guide would tell every direct
-    // caller that everything is blocked.
+    // Not being inside a call is null, not an empty array. The catalogue, the
+    // tests and anything else reaching a handler directly are outside one, and
+    // telling them everything is blocked would make the guide useless there.
+    Scopes::using(null);
+    foreach (Scopes::keys() as $scope) {
+        ok(Scopes::holds($scope), 'holds ' . $scope . ' when no call is in progress');
+    }
+});
+
+test('a connection that holds no groups is not the same as no call at all', function () {
+    // The two used to share the empty array, which made a connection granted
+    // nothing look unrestricted - the wrong way round to be wrong.
     Scopes::using([]);
     foreach (Scopes::keys() as $scope) {
-        ok(Scopes::holds($scope), 'holds ' . $scope . ' when nothing is installed');
+        ok(!Scopes::holds($scope), 'holds nothing: ' . $scope);
     }
+    Scopes::using(null);
 });
 
 test('scopes installed for one call do not leak into the next', function () {
     $previous = Scopes::using([Scopes::PAGES]);
-    ok(!Scopes::holds(Scopes::ADMIN), 'narrowed while installed');
+    ok(Scopes::holds(Scopes::PAGES), 'the group it was given');
+    ok(!Scopes::holds(Scopes::ADMIN), 'and narrowed against the rest');
     Scopes::using($previous);
-    ok(Scopes::holds(Scopes::ADMIN), 'and restored afterwards');
+    ok(Scopes::holds(Scopes::ADMIN), 'restored afterwards');
 });
 
 /* ----------------------------------------------------------------- prompts */

@@ -152,8 +152,22 @@ final class ProfileController
         }
 
         // Everywhere else, fetching the model list is the cheapest proof that
-        // the base URL and the key are both right.
+        // the base URL and the key are both right - but only when the list came
+        // from the endpoint. The Anthropic adapter falls back to a hard-coded
+        // list when it cannot reach one at all, which is right for a model
+        // picker and would be a false verdict here: a closed port and a junk
+        // key both answered "both good".
         $models = $provider->models();
+
+        if (method_exists($provider, 'lastReach')) {
+            $reach = $provider->lastReach();
+            if (($reach['reached'] ?? true) === false) {
+                throw HttpException::badRequest(
+                    'Could not reach that endpoint, so the key could not be checked'
+                    . (($reach['why'] ?? '') !== '' ? ': ' . $reach['why'] : '.')
+                );
+            }
+        }
 
         $probe = $provider instanceof OpenAiCompatibleProvider
             ? self::probeAccount($provider, $account, $owner, $id, $aiId, $depth)

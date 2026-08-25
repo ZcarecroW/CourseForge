@@ -228,7 +228,7 @@ final class AccountTools
     /** @return array<string,mixed> */
     private static function setMyDisplayName(Actor $actor, Args $args): array
     {
-        $updated = Users::setDisplayName($actor->username, $args->str('display_name'));
+        $updated = Users::setDisplayName($actor->username, $args->requiredStr('display_name'));
 
         return [
             'updated' => true,

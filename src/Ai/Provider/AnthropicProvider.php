@@ -74,6 +74,22 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable
      */
     private const SEED = ['claude-haiku-4-5', 'claude-opus-5', 'claude-sonnet-5'];
 
+    /** Whether the last models() call actually spoke to the endpoint. */
+    private bool $reachedEndpoint = true;
+
+    /** Why it did not, when it did not. */
+    private string $whyNot = '';
+
+    /**
+     * Whether the model list just returned came from the endpoint or from SEED.
+     *
+     * @return array{reached:bool,why:string}
+     */
+    public function lastReach(): array
+    {
+        return ['reached' => $this->reachedEndpoint, 'why' => $this->whyNot];
+    }
+
     /**
      * The shortest system prompt worth putting a cache breakpoint on.
      *
@@ -187,6 +203,13 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable
             // the reason the real catalogue is missing has to be readable
             // somewhere.
             Runtime::log('anthropic.models', $e);
+
+            // Remembered, because the same list means two different things
+            // depending on how it was arrived at. As a model picker it is a
+            // reasonable fallback; as an answer to "is this endpoint and key
+            // right?" it is a lie, and check() asks.
+            $this->reachedEndpoint = false;
+            $this->whyNot = $e->getMessage();
             return self::SEED;
         }
 

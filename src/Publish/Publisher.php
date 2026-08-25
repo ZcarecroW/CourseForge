@@ -141,6 +141,21 @@ final class Publisher
 
         if ($bookId === null) {
             $result = $this->client->createBook($title, Markdown::toHtml($description), $payloadTags);
+
+            // An answer with no id is not a book. Casting it gave 0, which was
+            // then stored on the course as the book it lives in - so the course
+            // reported itself published to a book that does not exist, and
+            // every later push aimed at #0. Over the browser the same line was
+            // a 500 instead, because a strict error handler turns the warning
+            // into an exception: two doors, two wrong answers, one missing
+            // check.
+            if (!isset($result['id']) || (int)$result['id'] <= 0) {
+                throw HttpException::unprocessable(
+                    'BookStack answered the create-book request without a book id, so nothing was stored. That '
+                    . 'usually means the base URL is not pointing at a BookStack API - check it under Profiles.'
+                );
+            }
+
             $bookId = (int)$result['id'];
             $this->log[] = 'Created book "' . $title . '" (#' . $bookId . ').';
         } elseif ($force || (string)$this->project['pushed_hash'] !== $hash) {

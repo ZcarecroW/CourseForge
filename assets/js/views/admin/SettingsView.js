@@ -324,9 +324,27 @@ export const SettingsView = {
       };
     });
 
+    /**
+     * The cron URL with its real token, once somebody has asked for it.
+     *
+     * The settings response carries a masked URL: this screen is read on every
+     * visit and that URL is a credential. The real one is fetched on demand.
+     */
+    const revealedCronUrl = ref('');
+
+    const cronUrlShown = computed(() => revealedCronUrl.value || scheduler.value.url || '');
+
+    const copyCronUrl = () => attempt(async () => {
+      if (!revealedCronUrl.value) {
+        const data = await post('admin/settings/cron-url');
+        revealedCronUrl.value = data.url ?? '';
+      }
+      await copy(revealedCronUrl.value, 'URL', 'scheduler-url');
+    }, 'Copy the cron URL');
+
     const cronLine = computed(() => (scheduler.value.cli ? `* * * * * ${scheduler.value.cli}` : ''));
     const cronCurlLine = computed(() =>
-      scheduler.value.url ? `* * * * * curl -fsS "${scheduler.value.url}" > /dev/null` : ''
+      cronUrlShown.value ? `* * * * * curl -fsS "${cronUrlShown.value}" > /dev/null` : ''
     );
 
     const generateToken = () => attempt(async () => {
@@ -337,6 +355,9 @@ export const SettingsView = {
         applySettings(data);
         seed();
         freshToken.value = { token: data.token, url: data.scheduler?.url ?? '' };
+        // The mint call answers with the real URL, so there is nothing to ask
+        // for afterwards.
+        revealedCronUrl.value = data.scheduler?.url ?? '';
         confirmToken.value = false;
         toast.success('A new token is in place. Update whatever calls the scheduler.');
       } finally {
@@ -401,7 +422,7 @@ export const SettingsView = {
       state, loading, saving, busy, draft, load, save, discard,
       groups, fieldsOf, advancedShown, toggleAdvanced,
       isDirty, dirtyCount, overridden, defaultText, hasRange, resetField, resetEverything,
-      scheduler, schedulerHealth, cronLine, cronCurlLine,
+      scheduler, schedulerHealth, cronLine, cronCurlLine, cronUrlShown, copyCronUrl, revealedCronUrl,
       confirmToken, confirmResetAll, confirmSecret, removeSecret, freshToken, generateToken, CRON_TOKEN,
       report, diagBusy, diagOpen, toggleDiagnostics, runDiagnostics, statusOf, troubled, hintTone,
       copy, copied, relativeTime, formatDateTime, plural,
@@ -495,12 +516,16 @@ export const SettingsView = {
             <div v-if="scheduler.configured" class="form-row">
               <label class="row between">
                 <span>Paste this into your hosting control panel</span>
-                <button class="btn btn--ghost btn--sm" @click="copy(scheduler.url, 'URL', 'scheduler-url')">
+                <button class="btn btn--ghost btn--sm" @click="copyCronUrl()">
                   <app-icon :name="copied === 'scheduler-url' ? 'check' : 'copy'" :size="12"/>
                   {{ copied === 'scheduler-url' ? 'copied' : 'copy' }}
                 </button>
               </label>
-              <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ scheduler.url }}</pre>
+              <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ cronUrlShown }}</pre>
+              <p class="hint" v-if="scheduler.url_is_masked && !revealedCronUrl">
+                The token is hidden here, because this screen is read often and the URL carries it. Press
+                <strong>copy</strong> and the real one goes to your clipboard.
+              </p>
               <p class="hint">
                 Most hosts call this a cron job, a scheduled task or a URL monitor. Set it to run
                 <strong>every minute</strong>. Anything slower and pages are written that much more slowly.

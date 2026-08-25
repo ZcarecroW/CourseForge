@@ -442,7 +442,7 @@ final class PublishTools
      * @param array<string,mixed> $project
      * @return array<int,string>
      */
-    private static function blockingReasons(array $project, string $owner): array
+    public static function blockingReasons(array $project, string $owner): array
     {
         $name = (string)$project['name'];
         $reasons = [];

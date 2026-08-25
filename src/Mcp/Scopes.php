@@ -166,12 +166,16 @@ final class Scopes
      * widening it for the one tool that needs this would touch all of them, so
      * the set is left here for the duration of the call instead.
      *
-     * Empty means "not inside a tool call", which is the honest answer for the
+     * Null means "not inside a tool call", which is the honest answer for the
      * catalogue, the tests and anything else that reaches a handler directly.
+     * An empty ARRAY is a different thing entirely - a connection that holds no
+     * groups at all - and the two deserve opposite answers from holds(). Using
+     * one value for both would have made a connection with no scopes look
+     * unrestricted, which is the wrong way round to be wrong.
      *
-     * @var string[]
+     * @var string[]|null
      */
-    private static array $current = [];
+    private static ?array $current = null;
 
     /**
      * Installs the allowed set for one call and returns the previous one.
@@ -179,18 +183,18 @@ final class Scopes
      * The caller restores it in a finally: a tool that throws must not leave
      * its scopes behind for the next one.
      *
-     * @param string[] $allowed
-     * @return string[]
+     * @param string[]|null $allowed null to leave the call
+     * @return string[]|null
      */
-    public static function using(array $allowed): array
+    public static function using(?array $allowed): ?array
     {
         $previous = self::$current;
         self::$current = $allowed;
         return $previous;
     }
 
-    /** @return string[] */
-    public static function currently(): array
+    /** @return string[]|null */
+    public static function currently(): ?array
     {
         return self::$current;
     }
@@ -200,7 +204,10 @@ final class Scopes
     {
         // Outside a call nothing is known, and claiming a scope is missing
         // would make get_next_step lie to a direct caller. Say yes.
-        return self::$current === [] || in_array($scope, self::$current, true);
+        if (self::$current === null) {
+            return true;
+        }
+        return in_array($scope, self::$current, true);
     }
 
     /** @param string[] $requested keeps only groups that exist */

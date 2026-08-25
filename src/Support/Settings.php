@@ -58,7 +58,7 @@ final class Settings
                 'label' => 'Public address',
                 'description' => 'The address this installation is reached at. CourseForge works it out from '
                     . 'the request, so leave it empty unless it guesses wrong - behind a reverse proxy, for '
-                    . 'instance. It is what the cron URL and the MCP connection line are built from.',
+                    . 'instance. It is what the cron URL is built from; the MCP connection line has its own setting below.',
                 'placeholder' => 'https://courseforge.example.com',
                 'default' => '',
             ],
@@ -371,7 +371,7 @@ final class Settings
         $label = (string)$field['label'];
 
         return match ($field['type']) {
-            'bool' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
+            'bool' => self::coerceBool($value, $label),
 
             'int' => self::coerceInt($value, $field, $label),
 
@@ -388,6 +388,29 @@ final class Settings
 
             default => throw HttpException::unprocessable('Setting "' . $key . '" has an unknown type.'),
         };
+    }
+
+    /**
+     * A boolean, or a refusal.
+     *
+     * filter_var without FILTER_NULL_ON_FAILURE answers false for everything it
+     * cannot read, so "banana", 2, -1 and null were all stored as OFF with an
+     * HTTP 200. Every other type in this catalogue refuses what it cannot read
+     * - int says "must be a number", enum lists its values - so a caller had no
+     * reason to expect this one to be the lax one, and the failure mode was a
+     * setting silently turned off rather than an error.
+     */
+    private static function coerceBool(mixed $value, string $label): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $read = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($read === null) {
+            throw HttpException::unprocessable($label . ' must be true or false.');
+        }
+        return $read;
     }
 
     private static function coerceInt(mixed $value, array $field, string $label): int
@@ -441,7 +464,14 @@ final class Settings
         if ($field['key'] === 'updates.timezone' && $v !== '' && !in_array($v, timezone_identifiers_list(), true)) {
             throw HttpException::unprocessable('That is not a time zone PHP knows. Use an IANA name such as Europe/Berlin.');
         }
-        if ($field['key'] === 'mcp.public_url' && $v !== '' && !filter_var($v, FILTER_VALIDATE_URL)) {
+        // Both public URLs, not just one. app.public_url's whole job is to be
+        // the base of an address somebody pastes into a hosting control panel,
+        // and it was the one string in this catalogue with no check at all - so
+        // "not a url" was stored and handed back as
+        // "not a url/cron.php?token=..." beside configured: true.
+        if (in_array($field['key'], ['mcp.public_url', 'app.public_url'], true)
+            && $v !== ''
+            && !filter_var($v, FILTER_VALIDATE_URL)) {
             throw HttpException::unprocessable('The public URL has to be a full address, starting with https://.');
         }
         if ($field['key'] === 'app.cron_token' && $v !== '' && mb_strlen($v) < 16) {

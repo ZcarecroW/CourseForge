@@ -244,10 +244,24 @@ final class Providers
      */
     public static function kindOf(array $account): string
     {
-        $kind = self::canonicalKind((string)($account['kind'] ?? ''));
+        $stated = trim((string)($account['kind'] ?? ''));
+        $kind = self::canonicalKind($stated);
         if ($kind !== '') {
             return $kind;
         }
+
+        // The guess below is for accounts written before 3.2, which carry no
+        // kind at all. It must not also swallow a kind that WAS stated and is
+        // simply not one this release knows - a typo, or a newer client - by
+        // quietly landing on "openai" and then failing with a message about a
+        // missing OpenAI key.
+        if ($stated !== '') {
+            throw HttpException::unprocessable(
+                'This account names the provider kind "' . $stated . '", which this release does not know. '
+                . 'It must be one of: ' . implode(', ', self::kinds()) . '.'
+            );
+        }
+
         if (self::namesPreset($account)) {
             return self::OAI_COMPAT;
         }

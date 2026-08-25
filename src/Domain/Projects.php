@@ -140,9 +140,17 @@ final class Projects
     /** @param array<string,mixed> $features @param array<string,mixed> $params */
     public static function patchDetails(string $username, int $id, array $features, array $params): void
     {
-        $project = self::require($username, $id);
-        $patched = Details::patch(self::settings($project), $features, $params);
-        self::update($username, $id, ['settings' => Details::encode($patched)]);
+        // The read and the write are one transaction. They used to be two
+        // separate statements over a whole JSON column, so two overlapping
+        // toggles both started from the same stored document and the second
+        // wrote the first one away - silently, with a 200 each. SQLite
+        // serialises writers, so inside a transaction the second read sees
+        // what the first committed.
+        Db::transaction(static function () use ($username, $id, $features, $params): void {
+            $project = self::require($username, $id);
+            $patched = Details::patch(self::settings($project), $features, $params);
+            self::update($username, $id, ['settings' => Details::encode($patched)]);
+        });
     }
 
     /** @param array<int,array<string,mixed>> $effectiveTags */

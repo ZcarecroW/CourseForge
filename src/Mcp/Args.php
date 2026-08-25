@@ -110,7 +110,7 @@ final class Args
     public function int(string $key, int $default): int
     {
         $value = $this->args[$key] ?? null;
-        return is_numeric($value) && is_finite((float)$value) ? (int)$value : $default;
+        return self::isWhole($value) ? (int)$value : $default;
     }
 
     public function intOrNull(string $key): ?int
@@ -119,10 +119,35 @@ final class Args
         if ($value === null || $value === '') {
             return null;
         }
-        if (!is_numeric($value) || !is_finite((float)$value)) {
+        if (!self::isWhole($value)) {
             throw HttpException::unprocessable($key . ' must be a whole number.');
         }
         return (int)$value;
+    }
+
+    /**
+     * Whether a value is a whole number, which is what the refusal promises.
+     *
+     * (int) truncates, so 2.9 used to be accepted as 2 - a client that computed
+     * an id wrongly addressed a different course instead of being told. The
+     * message always said "must be a whole number"; this is what makes it true.
+     *
+     * INF is excluded because is_numeric accepts it and (int) turns it into
+     * nonsense, and a JSON number of 1e400 decodes to exactly that.
+     */
+    private static function isWhole(mixed $value): bool
+    {
+        if (!is_numeric($value) || !is_finite((float)$value)) {
+            return false;
+        }
+        $number = (float)$value;
+        if ($number !== floor($number)) {
+            return false;
+        }
+
+        // Whole is not enough: 1e308 is a whole number and casting it to an int
+        // is not representable, which PHP warns about and then does anyway.
+        return $number >= (float)PHP_INT_MIN && $number <= (float)PHP_INT_MAX;
     }
 
     /** @param string[] $allowed */
