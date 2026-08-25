@@ -347,11 +347,11 @@ export const SettingsView = {
     const php = computed(() => state.settingsPhp ?? {});
     const phpBusy = ref(false);
 
-    const setUpPhp = () => attempt(async () => {
+    const setUpPhp = (remeasure = false) => attempt(async () => {
       if (phpBusy.value) return;
       phpBusy.value = true;
       try {
-        const data = await post('admin/settings/php');
+        const data = await post('admin/settings/php', remeasure ? { remeasure: true } : undefined);
         state.settingsPhp = data.php;
         if (data.php?.error) toast.error(data.php.error);
         else if (data.php?.written) toast.success('PHP settings written. They take effect within a few minutes.');
@@ -745,10 +745,17 @@ export const SettingsView = {
                 left exactly as it is, never lowered.
               </p>
             </div>
-            <button class="btn btn--primary none" :disabled="phpBusy || !php.possible" @click="setUpPhp">
-              <app-icon :name="phpBusy ? 'refresh' : 'zap'" :size="14" :spin="phpBusy"/>
-              {{ phpBusy ? 'Writing…' : 'Set up PHP' }}
-            </button>
+            <div class="row gap-2 none">
+              <button class="btn btn--ghost btn--sm" :disabled="phpBusy || !php.possible"
+                      title="Forget what this host gave before CourseForge changed anything, and look again. Only worth doing after moving to different hosting."
+                      @click="setUpPhp(true)">
+                <app-icon name="search" :size="13"/> Measure this host again
+              </button>
+              <button class="btn btn--primary" :disabled="phpBusy || !php.possible" @click="setUpPhp(false)">
+                <app-icon :name="phpBusy ? 'refresh' : 'zap'" :size="14" :spin="phpBusy"/>
+                {{ phpBusy ? 'Writing…' : 'Set up PHP' }}
+              </button>
+            </div>
           </div>
 
           <p v-if="php.note" class="hint row gap-2">
@@ -769,7 +776,8 @@ export const SettingsView = {
               <thead>
                 <tr>
                   <th>Directive</th>
-                  <th>This host</th>
+                  <th title="What this host gave before CourseForge changed anything">This host</th>
+                  <th title="What PHP is actually using right now, including anything CourseForge set">In effect</th>
                   <th>CourseForge wants</th>
                   <th>State</th>
                 </tr>
@@ -781,6 +789,10 @@ export const SettingsView = {
                     <p class="hint t-2xs" style="margin:2px 0 0">{{ row.why }}</p>
                   </td>
                   <td class="mono t-xs">{{ row.current_label }}</td>
+                  <td class="mono t-xs" :class="row.raised ? 'c-accent' : 'dim'">
+                    {{ row.effective_label }}
+                    <span v-if="row.raised" title="Raised by CourseForge"> ↑</span>
+                  </td>
                   <td class="mono t-xs">{{ row.satisfied ? '—' : row.target_label }}</td>
                   <td>
                     <span v-if="row.satisfied" class="badge badge--ok">already fine</span>

@@ -310,11 +310,22 @@ final class AdminTools
                     . 'dry_run to see the plan without writing anything. Costs nothing.',
                 properties: [
                     'dry_run' => Schema::bool('Report what would change without writing the file.'),
+                    'remeasure' => Schema::bool(
+                        'Forget what this host gave before CourseForge changed anything, and measure it again. '
+                        . 'Only after moving to different hosting: at any other time the reading would include '
+                        . 'the values CourseForge itself set, and recording those as the host\'s own would freeze '
+                        . 'them in place.'
+                    ),
                 ],
                 required: [],
-                handler: static fn(Actor $actor, array $args): array => Args::of($args)->bool('dry_run')
-                    ? Php::plan()
-                    : Php::apply($actor->username),
+                handler: static function (Actor $actor, array $args): array {
+                    $arguments = Args::of($args);
+                    $remeasure = $arguments->bool('remeasure');
+
+                    return $arguments->bool('dry_run')
+                        ? Php::plan($remeasure)
+                        : Php::apply($actor->username, $remeasure);
+                },
                 readOnly: false,
                 idempotent: true,
                 admin: true,

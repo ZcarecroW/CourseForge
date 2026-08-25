@@ -15,6 +15,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 use CourseForge\Support\Php;
+use CourseForge\Support\Meta;
 
 /** Reaches one of the private decisions without going through the file system. */
 function phpCall(string $method, mixed ...$arguments): mixed
@@ -156,6 +157,83 @@ test('every directive CourseForge asks for explains itself', function () {
             ok(isset($spec['value']), $name . ' has a value');
         } else {
             ok(isset($spec['floor']), $name . ' has a floor');
+        }
+    }
+});
+
+/* ------------------------------------------- the loop that must not happen */
+
+test('the tool does not undo its own work', function () {
+    // The loop: we raise a limit, the next reading sees our own value, decides
+    // the host is fine, removes the line, the host drops back, and round we go.
+    // It comes from measuring what is IN EFFECT and calling it what the host
+    // gives - the same number only until we have changed something.
+    $host = [
+        'memory_limit' => '768M',
+        'max_execution_time' => '60',
+        'default_socket_timeout' => '60',
+        'max_input_time' => '-1',
+        'post_max_size' => '768M',
+        'upload_max_filesize' => '768M',
+        'max_input_vars' => '6000',
+        'display_errors' => '',
+        'log_errors' => '1',
+        'output_buffering' => '',
+    ];
+
+    Meta::set(Php::META_BASELINE, (string)json_encode([
+        'values' => $host,
+        'php' => PHP_VERSION,
+        'sapi' => PHP_SAPI,
+        'at' => time(),
+    ]));
+
+    $answers = [];
+    for ($round = 0; $round < 4; $round++) {
+        $writes = [];
+        foreach (Php::plan()['settings'] as $row) {
+            if (!$row['satisfied'] && $row['settable']) {
+                $writes[$row['name']] = $row['target'];
+            }
+        }
+        ksort($writes);
+        $answers[] = (string)json_encode($writes);
+
+        // The file takes effect: from here ini_get answers with what we wrote.
+        foreach ($writes as $name => $value) {
+            @ini_set($name, (string)$value);
+        }
+    }
+
+    same(1, count(array_unique($answers)), 'four rounds, one answer: ' . implode(' then ', array_unique($answers)));
+
+    $decided = json_decode($answers[0], true);
+    same('300', $decided['max_execution_time'] ?? null, 'and it is the right one');
+    ok(!isset($decided['memory_limit']), '768M of memory is left exactly as the host gave it');
+});
+
+test('the baseline survives the file being replaced, and is re-measured on request', function () {
+    Meta::set(Php::META_BASELINE, (string)json_encode([
+        'values' => ['max_execution_time' => '60'] + array_fill_keys(array_keys(Php::wanted()), '0'),
+        'php' => PHP_VERSION,
+        'sapi' => PHP_SAPI,
+        'at' => time(),
+    ]));
+
+    $kept = Php::plan();
+    $row = null;
+    foreach ($kept['settings'] as $entry) {
+        if ($entry['name'] === 'max_execution_time') {
+            $row = $entry;
+        }
+    }
+    same('60', $row['current'], 'the remembered host value is used, not what is in effect');
+
+    // Asked explicitly, it forgets and looks again.
+    $fresh = Php::plan(true);
+    foreach ($fresh['settings'] as $entry) {
+        if ($entry['name'] === 'max_execution_time') {
+            same((string)ini_get('max_execution_time'), $entry['current'], 're-measured on request');
         }
     }
 });

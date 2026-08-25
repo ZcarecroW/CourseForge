@@ -50,6 +50,16 @@ final class Php
     public const META_APPLIED = 'php.setup_signature';
 
     /**
+     * What this host gave us before we changed anything.
+     *
+     * Measured once and kept. Every decision is made against this rather than
+     * against what is in effect now, because once our own .user.ini is being
+     * read those two numbers are different - and deciding from the second one
+     * makes the tool undo its own work on the next run, then redo it, for ever.
+     */
+    public const META_BASELINE = 'php.host_baseline';
+
+    /**
      * What CourseForge asks for, and why.
      *
      * `floor` is a minimum, never a value to impose. `fixed` is a setting whose
@@ -134,23 +144,31 @@ final class Php
      *
      * @return array<string,mixed>
      */
-    public static function inspect(): array
+    public static function inspect(bool $remeasure = false): array
     {
         $mechanism = self::mechanism();
         $entries = ini_get_all(null, true);
+        $baseline = self::baseline($remeasure);
 
         $rows = [];
         foreach (self::wanted() as $name => $spec) {
             $entry = is_array($entries) ? ($entries[$name] ?? null) : null;
-            $current = (string)($entry['local_value'] ?? (string)ini_get($name));
+            $effective = (string)($entry['local_value'] ?? (string)ini_get($name));
             $access = (int)($entry['access'] ?? 0);
 
-            $target = self::target($current, $spec);
+            // Decided against what the host gave before we touched anything.
+            // Deciding against what is in effect would mean deciding against
+            // our own last answer, which is how the loop this replaced began.
+            $host = (string)($baseline['values'][$name] ?? $effective);
+            $target = self::target($host, $spec);
 
             $rows[] = [
                 'name' => $name,
-                'current' => $current,
-                'current_label' => self::label($current, $spec),
+                'current' => $host,
+                'current_label' => self::label($host, $spec),
+                'effective' => $effective,
+                'effective_label' => self::label($effective, $spec),
+                'raised' => $effective !== $host,
                 'target' => $target,
                 'target_label' => $target === null ? '' : self::label($target, $spec),
                 'satisfied' => $target === null,
@@ -169,8 +187,46 @@ final class Php
             'file' => $mechanism === 'user-ini' ? Text::path(self::path()) : '',
             'file_exists' => is_file(self::path()),
             'cache_ttl' => (int)ini_get('user_ini.cache_ttl'),
+            'measured_at' => (int)($baseline['at'] ?? 0),
             'settings' => $rows,
         ];
+    }
+
+    /**
+     * What this host gave before CourseForge changed anything.
+     *
+     * Measured the first time and kept. Re-measured only when asked, or when
+     * the host is demonstrably a different one - a new PHP version or a new
+     * SAPI. Notably NOT re-measured because the file went missing: an update
+     * replaces it routinely, and PHP caches it for five minutes either way, so
+     * a reading taken then would record our own value as the host's and freeze
+     * the mistake in place.
+     *
+     * @return array{values:array<string,string>,php:string,sapi:string,at:int}
+     */
+    private static function baseline(bool $remeasure = false): array
+    {
+        $stored = json_decode(Meta::get(self::META_BASELINE, ''), true);
+
+        $usable = is_array($stored)
+            && is_array($stored['values'] ?? null)
+            && ($stored['php'] ?? '') === PHP_VERSION
+            && ($stored['sapi'] ?? '') === PHP_SAPI;
+
+        if ($usable && !$remeasure) {
+            /** @var array{values:array<string,string>,php:string,sapi:string,at:int} $stored */
+            return $stored;
+        }
+
+        $values = [];
+        foreach (array_keys(self::wanted()) as $name) {
+            $values[$name] = (string)ini_get($name);
+        }
+
+        $fresh = ['values' => $values, 'php' => PHP_VERSION, 'sapi' => PHP_SAPI, 'at' => time()];
+        Meta::set(self::META_BASELINE, (string)json_encode($fresh));
+
+        return $fresh;
     }
 
     /**
@@ -178,9 +234,9 @@ final class Php
      *
      * @return array<string,mixed>
      */
-    public static function plan(): array
+    public static function plan(bool $remeasure = false): array
     {
-        $state = self::inspect();
+        $state = self::inspect($remeasure);
 
         $change = [];
         $blocked = [];
@@ -211,9 +267,9 @@ final class Php
      *
      * @return array<string,mixed>
      */
-    public static function apply(string $by = ''): array
+    public static function apply(string $by = '', bool $remeasure = false): array
     {
-        $plan = self::plan();
+        $plan = self::plan($remeasure);
 
         if (!$plan['possible']) {
             return $plan + ['written' => false, 'error' => $plan['note']];
@@ -400,9 +456,16 @@ final class Php
             ';',
             '; Written by CourseForge to suit this host. Every number here is a',
             '; FLOOR that was not already met - a limit the host grants more of',
-            '; is left exactly as it was. Re-run Settings > Set up PHP after',
-            '; changing hosts, and this block is rewritten; anything outside it',
-            '; is left alone.',
+            '; is left exactly as it was. Anything outside this block is yours',
+            '; and is never touched.',
+            ';',
+            '; The host was measured once, before any of this was written, and',
+            '; that measurement is what these values were decided from - not',
+            '; what is in effect now, which includes them. After changing hosts,',
+            '; use "Measure this host again" in Settings; deleting this block by',
+            '; hand is not enough, because PHP caches the file either way and a',
+            '; reading taken in that window would record these values as the',
+            '; host\'s own.',
             ';',
             '; PHP caches this file for ' . max(0, (int)ini_get('user_ini.cache_ttl'))
                 . ' seconds, so a change can take that long to take effect.',
@@ -455,6 +518,10 @@ final class Php
     /** What the file should contain, reduced to something comparable. */
     private static function signature(): string
     {
+        // Built from the host baseline and the targets, both of which are
+        // stable once measured - so a second run produces the same signature
+        // and writes nothing, which is what makes ensure() cheap enough to
+        // call on every admin request.
         $parts = [PHP_VERSION, PHP_SAPI, self::mechanism()];
         foreach (self::inspect()['settings'] as $row) {
             $parts[] = $row['name'] . '=' . $row['current'] . '/' . ($row['target'] ?? '-');

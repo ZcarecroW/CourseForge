@@ -285,7 +285,12 @@ final class SettingsController
     {
         $me = self::admin($actor);
 
-        return ['php' => Php::apply($me->username)];
+        // Re-measuring forgets what the host gave before CourseForge touched
+        // anything and looks again. Only worth doing after moving hosts or
+        // changing the plan - at any other time the reading would include the
+        // values CourseForge itself set, and recording those as the host's own
+        // is the mistake the stored baseline exists to prevent.
+        return ['php' => Php::apply($me->username, $request->bool('remeasure'))];
     }
 
     /** What stands in for the token on a screen that is read constantly. */
