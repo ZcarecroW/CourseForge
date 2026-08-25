@@ -274,8 +274,10 @@ final class Settings
             [
                 'key' => 'updates.timezone', 'group' => 'updates', 'type' => 'string',
                 'label' => 'Time zone for that clock',
-                'description' => 'An IANA name such as Europe/Berlin. CourseForge itself works in UTC; this is only for reading the hour above.',
-                'default' => 'UTC', 'admin_only' => true, 'advanced' => true,
+                'description' => 'An IANA name such as Europe/Berlin. CourseForge itself works in UTC; this is only '
+                    . 'for reading the hour above. Leave it empty and the server\'s own time zone is used, which is '
+                    . 'almost always the one you meant.',
+                'default' => '', 'admin_only' => true, 'advanced' => true,
             ],
             [
                 'key' => 'updates.keep_backups', 'group' => 'updates', 'type' => 'int',

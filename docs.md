@@ -1152,7 +1152,7 @@ CourseForge needs a real hostname or a tunnel for that client.
 
 ### The ten tool groups
 
-There are seventy-eight tools. They are not listed here, because `tools/list`
+There are seventy-nine tools. They are not listed here, because `tools/list`
 lists them and every one carries its own description, its arguments and an
 annotation saying whether it reads, writes, destroys or spends money. What is
 worth knowing is the shape.
@@ -1173,7 +1173,7 @@ to be told it twice.
 | **runs** | 8 | Start, estimate, watch and cancel background and batch runs. **This is the group that spends money at scale.** | yes |
 | **profiles** | 9 | AI accounts, models and BookStack instances. Keys are never readable, but they can be replaced. | no |
 | **publish** | 4 | Push into BookStack and resolve cross references | no |
-| **admin** | 21 | Accounts, settings, the cron token, prompts, diagnostics, the audit log, every connection, and updates. Administrators only. | no |
+| **admin** | 22 | Accounts, settings, the cron token, prompts, diagnostics, the audit log, every connection, updates, and `set_up_php`. Administrators only. | no |
 
 The ten or so that matter:
 
@@ -1701,6 +1701,80 @@ The same rows are on **Administration → Settings → Diagnostics**, because th
 person who most needs to be told that the data directory is read-only or that
 the scheduler has never ticked is the administrator sitting in front of the
 application, and on a shared host that person has no shell at all.
+
+### Setting up PHP
+
+Shared hosting hands out a PHP configuration nobody chose for a course
+generator: sixty seconds of execution, a socket timeout shorter than a model
+takes to answer, a memory limit set for a blog. There is exactly one thing an
+application in a document root can do about that, and only on some hosts:
+`.user.ini`, which the CGI, FastCGI and FPM SAPIs read.
+
+**Settings → Set up PHP** measures what this host gives, works out which limits
+are below what CourseForge needs, and writes a `.user.ini` raising exactly
+those. It runs by itself the first time an administrator opens the application,
+and again whenever what should be in the file stops matching what is — so an
+update that replaced the file is repaired rather than left wrong.
+
+**Every number is a floor, never a value.** A host giving 768M of memory keeps
+768M; a host giving 128M is asked for 256M. This is the rule the whole feature
+turns on: a tool that quietly halved somebody's memory limit because a constant
+said 256M would be worse than no tool at all.
+
+| Directive | Floor | Why |
+|---|---|---|
+| `memory_limit` | 256M | A course tree, its pages and an update archive are held at once. 128M is enough until an update. |
+| `max_execution_time` | 300 | Writing a page, publishing a book and installing an update all take longer than sixty seconds. |
+| `default_socket_timeout` | 300 | A model can take minutes to answer one page; at sixty seconds the request is cut off mid-answer and the page is recorded as failed. |
+| `max_input_time` | 300 | How long PHP will spend reading the request body. |
+| `post_max_size` | 32M | A finished page, its outline and its tags arrive in one request. |
+| `upload_max_filesize` | 32M | Restoring a backup means uploading the archive an update made. |
+| `max_input_vars` | 5000 | A course with hundreds of pages sends more fields than the default thousand, and PHP drops the rest without saying so. |
+| `display_errors` | Off | An error page that prints a file path tells a stranger where the database is. |
+| `log_errors` | On | What `display_errors` stops showing still has to go somewhere. |
+| `output_buffering` | Off | A long answer held in a buffer is a long answer held in memory, twice. |
+
+#### What it will not do
+
+- **It will not write `.htaccess`.** Under mod_php, `.user.ini` is never read and
+  the equivalent is a `php_value` line — but one bad `php_value` is a 500 for
+  the whole site rather than a setting that did not take, so CourseForge says
+  what to add and leaves the adding to you.
+- **It will not pretend.** A directive fixed by the host at the system level
+  cannot be changed from a `.user.ini`, and a line for it is ignored in
+  silence. Those are listed as *host decides* rather than written.
+- **It will not lower anything.** See above; it is the whole point.
+
+#### The host is measured once
+
+The table shows two numbers per row: **this host**, and **in effect**. They
+start out the same and diverge the moment CourseForge raises something.
+
+The distinction matters more than it looks. If the tool measured what is in
+effect, then after raising `max_execution_time` to 300 it would read 300 back,
+decide the host was already fine, remove its own line — and the host would drop
+to 60 again, for ever. So the host is measured once, before anything is
+written, and every later decision is made against that.
+
+It is re-measured only when you press **Measure this host again**, or when the
+PHP version or SAPI changes. Deleting the managed block by hand is *not* enough:
+PHP caches `.user.ini` for five minutes, so a reading taken in that window would
+record CourseForge's own values as the host's and freeze them in place.
+
+#### The shipped `.user.ini`
+
+The release ships one, and it contains only `display_errors` and `log_errors` —
+the two settings whose right answer does not depend on the host. The numbers are
+deliberately absent: shipping `memory_limit = 256M` would raise a host giving
+128M and **halve** one giving 512M. They are measured instead.
+
+Anything you write outside the managed block is yours and is never touched.
+
+> On the host this was designed against — All-Inkl/Kasserver, PHP 8.5 under
+> FPM — the answer is two lines. Memory (768M), post size (768M), input vars
+> (6000) and an unlimited `max_input_time` are all already above what
+> CourseForge asks for and are left exactly as they are; only
+> `max_execution_time` and `default_socket_timeout` are raised.
 
 ### Configuration, in two layers
 

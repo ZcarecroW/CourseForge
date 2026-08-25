@@ -1665,6 +1665,15 @@ final class Updater
     private static function timezone(): DateTimeZone
     {
         $name = trim((string)self::setting('updates.timezone'));
+
+        // Not set means the server's own, not UTC. "Install updates at 05:00"
+        // is a promise about a clock somebody reads, and on a host whose PHP is
+        // set to Europe/Berlin, five in the morning UTC is six or seven on the
+        // wall - with nothing on the screen to explain the difference.
+        if ($name === '') {
+            $name = trim((string)ini_get('date.timezone'));
+        }
+
         try {
             return new DateTimeZone($name !== '' ? $name : 'UTC');
         } catch (Throwable) {

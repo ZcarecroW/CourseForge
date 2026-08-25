@@ -49,7 +49,7 @@
     "auto_check": true,
     "auto_install": false,
     "auto_time": "05:00",
-    "timezone": "UTC",
+    "timezone": "",
     "keep_backups": 2,
     "github_token": ""
   },
