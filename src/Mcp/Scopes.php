@@ -157,6 +157,52 @@ final class Scopes
         return array_values(array_intersect($allowed, array_map('strval', $requested)));
     }
 
+    /**
+     * The groups the connection running the current tool holds.
+     *
+     * A tool that advises the client what to call next has to know what this
+     * connection may actually call, or its advice sends the client into a
+     * refusal it cannot diagnose. The handler signature is (Actor, array), and
+     * widening it for the one tool that needs this would touch all of them, so
+     * the set is left here for the duration of the call instead.
+     *
+     * Empty means "not inside a tool call", which is the honest answer for the
+     * catalogue, the tests and anything else that reaches a handler directly.
+     *
+     * @var string[]
+     */
+    private static array $current = [];
+
+    /**
+     * Installs the allowed set for one call and returns the previous one.
+     *
+     * The caller restores it in a finally: a tool that throws must not leave
+     * its scopes behind for the next one.
+     *
+     * @param string[] $allowed
+     * @return string[]
+     */
+    public static function using(array $allowed): array
+    {
+        $previous = self::$current;
+        self::$current = $allowed;
+        return $previous;
+    }
+
+    /** @return string[] */
+    public static function currently(): array
+    {
+        return self::$current;
+    }
+
+    /** Whether the connection running this call holds one group. */
+    public static function holds(string $scope): bool
+    {
+        // Outside a call nothing is known, and claiming a scope is missing
+        // would make get_next_step lie to a direct caller. Say yes.
+        return self::$current === [] || in_array($scope, self::$current, true);
+    }
+
     /** @param string[] $requested keeps only groups that exist */
     public static function sanitise(array $requested): array
     {

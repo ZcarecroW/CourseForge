@@ -7,6 +7,7 @@ use CourseForge\Mcp\Handlers\AccountTools;
 use CourseForge\Mcp\Handlers\AdminTools;
 use CourseForge\Mcp\Handlers\CourseTools;
 use CourseForge\Mcp\Handlers\DetailTools;
+use CourseForge\Mcp\Handlers\GuideTools;
 use CourseForge\Mcp\Handlers\PageTools;
 use CourseForge\Mcp\Handlers\ProfileTools;
 use CourseForge\Mcp\Handlers\PublishTools;
@@ -64,6 +65,7 @@ final class Tools
 
         $tools = [
             ...AccountTools::tools(),
+            ...GuideTools::tools(),
             ...CourseTools::tools(),
             ...StructureTools::tools(),
             ...PageTools::tools(),
@@ -139,7 +141,15 @@ final class Tools
             );
         }
 
-        $result = $tool->run($actor, $arguments);
+        // For the duration of this call, a tool may ask what the connection
+        // running it is allowed to do. Restored in the finally so a tool that
+        // throws does not leave its scopes behind for the next one.
+        $previous = Scopes::using($allowed);
+        try {
+            $result = $tool->run($actor, $arguments);
+        } finally {
+            Scopes::using($previous);
+        }
 
         if (is_string($result)) {
             return ['text' => $result, 'data' => null];

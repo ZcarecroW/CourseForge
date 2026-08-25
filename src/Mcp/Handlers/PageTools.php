@@ -177,7 +177,11 @@ final class PageTools
     private static function pageBrief(Actor $actor, Args $args): array
     {
         ['project' => $project] = Resolve::course($actor, $args->id());
-        $profile = Resolve::profile($project);
+
+        // No profile needed: a brief is instructions, not a request to anybody.
+        // generatePage below keeps Resolve::profile, because that one spends.
+        // See Resolve::profileForBrief.
+        $profile = Resolve::profileForBrief($project);
 
         $page = $args->has('page_id')
             ? Resolve::page($project, $args->id('page_id'))

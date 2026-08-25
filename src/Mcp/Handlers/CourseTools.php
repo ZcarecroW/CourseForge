@@ -412,9 +412,22 @@ final class CourseTools
             'course_id' => (int)$project['id'],
             'name' => (string)$project['name'],
             'profile_id' => $profileId,
-            'next' => $profileId === null
-                ? 'This course has no profile yet. Call list_profiles and then update_course before generating anything.'
-                : 'Call generate_structure to have CourseForge design the outline, or get_structure_brief to design it yourself.',
+            // A course with no profile used to be told to go and get one
+            // "before generating anything", which read as though nothing could
+            // happen without it - and then the very next call, get_structure_brief,
+            // refused for the same reason. Both halves of that are now wrong:
+            // the brief tools need no profile, and writing the course yourself
+            // is the cheap path rather than the fallback. Say what to do next
+            // instead of what is missing.
+            'next' => 'Call get_structure_brief to be handed the instructions and design the outline yourself, '
+                . 'then apply_structure to store it. That needs no AI account and spends nothing.'
+                . ($profileId === null
+                    ? ' This course has no profile, which it only needs if you want CourseForge to do the '
+                        . 'generating itself (generate_structure, generate_page, start_run) or to publish into '
+                        . 'BookStack. Assign one later with update_course if you do.'
+                    : ' Or call generate_structure to have CourseForge design it with the course profile\'s own '
+                        . 'AI account, which spends credit on it.'),
+            'next_tool' => 'get_next_step',
         ];
     }
 

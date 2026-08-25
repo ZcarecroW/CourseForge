@@ -79,6 +79,16 @@ final class Server
     /** Set once per request, so the response knows which shape to take. */
     private static bool $modern = false;
 
+    /**
+     * Whether the client on this request said it can put a question to a person.
+     *
+     * Read from the capabilities a modern client states per request. A server
+     * must not send an input request of a type the client never declared, and
+     * beyond the rule it would be pointless: a question nobody can display is
+     * a call that never comes back.
+     */
+    private static bool $canElicit = false;
+
     public static function handle(): void
     {
         $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
@@ -128,6 +138,7 @@ final class Server
         $meta = is_array($params['_meta'] ?? null) ? $params['_meta'] : [];
 
         self::$modern = self::isModern($rpc, $meta);
+        self::$canElicit = self::$modern && self::declaresElicitation($meta);
 
         // Only checked when the header is actually present. The rule exists so
         // that a proxy routing on the header and a server acting on the body
@@ -224,8 +235,40 @@ final class Server
 
             'tools/call' => self::complete(self::callTool($context, $params)),
 
+            'prompts/list' => self::complete(
+                ['prompts' => Prompts::catalogue()] + self::cacheHints()
+            ),
+
+            'prompts/get' => self::complete(self::getPrompt($context, $params)),
+
             default => null,
         };
+    }
+
+    /**
+     * One prompt, filled in from its arguments.
+     *
+     * Prompts are not scope-gated. They contain no data from this installation
+     * - no course names, no counts, nothing that varies by account - only
+     * instructions for how to drive the tools. Every tool they name is gated
+     * where it is called, so a prompt cannot widen what a connection may do; it
+     * can only describe work that connection may or may not turn out to be
+     * allowed to perform.
+     *
+     * @param array{actor:Actor,client_id:int,client_name:string,scopes:string[]} $context
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>
+     */
+    private static function getPrompt(array $context, array $params): array
+    {
+        $name = (string)($params['name'] ?? '');
+        $arguments = is_array($params['arguments'] ?? null) ? $params['arguments'] : [];
+
+        if ($name === '') {
+            throw HttpException::unprocessable('No prompt name was given.');
+        }
+
+        return Prompts::get($context['actor'], $name, $arguments);
     }
 
     /**
@@ -259,6 +302,27 @@ final class Server
             ], true);
         }
 
+        // A retried half of a paused call. The continuation is verified and
+        // burned before the tool runs, so a forged, expired, reused or
+        // redirected one never reaches a handler at all.
+        $answers = [];
+        $state = (string)($params['requestState'] ?? '');
+        if ($state !== '') {
+            $redeemed = RequestState::redeem(
+                $state,
+                $context['client_id'],
+                $context['actor']->username,
+                $name,
+                $arguments
+            );
+            if ($redeemed['ok'] !== true) {
+                return self::toolResult(['text' => $redeemed['why'], 'data' => null], true);
+            }
+            $answers = is_array($params['inputResponses'] ?? null) ? $params['inputResponses'] : [];
+        }
+
+        Ask::begin($answers, self::$canElicit);
+
         // A tool call may sit on a provider for minutes, or write five hundred
         // rows. Releasing the session lock and the time limit first is what
         // stops it blocking everything else the account has in flight.
@@ -269,6 +333,8 @@ final class Server
                 Tools::call($context['actor'], $name, $arguments, $context['scopes']),
                 false
             );
+        } catch (NeedsInput $e) {
+            return self::pause($e, $context, $name, $arguments);
         } catch (HttpException $e) {
             // A tool that fails is a result the model can read and act on, not
             // a transport error - that is what isError is for.
@@ -279,7 +345,46 @@ final class Server
                 'text' => Runtime::debug() ? $e->getMessage() : 'The tool failed. See the server log.',
                 'data' => null,
             ], true);
+        } finally {
+            Ask::end();
         }
+    }
+
+    /**
+     * A tool that stopped to ask, rendered for whichever client is listening.
+     *
+     * The elicitation branch is only taken when the client declared it can put
+     * a question to somebody. Everybody else - which is every client installed
+     * today - gets the sentence naming the argument to supply, as an ordinary
+     * tool error. That is not a degraded path; it is the behaviour these tools
+     * had before MRTR, kept deliberately.
+     *
+     * @param array{actor:Actor,client_id:int,client_name:string,scopes:string[]} $context
+     * @param array<string,mixed> $arguments
+     * @return array<string,mixed>
+     */
+    private static function pause(
+        NeedsInput $question,
+        array $context,
+        string $name,
+        array $arguments
+    ): array {
+        // Already asked, and answered with a no or a dismissal. Asking again
+        // would be a loop, and the protocol has nothing that stops one.
+        if ($question->settled || !self::$canElicit) {
+            return self::toolResult(['text' => $question->insteadSay, 'data' => null], true);
+        }
+
+        return [
+            'resultType' => 'input_required',
+            'inputRequests' => [$question->key => $question->request()],
+            'requestState' => RequestState::issue(
+                $context['client_id'],
+                $context['actor']->username,
+                $name,
+                $arguments
+            ),
+        ];
     }
 
     /**
@@ -338,6 +443,20 @@ final class Server
      *
      * @param array<string,mixed> $meta
      */
+    private static function declaresElicitation(array $meta): bool
+    {
+        $capabilities = $meta['io.modelcontextprotocol/clientCapabilities'] ?? null;
+        if (!is_array($capabilities)) {
+            return false;
+        }
+
+        // Present-and-an-object is the declaration; the object itself carries
+        // no flags today. Absent means no, and so does anything that is not an
+        // object - guessing generously here would mean asking a client a
+        // question it cannot show, which reads to the user as a hang.
+        return is_array($capabilities['elicitation'] ?? null);
+    }
+
     private static function requestedVersion(array $meta): string
     {
         $version = trim((string)($meta['io.modelcontextprotocol/protocolVersion'] ?? ''));
@@ -355,7 +474,23 @@ final class Server
      */
     private static function complete(array $result): array
     {
-        return self::$modern ? ['resultType' => 'complete'] + $result : $result;
+        if (!self::$modern) {
+            // A legacy client has no idea what resultType means, and a paused
+            // call cannot be expressed to it at all - which is why nothing ever
+            // pauses on one. Strip the field rather than confuse it.
+            unset($result['resultType'], $result['inputRequests'], $result['requestState']);
+            return $result;
+        }
+
+        // A result that already said what it is says it. PHP's + keeps the
+        // LEFT operand for duplicate keys, so writing 'complete' unconditionally
+        // would have quietly relabelled every input_required as finished - the
+        // client would have taken a question for an answer.
+        if (isset($result['resultType'])) {
+            return $result;
+        }
+
+        return ['resultType' => 'complete'] + $result;
     }
 
     /**
@@ -467,10 +602,20 @@ final class Server
     /** @return array<string,mixed> */
     private static function capabilities(): array
     {
-        // No resources, no prompts, no subscriptions: this server answers every
-        // request with one JSON object and never holds a stream open, so it
-        // must not advertise anything that would need one.
-        return ['tools' => ['listChanged' => false]];
+        // Prompts are here; resources and subscriptions are not. The rule is
+        // the same one as everywhere else in this file - this server answers
+        // every request with one JSON object and never holds a stream open -
+        // but prompts do not need one: prompts/list and prompts/get are a
+        // request and a response each. A resource *subscription* would need a
+        // stream, which is why there are none.
+        //
+        // They matter out of proportion to their size. A prompt is how somebody
+        // who has never read the tool list starts a job: Claude Code lists them
+        // as /mcp__courseforge__build_a_course.
+        return [
+            'tools' => ['listChanged' => false],
+            'prompts' => ['listChanged' => false],
+        ];
     }
 
     /** @return array<string,string> */

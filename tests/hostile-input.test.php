@@ -208,3 +208,45 @@ test('a body that is not JSON at all is refused', function () {
         'and a bare scalar'
     );
 });
+
+test('malformed JSON is named as such, not reported as the wrong shape', function () {
+    // A latin-1 body is a well-formed object with one byte that is not UTF-8.
+    // Telling its author "Request body must be a JSON object" is an answer
+    // about structure given to somebody whose structure was never wrong - it
+    // sends them to read their own braces instead of their Content-Type.
+    $latin1 = '{"username":"m' . chr(0xFC) . 'ller"}';
+
+    $e = raises(
+        static fn() => Request::decodeBody($latin1),
+        'a latin-1 body must be refused'
+    );
+    ok(
+        str_contains($e->getMessage(), 'not valid JSON'),
+        'and the message says the JSON is malformed: ' . $e->getMessage()
+    );
+    ok(
+        !str_contains($e->getMessage(), 'must be a JSON object'),
+        'rather than blaming the shape'
+    );
+
+    $truncated = raises(
+        static fn() => Request::decodeBody('{"name": "Vue"'),
+        'and so is a body that stops mid-object'
+    );
+    ok(str_contains($truncated->getMessage(), 'not valid JSON'), 'named as malformed too');
+});
+
+test('the same character as valid UTF-8 is accepted either way it is written', function () {
+    $expected = ['username' => 'm' . "\u{00FC}" . 'ller'];
+
+    same(
+        $expected,
+        Request::decodeBody('{"username":"m\u00fcller"}'),
+        'written as an escaped code point'
+    );
+    same(
+        $expected,
+        Request::decodeBody('{"username":"m' . "\u{00FC}" . 'ller"}'),
+        'and sent as raw UTF-8 bytes'
+    );
+});

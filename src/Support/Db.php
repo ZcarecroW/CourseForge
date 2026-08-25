@@ -316,6 +316,24 @@ final class Db
             CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_token ON mcp_clients(token_hash);
             CREATE INDEX IF NOT EXISTS idx_mcp_user ON mcp_clients(username);
 
+            -- Continuations that have been redeemed, so they cannot be again.
+            --
+            -- A Multi Round-Trip Request pauses by ending the client's call and
+            -- handing back a signed blob; the client returns it with the answer.
+            -- The signature stops forgery and the expiry bounds the window, but
+            -- neither makes the blob single-use - only a record of redemption
+            -- does, and the protocol requires the server to enforce that.
+            --
+            -- The id is the primary key rather than a column checked before
+            -- insert, so two clients racing the same continuation cannot both
+            -- be told yes. Rows are swept on the next redemption; the table
+            -- holds only what has not yet expired.
+            CREATE TABLE IF NOT EXISTS mcp_continuations (
+                jti        TEXT PRIMARY KEY,
+                expires_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_continuations_exp ON mcp_continuations(expires_at);
+
             -- Accounts. CourseForge 3.x kept a single administrator in
             -- data/users.json; 4.0 has roles, so they belong in a table with
             -- everything else that can be edited from the application itself.

@@ -48,9 +48,41 @@ final class Resolve
     {
         if ($project['profile_id'] === null) {
             throw HttpException::unprocessable(
-                'Course "' . $project['name'] . '" has no profile, so there is no AI account to generate with. '
-                . 'Assign one with update_course, after listing the options with list_profiles.'
+                'Course "' . $project['name'] . '" has no profile, so there is no AI account for CourseForge to '
+                . 'generate with. Assign one with update_course, after listing the options with list_profiles. '
+                . 'You do not need one to write the course yourself: get_structure_brief and get_page_brief hand '
+                . 'you the instructions, and apply_structure and write_page store what you write, all without a '
+                . 'profile.'
             );
+        }
+        return Profiles::data((string)$project['username'], (int)$project['profile_id']);
+    }
+
+    /**
+     * The profile a course would generate with, or nothing when it has none.
+     *
+     * For the paths that only BUILD a brief rather than send it anywhere. They
+     * need no credential and no model - the profile reaches Prompt::library(),
+     * which overlays the profile's prompt overrides on the shipped defaults,
+     * and Completion::language(), which reads the output language. Both treat
+     * an empty profile as "use what the installation is configured with", so a
+     * course without one gets the default brief rather than an error.
+     *
+     * This is what makes the provider-free path actually free. A client that
+     * does its own writing needs get_structure_brief and get_page_brief, and
+     * requiring a profile for those meant requiring an AI account nobody was
+     * ever going to call - which was the one thing that path exists to avoid.
+     *
+     * Anything that SPENDS money must keep using profile() instead: a run with
+     * no credential has to fail at the point of asking, not silently proceed.
+     *
+     * @param array<string,mixed> $project
+     * @return array<string,mixed> empty when the course has no profile
+     */
+    public static function profileForBrief(array $project): array
+    {
+        if ($project['profile_id'] === null) {
+            return [];
         }
         return Profiles::data((string)$project['username'], (int)$project['profile_id']);
     }

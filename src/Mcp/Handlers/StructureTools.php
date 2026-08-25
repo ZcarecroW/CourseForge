@@ -12,6 +12,7 @@ use CourseForge\Domain\Pages;
 use CourseForge\Domain\Projects;
 use CourseForge\Domain\Structure;
 use CourseForge\Mcp\Args;
+use CourseForge\Mcp\Ask;
 use CourseForge\Mcp\Resolve;
 use CourseForge\Mcp\Schema;
 use CourseForge\Mcp\Scopes;
@@ -209,9 +210,12 @@ final class StructureTools
     private static function structureBrief(Actor $actor, Args $args): array
     {
         ['project' => $project] = Resolve::course($actor, $args->id());
-        // The raw profile carries the provider key. It is read here for the
-        // prompt library and the output language, and never leaves this method.
-        $profile = Resolve::profile($project);
+        // Read for the prompt library and the output language, and never left
+        // this method even when it carried a key. A course with no profile gets
+        // the installation's own prompts and language rather than a refusal:
+        // building a brief spends nothing and needs no AI account, which is the
+        // whole point of handing it to the client.
+        $profile = Resolve::profileForBrief($project);
 
         $feedback = trim($args->raw('feedback'));
         $brief = self::brief($profile, $project, $feedback);
@@ -257,12 +261,44 @@ final class StructureTools
         // domain refuses this too - what is gained by asking first is a refusal
         // written for a model rather than for somebody reading a dialog.
         $atRisk = Projects::pagesLosingContent($project, $markdown);
-        if ($atRisk !== [] && !$args->bool('confirm_removals')) {
-            throw HttpException::unprocessable(self::removalRefusal($atRisk));
+        $confirmed = $args->bool('confirm_removals');
+
+        if ($atRisk !== [] && !$confirmed) {
+            // Deleting written pages is the one thing in this surface that
+            // cannot be undone, so it is the one place worth stopping to ask a
+            // person rather than only telling the model which flag to set.
+            //
+            // The order is the one that matters: work out what would be lost,
+            // ask, and only then write. A confirmation that arrives after the
+            // delete is a notification.
+            //
+            // On a client that cannot ask anybody this is exactly the refusal
+            // it always was - same sentence, same flag - because that sentence
+            // is what gets handed back instead of the question.
+            $confirmed = Ask::confirm(
+                'apply_structure_removals',
+                'Applying this outline to "' . $project['name'] . '" would delete '
+                    . count($atRisk) . ' page' . (count($atRisk) === 1 ? '' : 's')
+                    . ' that already have text written on them:' . "\n\n"
+                    . implode("\n", array_map(
+                        static fn(string $title): string => '  - ' . $title,
+                        array_slice($atRisk, 0, 20)
+                    ))
+                    . (count($atRisk) > 20 ? "\n  - and " . (count($atRisk) - 20) . ' more' : '')
+                    . "\n\nThis cannot be undone.",
+                self::removalRefusal($atRisk)
+            );
+
+            if (!$confirmed) {
+                throw HttpException::unprocessable(
+                    'Nothing was changed: the deletion of ' . count($atRisk)
+                    . ' written page' . (count($atRisk) === 1 ? '' : 's') . ' was not confirmed.'
+                );
+            }
         }
 
         $before = self::snapshot($project);
-        Projects::applyStructure($project, $markdown, $args->bool('confirm_removals'));
+        Projects::applyStructure($project, $markdown, $confirmed);
         $diff = self::diff($before, self::snapshot($project));
 
         Audit::record(

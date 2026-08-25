@@ -61,6 +61,16 @@ final class Request
 
         $decoded = json_decode($raw, true);
 
+        // Malformed JSON and well-formed-but-wrong-shaped JSON are different
+        // mistakes and deserve different sentences. A body encoded in latin-1
+        // used to be told "Request body must be a JSON object", which is a
+        // reply about structure to a caller whose structure was fine - it sends
+        // them reading their own braces instead of their Content-Type. PHP
+        // knows exactly what went wrong, so say it.
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw HttpException::badRequest('The request body is not valid JSON: ' . json_last_error_msg() . '.');
+        }
+
         // is_array() alone does not enforce what the message promises: PHP
         // decodes a JSON array into a PHP array just as it does an object, so a
         // body of [1,2,3] used to sail through and then read as a set of absent
