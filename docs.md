@@ -1152,15 +1152,20 @@ CourseForge needs a real hostname or a tunnel for that client.
 
 ### The ten tool groups
 
-There are seventy-seven tools. They are not listed here, because `tools/list`
+There are seventy-eight tools. They are not listed here, because `tools/list`
 lists them and every one carries its own description, its arguments and an
 annotation saying whether it reads, writes, destroys or spends money. What is
 worth knowing is the shape.
 
+If you only remember one of them, remember **`get_next_step`**. It reads the
+database and says which single call moves a course forward, why, and with what
+arguments — so a client does not have to know the sequence, and does not have
+to be told it twice.
+
 | Group | Tools | What it is for | Spends |
 |---|---|---|---|
 | **account** | 6 | Who you are connected as, your own display name and password, your own connections. Never anybody else's. | no |
-| **courses** | 5 | List, read, create, rename and delete courses | no |
+| **courses** | 6 | List, read, create, rename and delete courses, and `get_next_step`, which says what to do next | no |
 | **structure** | 5 | The outline: read the brief, write one, preview it, or have CourseForge design it | yes |
 | **pages** | 7 | Read a writing brief, store a finished page, edit a page or a chapter, or have CourseForge write one | yes |
 | **details** | 4 | The thirteen switchable elements and seven values, at course, chapter or page level | no |
@@ -1174,6 +1179,7 @@ The ten or so that matter:
 
 | Tool | What it does |
 |---|---|
+| `get_next_step` | Where a course has got to and the one call that moves it forward. Works the answer out from the database every time, so it is right after a restart, a lost context window or a change of client — there is nothing to remember and nothing to resume. Says when there is nothing left. Costs nothing. |
 | `whoami` | The account this connection belongs to, its role, and what this installation can currently do — including whether the scheduler is running, so background runs are possible. The first thing to call. |
 | `list_courses` | Every course this account can see, with its progress. An administrator sees every account's, each marked with its owner. |
 | `create_course` | An empty course from a one-line brief. It has no outline yet. |
@@ -1214,6 +1220,77 @@ The first is free and bounded by your attention. The second costs money and is
 bounded by nothing you are watching. `generate_page` and `generate_structure` sit
 between them: one call each, billed to the profile, blocking while the model
 works.
+
+### Building a whole course with no AI provider at all
+
+CourseForge does not need an AI account to produce a course. It needs one only
+if you want *CourseForge itself* to do the writing (`generate_structure`,
+`generate_page`, `start_run`) or to publish into BookStack, which needs a
+profile for the BookStack credentials rather than for the AI ones.
+
+Everything else — the outline, every page, the content details, the tags — can
+be done by the client. The four tools that matter take nothing but a course:
+
+    get_structure_brief  ->  you design the outline  ->  apply_structure
+    get_page_brief       ->  you write the page      ->  write_page
+
+None of those four calls a model, none needs a credential, and none needs a
+profile. On an installation that will never have an AI account, leave Profiles
+empty and never assign one.
+
+> Until 4.2 this did not work: `get_structure_brief` and `get_page_brief`
+> refused a course with no profile, even though neither calls a model. Anybody
+> trying to use CourseForge this way was refused on their first content call
+> and had to invent an AI account they would never use. If you are on 4.0 or
+> 4.1 and hit that, this is the fix.
+
+### Being guided through it, rather than knowing the order
+
+Three prompts start a job without anybody having to explain the sequence. In
+Claude Code they appear as slash commands:
+
+| Prompt | What it does |
+|---|---|
+| `/mcp__courseforge__build_a_course` | Takes a subject and writes the whole thing — outline, every page, and publishing if there is somewhere to publish to. |
+| `/mcp__courseforge__continue_a_course` | Picks up a course that is already started, whatever state it was left in. |
+| `/mcp__courseforge__review_a_course` | Reads a finished course and reports on gaps, repetition, contradictions and ordering. Changes nothing. |
+
+Each of them tells the client to call `get_next_step` and do what it says,
+rather than reciting the steps. That is deliberate: a recital would be wrong
+the first time a course was half finished, whereas "ask what to do next, then
+do it, then ask again" is right in every state — including a course somebody
+abandoned three weeks ago.
+
+### Multi Round-Trip Requests
+
+A tool that needs something it was not given can refuse and name the missing
+argument, which is what these tools have always done. From the 2026-07-28
+revision of the protocol there is a second option: the call *pauses*. The
+server answers `resultType: "input_required"` with a question and a signed
+continuation, the client puts the question to whoever is at the keyboard, and
+the client makes the same call again with the answer attached. Nothing is held
+open in between — no session, no stream — which is why it fits a server that
+answers every request with one JSON object and forgets.
+
+CourseForge uses it in one place, deliberately: **`apply_structure`, when the
+outline you are applying would delete pages that already have text on them.**
+That is the only irreversible thing on this surface, and the order is the one
+that matters — work out what would be lost, ask, and only then write. A
+confirmation that arrives after the delete is a notification.
+
+**If your client has never heard of any of this, nothing changes.** The pause
+only happens for a client on the 2026-07-28 revision that declared it can put a
+question to somebody. Everything else gets exactly the refusal it always got,
+naming `confirm_removals`. That is not a fallback bolted on; it is the same
+sentence, handed back instead of the question.
+
+The continuation passes through the client, so the protocol says to treat it as
+attacker-controlled, and CourseForge does: it is signed with HMAC-SHA256 over a
+secret generated on the installation, it carries the connection, the account,
+the tool name and a digest of the arguments, it expires after fifteen minutes,
+and it can be redeemed exactly once. A continuation issued to confirm the
+deletion of three pages cannot be re-used to confirm the deletion of fifty, and
+one issued for `apply_structure` cannot be redeemed against `delete_course`.
 
 ### Scopes
 
@@ -1822,8 +1899,15 @@ The shipped rules do five things:
 
 #### The data directory guards itself
 
-`data/app.sqlite` holds every password hash on the installation, so the one
-thing that must never be true is that it can be fetched over HTTP. The release
+`data/app.sqlite` holds every password hash on the installation, and — worth
+saying plainly, because it is not obvious — **every AI provider key and every
+BookStack token in plain text**. They are never sent back to the browser (the
+API blanks them and returns only `api_key_set`), and they are never written to
+the audit log, but at rest in that file they are readable by anyone who can
+read the file. There is no encryption-at-rest, and adding some without a key
+kept somewhere else would be obfuscation rather than protection. So the one
+thing that must never be true is that this file can be fetched over HTTP, and
+the second thing is that a backup of it is treated as the secret it is. The release
 ships `data/.htaccess`, which denies everything in that directory — but shipping
 a file is a weaker guarantee than it looks, because there are three ordinary
 ways to end up with a data directory the release never wrote into:
