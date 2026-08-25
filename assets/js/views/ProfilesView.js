@@ -701,7 +701,6 @@ export const ProfilesView = {
 
     const pickPrompt = (slot) => {
       promptKey.value = slot.key;
-      listOpen.value = false;
       // Choosing a search result from another group takes the group with it, so
       // clearing the search does not make the open prompt disappear.
       if (slot.group !== promptGroup.value) promptGroup.value = slot.group;
@@ -1098,13 +1097,6 @@ export const ProfilesView = {
               </div>
 
               <nav class="tabbar">
-                <!-- Below 1024px the slot pane is a drawer, so there has to be
-                     something that opens it - without this, 37 of 41 prompts
-                     and the whole search were unreachable on a narrow window. -->
-                <button class="tab outline-toggle" title="Show the prompt list"
-                        aria-label="Show the prompt list" @click="listOpen = true">
-                  <app-icon name="list" :size="14"/>
-                </button>
                 <button v-for="group in groups" :key="group.id" class="tab"
                         :class="{ 'is-active': !promptSearching && promptGroup === group.id }"
                         @click="pickPromptGroup(group.id)">
@@ -1113,57 +1105,53 @@ export const ProfilesView = {
                 </button>
               </nav>
 
-              <div class="workspace workspace--two">
-                <div v-if="listOpen" class="scrim" @click="listOpen = false"></div>
-
-                <!-- ------------------------------------------ prompts in a group -->
-                <aside class="pane pane--left" :class="{ 'is-open': listOpen }">
-                  <div class="pane__head">
+              <!-- Two cards in a grid, not two panes in a workspace: this sits
+                   inside a tab panel next to Accounts and Models & output, and
+                   has to look like them rather than like the full-page screen
+                   the layout was borrowed from. Below the breakpoint the grid
+                   stacks, so nothing needs hiding behind a drawer. -->
+              <div class="prompt-grid">
+                <aside class="card prompt-grid__list">
+                  <div class="card__head">
                     <span class="eyebrow grow truncate">
                       {{ promptSearching ? 'Matches in every group'
                                          : (currentPromptGroup ? currentPromptGroup.label : 'Prompts') }}
                     </span>
                     <span class="badge none">{{ visiblePrompts.length }}</span>
-                    <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Close"
-                            aria-label="Close the prompt list"
-                            @click="listOpen = false"><app-icon name="x" :size="14"/></button>
                   </div>
 
-                  <div class="pane__body">
-                    <div style="padding:var(--s-3) var(--s-3) 0">
-                      <div style="position:relative">
-                        <app-icon name="search" :size="13"
-                                  style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
-                        <input v-model="promptSearch" placeholder="Find a prompt…" spellcheck="false"
-                               style="padding-left:28px">
-                      </div>
+                  <div class="prompt-grid__scroll col gap-3">
+                    <div style="position:relative">
+                      <app-icon name="search" :size="13"
+                                style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
+                      <input v-model="promptSearch" placeholder="Find a prompt…" spellcheck="false"
+                             style="padding-left:28px">
                     </div>
 
-                    <p v-if="currentPromptGroup && !promptSearching" class="hint" style="padding:0 var(--s-3)">
+                    <p v-if="currentPromptGroup && !promptSearching" class="hint">
                       {{ currentPromptGroup.description }}
                     </p>
 
-                    <button v-for="slot in visiblePrompts" :key="slot.key"
-                            class="tree__page" :class="{ 'is-active': promptKey === slot.key }"
-                            :title="slot.label" @click="pickPrompt(slot)">
-                      <span class="grow truncate">
-                        {{ slot.label }}
-                        <span v-if="promptSearching" class="t-2xs faint"> · {{ promptGroupLabel(slot.group) }}</span>
-                      </span>
-                      <span v-if="isCustom(slot.key)" class="dot none" style="background:var(--warning)"
-                            title="Overridden by this profile"></span>
-                    </button>
+                    <div class="col gap-1">
+                      <button v-for="slot in visiblePrompts" :key="slot.key"
+                              class="tree__page" :class="{ 'is-active': promptKey === slot.key }"
+                              :title="slot.label" @click="pickPrompt(slot)">
+                        <span class="grow truncate">
+                          {{ slot.label }}
+                          <span v-if="promptSearching" class="t-2xs faint"> · {{ promptGroupLabel(slot.group) }}</span>
+                        </span>
+                        <span v-if="isCustom(slot.key)" class="dot none" style="background:var(--warning)"
+                              title="Overridden by this profile"></span>
+                      </button>
+                    </div>
 
-                    <p v-if="!visiblePrompts.length" class="hint" style="padding:var(--s-3)">
-                      Nothing matches that.
-                    </p>
+                    <p v-if="!visiblePrompts.length" class="hint">Nothing matches that.</p>
                   </div>
                 </aside>
 
-                <!-- --------------------------------------------------- one prompt -->
-                <section v-if="currentPrompt" class="pane pane--main col gap-3" style="padding:var(--s-4)">
+                <section v-if="currentPrompt" class="card card--pad col gap-3">
                   <div class="row wrap between gap-2">
-                    <div class="col">
+                    <div class="col gap-1">
                       <h4>{{ currentPrompt.label }}</h4>
                       <code class="t-2xs dim">{{ currentPrompt.key }}</code>
                     </div>
@@ -1180,16 +1168,23 @@ export const ProfilesView = {
 
                   <p class="hint">{{ currentPrompt.description }}</p>
 
-                  <div v-if="currentPrompt.placeholders.length" class="row wrap gap-1">
-                    <button v-for="placeholder in currentPrompt.placeholders" :key="placeholder"
-                            class="placeholder-token" title="Insert this placeholder"
-                            @click="insertPlaceholder(currentPrompt.key, placeholder)">{{ placeholder }}</button>
+                  <div v-if="currentPrompt.placeholders.length" class="col gap-2">
+                    <!-- Worded and cased exactly as the admin Prompts screen
+                         words it: these two screens edit the same slots and a
+                         reader moving between them should not have to notice
+                         which one they are on. -->
+                    <span class="label">Placeholders</span>
+                    <div class="row wrap gap-1">
+                      <button v-for="placeholder in currentPrompt.placeholders" :key="placeholder"
+                              class="placeholder-token" title="Insert this placeholder"
+                              @click="insertPlaceholder(currentPrompt.key, placeholder)">{{ placeholder }}</button>
+                    </div>
                   </div>
 
                   <textarea :ref="el => registerTextarea(currentPrompt.key, el)"
                             :value="textOf(currentPrompt.key)"
                             @input="setPrompt(currentPrompt.key, $event.target.value)"
-                            rows="16" spellcheck="false" class="mono"
+                            rows="18" spellcheck="false" class="mono prompt-grid__text"
                             placeholder="Empty → nothing is sent for this slot"></textarea>
 
                   <details v-if="isCustom(currentPrompt.key) && defaultOf(currentPrompt.key)">
@@ -1198,7 +1193,7 @@ export const ProfilesView = {
                   </details>
                 </section>
 
-                <empty-state v-else class="pane pane--main" icon="file-text" title="No prompt selected"/>
+                <empty-state v-else class="card card--pad" icon="file-text" title="No prompt selected"/>
               </div>
             </div>
           </div>

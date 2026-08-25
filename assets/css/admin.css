@@ -198,3 +198,42 @@
   min-height: 300px;
   resize: vertical;
 }
+
+
+/* -- prompts, inside a profile ---------------------------------------------
+   The admin Prompts screen is a full page, so it uses .workspace and .pane -
+   app chrome, bounded by the window, square on purpose. This one lives in a
+   tab panel beside Accounts and Models & output, which are a column of rounded
+   cards, so it is built from cards too.
+
+   Two columns where there is room, stacked where there is not. No drawer: a
+   grid that stacks needs nothing to open. */
+.prompt-grid {
+  display: grid;
+  grid-template-columns: var(--outline-w) minmax(0, 1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+
+/* The list scrolls rather than growing without limit, and stops short of the
+   viewport so the card's rounded bottom edge stays visible. */
+.prompt-grid__scroll {
+  padding: var(--s-4);
+  max-height: min(62vh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Tall enough to write in without being taller than the list beside it, which
+   is what made the two columns look unbalanced. */
+.prompt-grid__text {
+  min-height: 340px;
+  resize: vertical;
+}
+
+@media (max-width: 1100px) {
+  .prompt-grid { grid-template-columns: minmax(0, 1fr); }
+  /* Stacked, the list only needs to be as tall as a short menu - the editor is
+     the thing being scrolled to. */
+  .prompt-grid__scroll { max-height: 40vh; }
+}
