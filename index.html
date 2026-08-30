@@ -8,6 +8,7 @@
        soon as the first request answers, and keeps it in step after that. -->
   <title>CourseForge</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <meta name="cf-assets" content="4.4.1">
 
   <!-- Resolve the theme before the first paint so there is never a light flash. -->
   <script>
@@ -18,13 +19,13 @@
     })();
   </script>
 
-  <link rel="stylesheet" href="assets/css/tokens.css">
-  <link rel="stylesheet" href="assets/css/base.css">
-  <link rel="stylesheet" href="assets/css/layout.css">
-  <link rel="stylesheet" href="assets/css/components.css">
-  <link rel="stylesheet" href="assets/css/admin.css">
-  <link rel="stylesheet" href="assets/css/prose.css">
-  <link rel="stylesheet" href="assets/css/editor.css">
+  <link rel="stylesheet" href="assets/css/tokens.css?v=4.4.1">
+  <link rel="stylesheet" href="assets/css/base.css?v=4.4.1">
+  <link rel="stylesheet" href="assets/css/layout.css?v=4.4.1">
+  <link rel="stylesheet" href="assets/css/components.css?v=4.4.1">
+  <link rel="stylesheet" href="assets/css/admin.css?v=4.4.1">
+  <link rel="stylesheet" href="assets/css/prose.css?v=4.4.1">
+  <link rel="stylesheet" href="assets/css/editor.css?v=4.4.1">
 
   <!--
     Buildless module resolution. Every dependency is vendored under
@@ -34,45 +35,91 @@
   -->
   <script type="importmap">
     {
-      "imports": {
-        "vue": "./assets/vendor/vue.esm-browser.prod.js",
-        "marked": "./assets/vendor/marked.esm.js",
-        "dompurify": "./assets/vendor/purify.es.mjs",
-        "fuse": "./assets/vendor/fuse.mjs",
-
-        "shiki": "./assets/vendor/shiki/core.js",
-        "shiki/engine": "./assets/vendor/shiki/engine-javascript.js",
-
-        "@codemirror/state": "./assets/vendor/codemirror/state.js",
-        "@codemirror/view": "./assets/vendor/codemirror/view.js",
-        "@codemirror/language": "./assets/vendor/codemirror/language.js",
-        "@codemirror/commands": "./assets/vendor/codemirror/commands.js",
-        "@codemirror/search": "./assets/vendor/codemirror/search.js",
-        "@codemirror/autocomplete": "./assets/vendor/codemirror/autocomplete.js",
-        "@codemirror/lang-markdown": "./assets/vendor/codemirror/lang-markdown.js",
-        "@codemirror/lang-html": "./assets/vendor/codemirror/lang-html.js",
-        "@codemirror/lang-css": "./assets/vendor/codemirror/lang-css.js",
-        "@codemirror/lang-javascript": "./assets/vendor/codemirror/lang-javascript.js",
-        "@codemirror/lang-php": "./assets/vendor/codemirror/lang-php.js",
-        "@lezer/common": "./assets/vendor/codemirror/lezer-common.js",
-        "@lezer/highlight": "./assets/vendor/codemirror/lezer-highlight.js",
-        "@lezer/lr": "./assets/vendor/codemirror/lezer-lr.js",
-        "@lezer/markdown": "./assets/vendor/codemirror/lezer-markdown.js",
-        "@lezer/html": "./assets/vendor/codemirror/lezer-html.js",
-        "@lezer/css": "./assets/vendor/codemirror/lezer-css.js",
-        "@lezer/javascript": "./assets/vendor/codemirror/lezer-javascript.js",
-        "@lezer/php": "./assets/vendor/codemirror/lezer-php.js",
-        "@marijn/find-cluster-break": "./assets/vendor/codemirror/find-cluster-break.js",
-        "style-mod": "./assets/vendor/codemirror/style-mod.js",
-        "w3c-keyname": "./assets/vendor/codemirror/w3c-keyname.js",
-        "crelt": "./assets/vendor/codemirror/crelt.js",
-
-        "@/": "./assets/js/"
-      }
+        "imports": {
+            "vue": "./assets/vendor/vue.esm-browser.prod.js?v=4.4.1",
+            "marked": "./assets/vendor/marked.esm.js?v=4.4.1",
+            "dompurify": "./assets/vendor/purify.es.mjs?v=4.4.1",
+            "fuse": "./assets/vendor/fuse.mjs?v=4.4.1",
+            "shiki": "./assets/vendor/shiki/core.js?v=4.4.1",
+            "shiki/engine": "./assets/vendor/shiki/engine-javascript.js?v=4.4.1",
+            "@codemirror/state": "./assets/vendor/codemirror/state.js?v=4.4.1",
+            "@codemirror/view": "./assets/vendor/codemirror/view.js?v=4.4.1",
+            "@codemirror/language": "./assets/vendor/codemirror/language.js?v=4.4.1",
+            "@codemirror/commands": "./assets/vendor/codemirror/commands.js?v=4.4.1",
+            "@codemirror/search": "./assets/vendor/codemirror/search.js?v=4.4.1",
+            "@codemirror/autocomplete": "./assets/vendor/codemirror/autocomplete.js?v=4.4.1",
+            "@codemirror/lang-markdown": "./assets/vendor/codemirror/lang-markdown.js?v=4.4.1",
+            "@codemirror/lang-html": "./assets/vendor/codemirror/lang-html.js?v=4.4.1",
+            "@codemirror/lang-css": "./assets/vendor/codemirror/lang-css.js?v=4.4.1",
+            "@codemirror/lang-javascript": "./assets/vendor/codemirror/lang-javascript.js?v=4.4.1",
+            "@codemirror/lang-php": "./assets/vendor/codemirror/lang-php.js?v=4.4.1",
+            "@lezer/common": "./assets/vendor/codemirror/lezer-common.js?v=4.4.1",
+            "@lezer/highlight": "./assets/vendor/codemirror/lezer-highlight.js?v=4.4.1",
+            "@lezer/lr": "./assets/vendor/codemirror/lezer-lr.js?v=4.4.1",
+            "@lezer/markdown": "./assets/vendor/codemirror/lezer-markdown.js?v=4.4.1",
+            "@lezer/html": "./assets/vendor/codemirror/lezer-html.js?v=4.4.1",
+            "@lezer/css": "./assets/vendor/codemirror/lezer-css.js?v=4.4.1",
+            "@lezer/javascript": "./assets/vendor/codemirror/lezer-javascript.js?v=4.4.1",
+            "@lezer/php": "./assets/vendor/codemirror/lezer-php.js?v=4.4.1",
+            "@marijn/find-cluster-break": "./assets/vendor/codemirror/find-cluster-break.js?v=4.4.1",
+            "style-mod": "./assets/vendor/codemirror/style-mod.js?v=4.4.1",
+            "w3c-keyname": "./assets/vendor/codemirror/w3c-keyname.js?v=4.4.1",
+            "crelt": "./assets/vendor/codemirror/crelt.js?v=4.4.1",
+            "@/App.js": "./assets/js/App.js?v=4.4.1",
+            "@/components/AppIcon.js": "./assets/js/components/AppIcon.js?v=4.4.1",
+            "@/components/AppModal.js": "./assets/js/components/AppModal.js?v=4.4.1",
+            "@/components/ComboBox.js": "./assets/js/components/ComboBox.js?v=4.4.1",
+            "@/components/DetailEditor.js": "./assets/js/components/DetailEditor.js?v=4.4.1",
+            "@/components/EmptyState.js": "./assets/js/components/EmptyState.js?v=4.4.1",
+            "@/components/MarkdownBlock.js": "./assets/js/components/MarkdownBlock.js?v=4.4.1",
+            "@/components/MarkdownEditor.js": "./assets/js/components/MarkdownEditor.js?v=4.4.1",
+            "@/components/MarkdownPreview.js": "./assets/js/components/MarkdownPreview.js?v=4.4.1",
+            "@/components/PromptWorkbench.js": "./assets/js/components/PromptWorkbench.js?v=4.4.1",
+            "@/components/TagPicker.js": "./assets/js/components/TagPicker.js?v=4.4.1",
+            "@/components/TriToggle.js": "./assets/js/components/TriToggle.js?v=4.4.1",
+            "@/components/ViewHeader.js": "./assets/js/components/ViewHeader.js?v=4.4.1",
+            "@/core/api.js": "./assets/js/core/api.js?v=4.4.1",
+            "@/core/assets.js": "./assets/js/core/assets.js?v=4.4.1",
+            "@/core/codeview.js": "./assets/js/core/codeview.js?v=4.4.1",
+            "@/core/detect.js": "./assets/js/core/detect.js?v=4.4.1",
+            "@/core/diagrams.js": "./assets/js/core/diagrams.js?v=4.4.1",
+            "@/core/enhance.js": "./assets/js/core/enhance.js?v=4.4.1",
+            "@/core/format.js": "./assets/js/core/format.js?v=4.4.1",
+            "@/core/fuzzy.js": "./assets/js/core/fuzzy.js?v=4.4.1",
+            "@/core/highlight.js": "./assets/js/core/highlight.js?v=4.4.1",
+            "@/core/languages.js": "./assets/js/core/languages.js?v=4.4.1",
+            "@/core/markdown.js": "./assets/js/core/markdown.js?v=4.4.1",
+            "@/core/math.js": "./assets/js/core/math.js?v=4.4.1",
+            "@/core/mcpclients.js": "./assets/js/core/mcpclients.js?v=4.4.1",
+            "@/core/scrollsync.js": "./assets/js/core/scrollsync.js?v=4.4.1",
+            "@/core/store.js": "./assets/js/core/store.js?v=4.4.1",
+            "@/core/theme.js": "./assets/js/core/theme.js?v=4.4.1",
+            "@/core/toast.js": "./assets/js/core/toast.js?v=4.4.1",
+            "@/main.js": "./assets/js/main.js?v=4.4.1",
+            "@/views/ConnectView.js": "./assets/js/views/ConnectView.js?v=4.4.1",
+            "@/views/LoginView.js": "./assets/js/views/LoginView.js?v=4.4.1",
+            "@/views/ProfilesView.js": "./assets/js/views/ProfilesView.js?v=4.4.1",
+            "@/views/ProjectView.js": "./assets/js/views/ProjectView.js?v=4.4.1",
+            "@/views/ProjectsView.js": "./assets/js/views/ProjectsView.js?v=4.4.1",
+            "@/views/SetupView.js": "./assets/js/views/SetupView.js?v=4.4.1",
+            "@/views/TagsView.js": "./assets/js/views/TagsView.js?v=4.4.1",
+            "@/views/admin/PromptsView.js": "./assets/js/views/admin/PromptsView.js?v=4.4.1",
+            "@/views/admin/SettingsView.js": "./assets/js/views/admin/SettingsView.js?v=4.4.1",
+            "@/views/admin/UpdatesView.js": "./assets/js/views/admin/UpdatesView.js?v=4.4.1",
+            "@/views/admin/UsersView.js": "./assets/js/views/admin/UsersView.js?v=4.4.1",
+            "@/views/project/ContentTab.js": "./assets/js/views/project/ContentTab.js?v=4.4.1",
+            "@/views/project/DetailsTab.js": "./assets/js/views/project/DetailsTab.js?v=4.4.1",
+            "@/views/project/PublishTab.js": "./assets/js/views/project/PublishTab.js?v=4.4.1",
+            "@/views/project/SettingsTab.js": "./assets/js/views/project/SettingsTab.js?v=4.4.1",
+            "@/views/project/StructureTab.js": "./assets/js/views/project/StructureTab.js?v=4.4.1",
+            "@/views/project/actions.js": "./assets/js/views/project/actions.js?v=4.4.1",
+            "@/views/project/runs.js": "./assets/js/views/project/runs.js?v=4.4.1",
+            "@/": "./assets/js/"
+        }
     }
   </script>
-  <link rel="modulepreload" href="assets/vendor/vue.esm-browser.prod.js">
-  <link rel="modulepreload" href="assets/js/main.js">
+  <link rel="modulepreload" href="assets/vendor/vue.esm-browser.prod.js?v=4.4.1">
+  <link rel="modulepreload" href="assets/js/main.js?v=4.4.1">
 </head>
 <body>
 <!-- Vue replaces the contents of #app; #app itself keeps whatever is on it,
@@ -90,6 +137,6 @@
   <div style="padding:2rem;font:16px system-ui">CourseForge needs JavaScript to run.</div>
 </noscript>
 
-<script type="module" src="assets/js/main.js"></script>
+<script type="module" src="assets/js/main.js?v=4.4.1"></script>
 </body>
 </html>
