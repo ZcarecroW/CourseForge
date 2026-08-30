@@ -8,8 +8,8 @@
  */
 import { computed, ref } from 'vue';
 import { state } from '@/core/store.js';
-import AppIcon from './AppIcon.js';
-import TriToggle from './TriToggle.js';
+import AppIcon from '@/components/AppIcon.js';
+import TriToggle from '@/components/TriToggle.js';
 
 export const DetailEditor = {
   name: 'DetailEditor',

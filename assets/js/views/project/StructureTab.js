@@ -3,7 +3,7 @@ import { state, openCourse, applyProject } from '@/core/store.js';
 import { post, put } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { plural } from '@/core/format.js';
-import { saveSettings } from './actions.js';
+import { saveSettings } from '@/views/project/actions.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';

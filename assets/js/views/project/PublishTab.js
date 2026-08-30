@@ -3,7 +3,7 @@ import { state, openCourse, bookstackInstances } from '@/core/store.js';
 import { post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { plural } from '@/core/format.js';
-import { busy, saveSettings } from './actions.js';
+import { busy, saveSettings } from '@/views/project/actions.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import EmptyState from '@/components/EmptyState.js';

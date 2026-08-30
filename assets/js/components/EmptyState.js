@@ -1,5 +1,5 @@
 /** The "nothing here yet" block, so every empty list explains itself the same way. */
-import AppIcon from './AppIcon.js';
+import AppIcon from '@/components/AppIcon.js';
 
 export const EmptyState = {
   name: 'EmptyState',

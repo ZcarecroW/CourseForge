@@ -3,7 +3,7 @@ import { state, openCourse, bookstackInstances, loadProjects } from '@/core/stor
 import { del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { formatDateTime } from '@/core/format.js';
-import { busy, saveSettings, tagAdd, tagRemove, tagInherit, tagToggle } from './actions.js';
+import { busy, saveSettings, tagAdd, tagRemove, tagInherit, tagToggle } from '@/views/project/actions.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';

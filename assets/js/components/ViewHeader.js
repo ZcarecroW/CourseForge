@@ -3,7 +3,7 @@
  * slot and – below 1024px – the button that opens the navigation drawer.
  */
 import { state } from '@/core/store.js';
-import AppIcon from './AppIcon.js';
+import AppIcon from '@/components/AppIcon.js';
 
 export const ViewHeader = {
   name: 'ViewHeader',

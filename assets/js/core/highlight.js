@@ -27,6 +27,7 @@ import { createHighlighterCore } from 'shiki';
 import { createJavaScriptRegexEngine } from 'shiki/engine';
 import DOMPurify from 'dompurify';
 
+import { stamped } from '@/core/assets.js';
 import { resolveLanguage, isPlain, languageLabel, normaliseInfo } from '@/core/languages.js';
 import { chooseLanguage } from '@/core/detect.js';
 
@@ -35,8 +36,14 @@ const THEMES = { light: 'github-light-default', dark: 'github-dark-default' };
 // Grammars are picked by name at runtime, so they cannot go through the import
 // map the way every other dependency does; they are resolved against this
 // module's own URL instead, which keeps them correct under any deploy path.
-const langsUrl = (file) => new URL(`../../vendor/shiki/langs/${file}.mjs`, import.meta.url).href;
-const themeUrl = (name) => new URL(`../../vendor/shiki/themes/${name}.mjs`, import.meta.url).href;
+//
+// The release stamp has to be put back on by hand for the same reason. A query
+// string is not inherited through `new URL(relative, base)`, so these would come
+// out unstamped - and they are served `immutable` for a year, which is exactly
+// the combination that leaves an upgraded installation highlighting with the
+// previous release's grammars.
+const langsUrl = (file) => stamped(new URL(`../../vendor/shiki/langs/${file}.mjs`, import.meta.url).href);
+const themeUrl = (name) => stamped(new URL(`../../vendor/shiki/themes/${name}.mjs`, import.meta.url).href);
 
 const CACHE_LIMIT = 120;
 

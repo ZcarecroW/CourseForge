@@ -38,7 +38,7 @@
  * made un-dismissable without every other one having to know about it.
  */
 import { onMounted, onBeforeUnmount, ref, nextTick } from 'vue';
-import AppIcon from './AppIcon.js';
+import AppIcon from '@/components/AppIcon.js';
 
 /* Anything that can hold focus. [tabindex] is in the list for the sake of
    custom controls; the tabindex="-1" ones it also matches are dropped below. */

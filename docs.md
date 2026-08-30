@@ -2276,6 +2276,38 @@ bundled project, while deployment stays a file copy. The `@/` prefix gives every
 module an absolute path to any other, so no file depends on where it sits in the
 tree.
 
+**Every asset URL carries the release: `?v=4.4.1`.** No build step means nothing
+is ever renamed when its contents change — `assets/vendor/vue.esm-browser.prod.js`
+is that path in every release — while the caching rules promise `immutable,
+max-age=31536000`. A browser holding an immutable entry does not revalidate, on a
+reload or on a hard reload, so before the stamp existed an upgrade reached
+returning visitors as new application code running against the *previous*
+release's Vue, marked and Shiki: some screens new, some old, errors where the two
+met, and no way to clear it short of emptying the browser cache by hand. That is
+what 4.4.0 did, and 4.4.1 is the repair.
+
+`php tools/assets.php` writes the stamp into `index.html` after `CF_VERSION` is
+bumped, and `--check` says whether it was forgotten. Three things follow from
+how import maps work, and each is load-bearing:
+
+- **Every module is listed in the map, not reached through the `@/` prefix.** A
+  prefix mapping appends the remainder of the path to its target and so cannot
+  carry a query string. An exact key can, and beats the prefix. The bare `@/`
+  stays at the end as a fallback so a module added but not yet stamped still
+  loads, uncached.
+- **No module imports another by a relative path.** A query string is not
+  inherited: `import './actions.js'` from a module loaded as
+  `ContentTab.js?v=4.4.1` resolves with no query at all. `tests/assets.test.php`
+  fails if one reappears.
+- **The three libraries reached by URL stamp themselves**, through
+  `core/assets.js`, because their names are decided at runtime rather than
+  written in the map: Shiki's grammars and themes, CodeMirror's stream modes,
+  Mermaid and MathJax.
+
+`index.html` is the one file served `no-cache`. It carries the map, and therefore
+the version every other URL is built from; a stale copy of it pins a visitor to a
+release they have already upgraded away from, and nothing else can rescue them.
+
 State is a single reactive `state` object in `core/store.js` plus a handful of
 derived selectors. The rule is: anything two views need lives in the store,
 anything one view needs stays in that view. The store never renders and never

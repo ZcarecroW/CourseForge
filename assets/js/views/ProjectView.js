@@ -4,11 +4,11 @@ import { attempt } from '@/core/toast.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import ViewHeader from '@/components/ViewHeader.js';
-import StructureTab from './project/StructureTab.js';
-import ContentTab from './project/ContentTab.js';
-import DetailsTab from './project/DetailsTab.js';
-import PublishTab from './project/PublishTab.js';
-import SettingsTab from './project/SettingsTab.js';
+import StructureTab from '@/views/project/StructureTab.js';
+import ContentTab from '@/views/project/ContentTab.js';
+import DetailsTab from '@/views/project/DetailsTab.js';
+import PublishTab from '@/views/project/PublishTab.js';
+import SettingsTab from '@/views/project/SettingsTab.js';
 
 const TABS = [
   { key: 'structure', label: 'Structure', icon: 'sitemap' },

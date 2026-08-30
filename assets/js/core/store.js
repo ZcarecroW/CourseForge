@@ -31,8 +31,8 @@
  * edits nobody has saved. See generationBlocks() and declareUnsaved().
  */
 import { reactive, computed, onBeforeUnmount } from 'vue';
-import { api, get, setCsrf, setUnauthorizedHandler } from './api.js';
-import { toast, attempt } from './toast.js';
+import { api, get, setCsrf, setUnauthorizedHandler } from '@/core/api.js';
+import { toast, attempt } from '@/core/toast.js';
 
 export const state = reactive({
   /* session */

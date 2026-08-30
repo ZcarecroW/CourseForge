@@ -1,10 +1,20 @@
-# Vendored libraries. Every file here is version-pinned (see VENDOR.md), so it
-# may be cached for as long as the browser likes: a different version arrives
-# under a different name, or after an explicit replacement.
+# Vendored libraries. Every file here is version-pinned (see VENDOR.md) and is
+# reached through a URL carrying the release stamp - `?v=<version>`, put there
+# by tools/assets.php for everything in the import map and by core/assets.js for
+# the grammars, Mermaid and MathJax, whose names are decided at runtime. So a
+# different build genuinely arrives at a different URL and this directory may be
+# cached for as long as the browser likes.
 #
-# There are over a hundred of them once the Shiki grammars are counted, which is
-# why this states the rule for the directory rather than listing files.
-# The MIME types for .js and .mjs are set by the .htaccess in the root.
+# It did not always work that way, and the difference matters. Before the stamp,
+# these paths were constant across releases while their contents were not, and
+# `immutable` is honoured through a reload AND a hard reload - so upgrading an
+# installation left every returning visitor running the new application against
+# the previous release's Vue, marked, DOMPurify and Shiki, with no way to clear
+# it short of emptying the browser cache by hand.
+#
+# The rule is stated for the directory rather than per file because there are
+# over four hundred of them once the Shiki grammars are counted. The MIME types
+# for .js and .mjs are set by the .htaccess in the root.
 <IfModule mod_headers.c>
     <FilesMatch "\.(js|mjs)$">
         Header set Cache-Control "public, max-age=31536000, immutable"

@@ -19,7 +19,11 @@
  */
 import DOMPurify from 'dompurify';
 
-const SCRIPT_URL = new URL('../../vendor/mermaid.min.js', import.meta.url).href;
+import { stamped } from '@/core/assets.js';
+
+// Stamped by hand: a query string is not inherited through new URL(), and this
+// file is served immutable for a year (see core/assets.js).
+const SCRIPT_URL = stamped(new URL('../../vendor/mermaid.min.js', import.meta.url).href);
 const CACHE_LIMIT = 60;
 
 const cache = new Map();     // theme and source → sanitised SVG, or the parse error

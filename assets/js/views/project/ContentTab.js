@@ -8,11 +8,11 @@ import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
 import { useScrollSync } from '@/core/scrollsync.js';
 import { compactNumber, plural } from '@/core/format.js';
-import { busy, patchDetails, tagAdd, tagRemove, tagInherit, tagToggle, inheritedTags, saveChapter } from './actions.js';
+import { busy, patchDetails, tagAdd, tagRemove, tagInherit, tagToggle, inheritedTags, saveChapter } from '@/views/project/actions.js';
 import {
   runs, openRuns, doneRuns, cronStalled, loadRuns, stopPolling, resetRuns, pollNow,
   startRun, cancelRun, forgetRun, runTone, runProgress, runWhere, cronProblem,
-} from './runs.js';
+} from '@/views/project/runs.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';

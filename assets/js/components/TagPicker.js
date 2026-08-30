@@ -8,7 +8,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { state } from '@/core/store.js';
 import { useFuzzy } from '@/core/fuzzy.js';
-import AppIcon from './AppIcon.js';
+import AppIcon from '@/components/AppIcon.js';
 
 export const TagPicker = {
   name: 'TagPicker',

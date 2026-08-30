@@ -57,8 +57,33 @@ DirectoryIndex index.html
     Header set Referrer-Policy "same-origin"
 </IfModule>
 
-# Caching of the vendored libraries is handled by assets/vendor/.htaccess, which
-# can state it once for the whole directory instead of naming every file.
+# --------------------------------------------------------------------- cache
+# There is no build step, so no file is ever renamed when its contents change:
+# assets/js/App.js is that path in every release. Cache-busting is therefore
+# done in the URL instead - `tools/assets.php` stamps `?v=<version>` onto every
+# asset index.html references, and `core/assets.js` does the same for the three
+# libraries whose names are decided at runtime.
+#
+# That is what makes the year below honest: `App.js?v=4.4.1` really cannot
+# change. Without it the promise is a lie that a browser has no way to catch,
+# and `immutable` is honoured through a reload and a hard reload alike - which
+# is how 4.4.0 reached people as new application code running against the
+# previous release's Vue and Shiki.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|mjs|css)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    # index.html is the one file that must never be held: it carries the import
+    # map, and therefore the version stamp that every other URL is built from.
+    # A stale copy of this pins a visitor to a release they have already
+    # upgraded away from, and nothing else can rescue them - so it is
+    # revalidated every time. That costs one conditional request answered by a
+    # 304 of a couple of hundred bytes.
+    <FilesMatch "^index\.html$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
 
 # --------------------------------------------------------------- compression
 <IfModule mod_deflate.c>

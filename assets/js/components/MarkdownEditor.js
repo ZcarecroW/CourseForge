@@ -43,6 +43,7 @@ import { css } from '@codemirror/lang-css';
 import { parseMixed } from '@lezer/common';
 import { tags as t } from '@lezer/highlight';
 
+import { stamped } from '@/core/assets.js';
 import { resolvedTheme } from '@/core/theme.js';
 import { resolveLanguage, isPlain, editorMode } from '@/core/languages.js';
 import { chooseLanguage } from '@/core/detect.js';
@@ -136,7 +137,10 @@ const placeholderTokens = marker(/\{\{[a-z_][a-z0-9_]*\}\}/g, 'cm-cf-token');
  * A language with no mode is not an error: the block stays plain monospace here
  * and is still highlighted in the preview, where Shiki has all two hundred.
  */
-const modeUrl = (file) => new URL(`../../vendor/codemirror/modes/${file}.js`, import.meta.url).href;
+// Stamped by hand, like Shiki's grammars: the mode is chosen by what the
+// author typed, so the name is not in the import map, and a query string is
+// not inherited through new URL(). See core/assets.js.
+const modeUrl = (file) => stamped(new URL(`../../vendor/codemirror/modes/${file}.js`, import.meta.url).href);
 
 const ts = () => javascript({ jsx: true, typescript: true });
 const phpSupport = async () => (await import('@codemirror/lang-php')).php();

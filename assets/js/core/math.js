@@ -21,7 +21,11 @@
  *   container, so nothing that merely looks like a delimiter inside a code
  *   block is ever picked up.
  */
-const SCRIPT_URL = new URL('../../vendor/mathjax/tex-mml-svg.js', import.meta.url).href;
+import { stamped } from '@/core/assets.js';
+
+// Stamped by hand: a query string is not inherited through new URL(), and this
+// file is served immutable for a year (see core/assets.js).
+const SCRIPT_URL = stamped(new URL('../../vendor/mathjax/tex-mml-svg.js', import.meta.url).href);
 const CACHE_LIMIT = 400;
 
 const cache = new Map();     // 'b' or 'i' plus the LaTeX → rendered HTML

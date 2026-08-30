@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue';
 import { state, openCourse, featureByKey, paramByKey } from '@/core/store.js';
-import { busy, patchDetails } from './actions.js';
+import { busy, patchDetails } from '@/views/project/actions.js';
 import { plural } from '@/core/format.js';
 
 import AppIcon from '@/components/AppIcon.js';
