@@ -46,9 +46,14 @@ final class PresetSpec
         public readonly string $chatPath = '/chat/completions',
         public readonly string $modelsPath = '/models',
         public readonly string $filesPath = '/files',
+        public readonly string $filesUploadPath = '',
+        public readonly string $filePurpose = 'batch',
         public readonly string $batchesPath = '/batches',
         public readonly string $batchEndpoint = '/v1/chat/completions',
         public readonly string $window = '24h',
+        public readonly bool $sendsWindow = true,
+        public readonly int $maxBatchRequests = 50000,
+        public readonly int $maxBatchMegabytes = 200,
         public readonly string $maxTokensField = 'max_tokens',
         public readonly array $strip = [],
         public readonly bool $local = false,
@@ -86,9 +91,14 @@ final class PresetSpec
             chatPath: (string)$row['chat_path'],
             modelsPath: (string)$row['models_path'],
             filesPath: (string)$row['files_path'],
+            filesUploadPath: (string)$row['files_upload_path'],
+            filePurpose: (string)$row['file_purpose'],
             batchesPath: (string)$row['batches_path'],
             batchEndpoint: (string)$row['batch_endpoint'],
             window: (string)$row['window'],
+            sendsWindow: (bool)$row['sends_window'],
+            maxBatchRequests: (int)$row['max_batch_requests'],
+            maxBatchMegabytes: (int)$row['max_batch_megabytes'],
             maxTokensField: (string)$row['max_tokens_field'],
             strip: $strip,
             local: (bool)$row['local'],
@@ -141,6 +151,19 @@ final class PresetSpec
     }
 
     /**
+     * Where the upload POST goes.
+     *
+     * Usually the same address the file is later deleted and downloaded at, so
+     * it defaults to `filesPath`. Together is why it can differ: it uploads to
+     * /files/upload and does everything else with the file at /files, which is
+     * not a shape any amount of "OpenAI-compatible" predicts.
+     */
+    public function uploadPath(): string
+    {
+        return $this->filesUploadPath !== '' ? $this->filesUploadPath : $this->filesPath;
+    }
+
+    /**
      * The row shape again, for storing an inline spec on a custom account.
      *
      * @return array<string,mixed>
@@ -156,9 +179,14 @@ final class PresetSpec
             'chat_path' => $this->chatPath,
             'models_path' => $this->modelsPath,
             'files_path' => $this->filesPath,
+            'files_upload_path' => $this->filesUploadPath,
+            'file_purpose' => $this->filePurpose,
             'batches_path' => $this->batchesPath,
             'batch_endpoint' => $this->batchEndpoint,
             'window' => $this->window,
+            'sends_window' => $this->sendsWindow,
+            'max_batch_requests' => $this->maxBatchRequests,
+            'max_batch_megabytes' => $this->maxBatchMegabytes,
             'max_tokens_field' => $this->maxTokensField,
             'strip' => $this->strip,
             'local' => $this->local,

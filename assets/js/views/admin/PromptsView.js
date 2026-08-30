@@ -22,21 +22,26 @@
  * editor - with a search that ignores the groups entirely, because the usual
  * question is "where is the one about diagrams" rather than "show me group
  * three".
+ *
+ * That navigation is not written here. It is `components/PromptWorkbench.js`,
+ * and the profile Prompts tab is the same component with different words in it.
+ * What stays in this file is everything about MEANING: which layer is being
+ * edited, that a slot can differ from the shipped text and separately be
+ * unsaved, and the Save button that writes the installation layer.
  */
-import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { get, put } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
-import { useFuzzy } from '@/core/fuzzy.js';
 import { plural } from '@/core/format.js';
 import { declareUnsaved } from '@/core/store.js';
 
 import AppIcon from '@/components/AppIcon.js';
-import EmptyState from '@/components/EmptyState.js';
+import PromptWorkbench from '@/components/PromptWorkbench.js';
 import ViewHeader from '@/components/ViewHeader.js';
 
 export const PromptsView = {
   name: 'PromptsView',
-  components: { AppIcon, EmptyState, ViewHeader },
+  components: { AppIcon, PromptWorkbench, ViewHeader },
   setup() {
     const loading = ref(true);
     const saving = ref(false);
@@ -44,15 +49,8 @@ export const PromptsView = {
     const groups = ref({});
     const slots = ref({});
 
-    const groupKey = ref('');
-    const selectedKey = ref('');
-    const search = ref('');
-    /** The slot list is a drawer rather than a column below 1024px. */
-    const listOpen = ref(false);
-
     /** key -> the text in the box, which may not be what the server holds. */
     const draft = reactive({});
-    const boxes = {};
 
     /* ---------------------------------------------------------------- load */
 
@@ -66,10 +64,6 @@ export const PromptsView = {
       groups.value = data.groups ?? {};
       slots.value = data.slots ?? {};
       seed();
-      if (!groupKey.value) groupKey.value = groupList.value[0]?.key ?? '';
-      if (!selectedKey.value || !slots.value[selectedKey.value]) {
-        selectedKey.value = inGroup(groupKey.value)[0]?.key ?? '';
-      }
       loading.value = false;
     }, 'Load prompts');
 
@@ -90,60 +84,6 @@ export const PromptsView = {
     );
 
     const inGroup = (key) => slotList.value.filter((slot) => slot.group === key);
-
-    const groupLabel = (key) => groups.value[key]?.label ?? key;
-
-    const currentGroup = computed(() => groupList.value.find((group) => group.key === groupKey.value) ?? null);
-
-    /**
-     * A search looks through every group, not only the open one. Somebody
-     * hunting for the Mermaid instructions has no reason to know that they live
-     * under Content details, and making them guess is the failure this screen
-     * is most likely to have.
-     */
-    const searching = computed(() => search.value.trim() !== '');
-
-    /**
-     * Searchable text for one slot, including whatever is currently written in
-     * it - somebody looking for the prompt that mentions Mermaid is far more
-     * likely to remember a phrase from the text than the slot's name.
-     */
-    const searchable = computed(() => slotList.value.map((slot) => ({
-      slot,
-      label: slot.label,
-      key: slot.key,
-      description: slot.description ?? '',
-      text: draft[slot.key] ?? '',
-    })));
-
-    const matches = useFuzzy(searchable, search, {
-      keys: ['label', 'key', 'description', 'text'],
-    });
-
-    const visibleSlots = computed(() =>
-      searching.value ? matches.value.map((hit) => hit.slot) : inGroup(groupKey.value)
-    );
-
-    const current = computed(() => {
-      const slot = slots.value[selectedKey.value];
-      return slot ? { key: selectedKey.value, ...slot } : null;
-    });
-
-    const select = (slot) => {
-      selectedKey.value = slot.key;
-      // Picking a search result out of another group takes the group with it,
-      // so clearing the search does not make the open slot vanish from the list.
-      if (slot.group !== groupKey.value) groupKey.value = slot.group;
-      listOpen.value = false;
-    };
-
-    const pickGroup = (key) => {
-      groupKey.value = key;
-      search.value = '';
-      if (!inGroup(key).some((slot) => slot.key === selectedKey.value)) {
-        selectedKey.value = inGroup(key)[0]?.key ?? '';
-      }
-    };
 
     /* -------------------------------------------------------------- states */
 
@@ -206,34 +146,12 @@ export const PromptsView = {
         : 'Back to the text the release ships.');
     };
 
-    /* -------------------------------------------------------- placeholders */
-
-    const registerBox = (key, el) => { if (el) boxes[key] = el; };
-
-    /** Drops a placeholder at the caret, so nobody has to type the braces. */
-    const insert = async (slot, placeholder) => {
-      const token = `{{${placeholder}}}`;
-      const el = boxes[slot.key];
-      const text = textOf(slot.key);
-      if (!el) { draft[slot.key] = text + token; return; }
-      const start = el.selectionStart ?? text.length;
-      const end = el.selectionEnd ?? start;
-      draft[slot.key] = text.slice(0, start) + token + text.slice(end);
-      await nextTick();
-      el.focus();
-      el.setSelectionRange(start + token.length, start + token.length);
-    };
-
-    // A literal pair of braces cannot appear in a template string - Vue closes
-    // the interpolation at the first one - so the example travels as data.
-    const tokenExample = `{${'{page_title}'}}`;
-
     return {
-      loading, saving, groupKey, selectedKey, search, listOpen, draft,
+      loading, saving, draft,
       load, save, discard, resetSlot,
-      groupList, visibleSlots, current, currentGroup, searching, groupLabel,
-      select, pickGroup, textOf, differs, isDirty, dirtyCount, customCount, slotCount, customIn,
-      insert, registerBox, tokenExample, plural,
+      groupList, slotList,
+      textOf, differs, isDirty, dirtyCount, customCount, slotCount, customIn,
+      plural,
     };
   },
   template: `
@@ -253,134 +171,55 @@ export const PromptsView = {
       </template>
     </view-header>
 
-    <!-- The one thing somebody has to know before editing anything here. -->
-    <div class="prompt-note">
-      <app-icon name="layers" :size="15" class="c-accent none" style="margin-top:1px"/>
-      <span>
-        These are the prompts the <strong>whole installation</strong> starts from. Every profile can override
-        any of the same slots for its own courses, and where it does, the profile wins. If you change
-        something here and a course carries on exactly as before, open that course's profile and look at its
-        Prompts tab - the override is what it is reading.
-      </span>
-    </div>
+    <prompt-workbench :groups="groupList" :slot-list="slotList" :values="draft" :loading="loading"
+                      box-placeholder="Empty puts the shipped text back - it does not send an empty prompt."
+                      empty-title="Pick a prompt on the left"
+                      empty-hint="Every AI request is built from these slots. Editing one here changes it for every course on this installation that does not override it in its profile."
+                      @edit="draft[$event.key] = $event.text">
 
-    <nav class="tabbar">
-      <button v-for="group in groupList" :key="group.key" class="tab"
-              :class="{ 'is-active': !searching && groupKey === group.key }" @click="pickGroup(group.key)">
-        {{ group.label }}
+      <!-- The one thing somebody has to know before editing anything here. -->
+      <template #note>
+        <app-icon name="layers" :size="15" class="c-accent none" style="margin-top:1px"/>
+        <span>
+          These are the prompts the <strong>whole installation</strong> starts from. Every profile can override
+          any of the same slots for its own courses, and where it does, the profile wins. If you change
+          something here and a course carries on exactly as before, open that course's profile and look at its
+          Prompts tab - the override is what it is reading.
+        </span>
+      </template>
+
+      <template #group-badge="{ group }">
         <span v-if="customIn(group.key)" class="badge badge--accent">{{ customIn(group.key) }}</span>
-      </button>
-    </nav>
+      </template>
 
-    <div class="workspace workspace--two">
-      <div v-if="listOpen" class="scrim" @click="listOpen = false"></div>
+      <template #mark="{ item }">
+        <span v-if="isDirty(item)" class="dot none" style="background:var(--warning)"
+              title="Edited and not yet saved"></span>
+        <span v-else-if="differs(item)" class="dot none" style="background:var(--accent)"
+              title="Different from the text the release ships"></span>
+      </template>
 
-      <!-- ------------------------------------------------ slots in a group -->
-      <aside class="pane pane--left" :class="{ 'is-open': listOpen }">
-        <div class="pane__head">
-          <span class="eyebrow grow truncate">
-            {{ searching ? 'Matches in every group' : (currentGroup ? currentGroup.label : 'Prompts') }}
-          </span>
-          <span class="badge none">{{ visibleSlots.length }}</span>
-          <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Close"
-                  aria-label="Close the prompt list"
-                  @click="listOpen = false"><app-icon name="x" :size="14"/></button>
-        </div>
+      <template #status="{ item }">
+        <span v-if="isDirty(item)" class="badge badge--warning none">unsaved</span>
+        <span v-else-if="differs(item)" class="badge badge--accent none">changed</span>
+        <span v-else class="badge none hide-sm">as shipped</span>
+        <button class="btn btn--sm none" :disabled="!differs(item)" @click="resetSlot(item)">
+          <app-icon name="inherit" :size="13"/> Reset this slot
+        </button>
+      </template>
 
-        <div class="pane__body">
-          <div style="padding:var(--s-3) var(--s-3) 0">
-            <div style="position:relative">
-              <app-icon name="search" :size="13"
-                        style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
-              <input v-model="search" placeholder="Find a prompt…" spellcheck="false"
-                     style="padding-left:28px">
-            </div>
-            <p v-if="!searching && currentGroup" class="hint mt-2">{{ currentGroup.description }}</p>
-            <p v-else-if="searching" class="hint mt-2">
-              Searching labels, keys and prompt text across all groups. Picking one opens its group.
-            </p>
-          </div>
+      <template #footer="{ item }">
+        <p class="hint">
+          Emptying this box does not send an empty instruction: on save it drops your version and puts the
+          text the release ships back. That is also what <strong>Reset this slot</strong> does.
+        </p>
 
-          <div class="tree">
-            <button v-for="slot in visibleSlots" :key="slot.key"
-                    class="tree__page" :class="{ 'is-active': selectedKey === slot.key }"
-                    :title="slot.label" @click="select(slot)">
-              <span class="grow truncate">
-                {{ slot.label }}
-                <span v-if="searching" class="t-2xs faint"> · {{ groupLabel(slot.group) }}</span>
-              </span>
-              <span v-if="isDirty(slot)" class="dot none" style="background:var(--warning)"
-                    title="Edited and not yet saved"></span>
-              <span v-else-if="differs(slot)" class="dot none" style="background:var(--accent)"
-                    title="Different from the text the release ships"></span>
-            </button>
-
-            <p v-if="!visibleSlots.length" class="t-xs faint" style="padding:var(--s-4);text-align:center">
-              Nothing matches that.
-            </p>
-          </div>
-        </div>
-      </aside>
-
-      <!-- ---------------------------------------------------- one slot -->
-      <section class="pane">
-        <template v-if="current">
-          <div class="pane__head">
-            <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show the other prompts"
-                    aria-label="Show the other prompts"
-                    @click="listOpen = true"><app-icon name="menu" :size="15"/></button>
-            <div class="col grow" style="min-width:0;gap:1px">
-              <span class="strong truncate">{{ current.label }}</span>
-              <code class="t-2xs faint truncate">{{ current.key }}</code>
-            </div>
-            <span v-if="isDirty(current)" class="badge badge--warning none">unsaved</span>
-            <span v-else-if="differs(current)" class="badge badge--accent none">changed</span>
-            <span v-else class="badge none hide-sm">as shipped</span>
-            <button class="btn btn--sm none" :disabled="!differs(current)" @click="resetSlot(current)">
-              <app-icon name="inherit" :size="13"/> Reset this slot
-            </button>
-          </div>
-
-          <div class="pane__body view-pad col gap-3">
-            <p v-if="current.description" class="hint">{{ current.description }}</p>
-
-            <div v-if="current.placeholders.length" class="col gap-1">
-              <span class="label">Placeholders</span>
-              <div class="row wrap gap-1">
-                <button v-for="placeholder in current.placeholders" :key="placeholder"
-                        class="placeholder-token" title="Insert this at the cursor"
-                        @click="insert(current, placeholder)">{{ placeholder }}</button>
-              </div>
-              <p class="hint">
-                Filled in for each request. Click one to drop it in at the cursor as
-                <code>{{ tokenExample }}</code>. A placeholder you leave out is simply not sent - nothing
-                breaks, the model is just told less.
-              </p>
-            </div>
-            <p v-else class="hint">This slot takes no placeholders - it is sent exactly as written.</p>
-
-            <textarea :key="current.key" :ref="el => registerBox(current.key, el)"
-                      :value="textOf(current.key)"
-                      @input="draft[current.key] = $event.target.value"
-                      class="mono prompt-editor" spellcheck="false"
-                      placeholder="Empty puts the shipped text back - it does not send an empty prompt."></textarea>
-
-            <p class="hint">
-              Emptying this box does not send an empty instruction: on save it drops your version and puts the
-              text the release ships back. That is also what <strong>Reset this slot</strong> does.
-            </p>
-
-            <details v-if="differs(current)">
-              <summary class="t-xs dim" style="cursor:pointer">Show the text the release ships</summary>
-              <pre class="log mt-2" style="white-space:pre-wrap">{{ current.default || '(this slot ships empty)' }}</pre>
-            </details>
-          </div>
-        </template>
-
-        <empty-state v-else-if="!loading" icon="file-text" title="Pick a prompt on the left"
-                     hint="Every AI request is built from these slots. Editing one here changes it for every course on this installation that does not override it in its profile."/>
-      </section>
-    </div>`,
+        <details v-if="differs(item)">
+          <summary class="t-xs dim" style="cursor:pointer">Show the text the release ships</summary>
+          <pre class="log mt-2" style="white-space:pre-wrap">{{ item.default || '(this slot ships empty)' }}</pre>
+        </details>
+      </template>
+    </prompt-workbench>`,
 };
 
 export default PromptsView;

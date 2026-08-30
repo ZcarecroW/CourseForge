@@ -51,7 +51,7 @@ use Throwable;
  * has no documented way to be cancelled. All of that is in
  * OpenRouterInlineBatch, and the inherited file-upload lane is replaced whole.
  */
-final class OpenRouterProvider extends OpenAiCompatibleProvider
+final class OpenRouterProvider extends OpenAiCompatibleProvider implements SearchCapable
 {
     /**
      * OpenRouter's spec. Baked in rather than listed in the preset table
@@ -579,7 +579,45 @@ final class OpenRouterProvider extends OpenAiCompatibleProvider
         $payload = parent::payload($request);
         $payload['model'] = self::plainSlug((string)($payload['model'] ?? ''));
 
+        // The web plugin rather than the `:online` suffix. They do the same
+        // thing, but the suffix is a second way of writing a model id - and this
+        // adapter already spends effort reducing model ids to the one form
+        // OpenRouter knows, because `anthropic/claude-opus-5:batch` means
+        // something to CourseForge and nothing to the endpoint. A plugin is a
+        // field, which cannot collide with any of that.
+        if ($request->research) {
+            $plugin = ['id' => 'web'];
+            if ($request->maxSearches > 0) {
+                $plugin['max_results'] = $request->maxSearches;
+            }
+            $payload['plugins'] = [$plugin];
+        }
+
         return $payload;
+    }
+
+    /* ------------------------------------------------------- SearchCapable */
+
+    public function supportsSearch(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Empty: the plugin is OpenRouter's own, applied in front of whichever
+     * upstream model is chosen, so it is not a property of the model.
+     *
+     * @return array<int,string>
+     */
+    public function searchModels(): array
+    {
+        return [];
+    }
+
+    public function searchNote(): string
+    {
+        return 'OpenRouter bills its web plugin per result returned, on top of the model\'s own '
+            . 'tokens, and the charge appears in the usage a queued run already reports.';
     }
 
     /**

@@ -1,7 +1,7 @@
 /**
  * Connect - handing a language model a key to this installation.
  *
- * In CourseForge 3 this screen did one thing: it made a token so Claude could
+ * In CourseForge 3 this screen did one thing: it made a token so a client could
  * be asked to write a page. In 4.0 the endpoint offers an MCP client nearly
  * everything the browser offers - creating courses, starting runs that spend
  * money for a day after the client has disconnected, and, for an administrator,
@@ -22,6 +22,7 @@ import { ref, reactive, computed, nextTick, onMounted } from 'vue';
 import { isAdmin } from '@/core/store.js';
 import { get, post, put, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
+import { MCP_CLIENTS } from '@/core/mcpclients.js';
 import { relativeTime, formatDate, plural } from '@/core/format.js';
 
 import AppIcon from '@/components/AppIcon.js';
@@ -304,7 +305,7 @@ export const ConnectView = {
      * How a connection's remaining life reads on its card.
      *
      * An expired connection is shown as expired rather than left to fail
-     * quietly at the client end, where the only symptom is a Claude that has
+     * quietly at the client end, where the only symptom is a client that has
      * stopped being able to see anything and cannot say why.
      */
     const expiry = (client) => {
@@ -319,10 +320,33 @@ export const ConnectView = {
       };
     };
 
-    /* ------------------------------------------------------------- copying */
+    /* ------------------------------------------------- setting a client up */
+
+    /**
+     * Which client the recipe is being shown for.
+     *
+     * This screen used to print one `claude mcp add` line, which was true and
+     * incomplete: the endpoint is ordinary streamable HTTP with a bearer token,
+     * and every major client can drive it. What they disagree about is where
+     * the configuration lives and what its keys are called, so the recipes are
+     * a table in `core/mcpclients.js` rather than prose here.
+     */
+    const client = ref(MCP_CLIENTS[0].key);
+    const clientList = MCP_CLIENTS;
+
+    const recipe = computed(() =>
+      MCP_CLIENTS.find((entry) => entry.key === client.value) ?? MCP_CLIENTS[0]);
+
+    /**
+     * The name the server is registered under on the client's side. It is a
+     * label in that client's config and nothing to do with this installation,
+     * so it is fixed rather than derived from the connection's own name - which
+     * may have spaces in it, and which several of these formats would refuse.
+     */
+    const SERVER_NAME = 'courseforge';
 
     const command = computed(() => (fresh.value
-      ? `claude mcp add --transport http courseforge ${connect.url} --header "Authorization: Bearer ${fresh.value.token}"`
+      ? recipe.value.build(connect.url, fresh.value.token, SERVER_NAME)
       : ''));
 
     /** The same endpoint with the token in the URL, for clients that take only a URL. */
@@ -347,6 +371,7 @@ export const ConnectView = {
       scopeList, grantable, allChosen, selectAll, toggleScope,
       load, create, startEdit, saveEdit, remove,
       labelFor, spendsFor, grants, inertScopes, expiry, command, urlWithToken, copy,
+      client, clientList, recipe,
       TTL_CHOICES, relativeTime, formatDate, plural,
     };
   },
@@ -409,13 +434,13 @@ export const ConnectView = {
 
         <!-- what this is ---------------------------------------------- -->
         <section class="card card--pad col gap-3">
-          <h3 class="card__title">Let a Claude client work on your courses</h3>
+          <h3 class="card__title">Let an AI client work on your courses</h3>
           <p class="hint">
-            CourseForge can hand a Claude client the same brief it would send a model itself - the course
+            CourseForge can hand a connected client the same brief it would send a model itself - the course
             outline, the page's place in it, the content details resolved for that page - and take the
-            finished page back. The writing then happens inside Claude, on your own plan, and CourseForge
-            never sees an API key. That is still the cheapest way to write a course, and it is what a
-            Claude Pro or Max subscription buys you here.
+            finished page back. The writing then happens inside that client, on whatever plan it runs on,
+            and CourseForge never sees an API key. That is still the cheapest way to write a course, and it
+            is what a Claude Pro or Max subscription, or a ChatGPT plan behind Codex, buys you here.
           </p>
           <p class="hint">
             In 4.0 a connection can do far more than that: create courses, start generation runs that carry
@@ -424,9 +449,10 @@ export const ConnectView = {
             once, when you create it.
           </p>
           <p class="hint">
-            Create a connection, then paste the line it gives you into a terminal on the machine where you
-            use Claude Code. The Claude desktop app takes the URL form instead, under
-            <strong>Settings, Connectors, Add custom connector</strong>.
+            The endpoint is ordinary streamable HTTP with a bearer token, so any client that speaks the
+            Model Context Protocol can drive it - Claude Code and the Claude desktop app, OpenAI's Codex
+            CLI, Cursor, VS Code, Gemini CLI, and anything else that can send one header. Create a
+            connection below and it will give you the exact configuration for whichever of them you use.
           </p>
           <div class="divider"></div>
           <p v-if="connect.url" class="hint">
@@ -473,13 +499,27 @@ export const ConnectView = {
           </div>
 
           <div class="form-row">
-            <label class="row between">
-              <span>Claude Code - paste this into a terminal</span>
-              <button class="btn btn--ghost btn--sm" @click="copy(command, 'Command')">
+            <label class="row between wrap gap-2">
+              <span>Set up a client</span>
+              <button class="btn btn--ghost btn--sm" @click="copy(command, 'Setup')">
                 <app-icon name="copy" :size="12"/> copy
               </button>
             </label>
+
+            <!-- A row of chips rather than a second tabbar: this sits inside a
+                 card, and .tabbar is a full-bleed strip with its own background
+                 and bottom rule. -->
+            <div class="row wrap gap-1">
+              <button v-for="entry in clientList" :key="entry.key" type="button"
+                      class="chip" :class="{ 'chip--on': client === entry.key }"
+                      @click="client = entry.key">{{ entry.label }}</button>
+            </div>
+
+            <p v-if="recipe.where" class="hint">
+              Goes in <span class="mono">{{ recipe.where }}</span>.
+            </p>
             <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ command }}</pre>
+            <p class="hint">{{ recipe.note }}</p>
           </div>
 
           <div class="form-row">
@@ -710,7 +750,7 @@ export const ConnectView = {
           </article>
 
           <empty-state v-if="!connect.clients.length" icon="link" title="Nothing connected yet"
-                       hint="Create a connection above and paste the line it gives you into your Claude client."/>
+                       hint="Create a connection above, then paste the configuration it gives you into whichever AI client you use."/>
           </template>
         </section>
 

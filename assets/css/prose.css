@@ -20,6 +20,18 @@
   letter-spacing: -0.015em;
 }
 .prose > :first-child { margin-top: 0; }
+.prose > :last-child { margin-bottom: 0; }
+
+/* Rendered Markdown inside a card or a list row, where the surrounding layout
+   already owns the spacing and the type is one step down. Same rendering, same
+   highlighting - only the air around it is different. */
+.prose--compact { font-size: var(--t-xs); line-height: 1.55; }
+.prose--compact > * + * { margin-top: 0.6em; }
+.prose--compact p { margin-block: 0.5em; }
+.prose--compact h1, .prose--compact h2, .prose--compact h3, .prose--compact h4 { margin-top: 0.8em; }
+.prose--compact h1 { font-size: 1.25em; }
+.prose--compact h2 { font-size: 1.15em; border: 0; padding-bottom: 0; }
+.prose--compact h3 { font-size: 1.05em; }
 .prose h1 { font-size: 1.6em; }
 .prose h2 {
   font-size: 1.32em;

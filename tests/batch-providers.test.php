@@ -26,8 +26,13 @@ if (PHP_SAPI !== 'cli') {
  * trusted at all.
  */
 
+use CourseForge\Ai\AiRequest;
 use CourseForge\Ai\Batch\BatchHandle;
+use CourseForge\Ai\Provider\AnthropicProvider;
 use CourseForge\Ai\Provider\OpenAiCompatibleProvider;
+use CourseForge\Ai\Provider\OpenRouterProvider;
+use CourseForge\Ai\Provider\PresetSpec;
+use CourseForge\Ai\Provider\Presets;
 use CourseForge\Ai\Provider\OpenAiProvider;
 use CourseForge\Ai\Provider\Probe;
 use CourseForge\Support\HttpException;
@@ -277,4 +282,102 @@ test('openai: the non-text models are kept out of the picker entirely', static f
     foreach (['dall-e-3', 'text-embedding-3-large', 'gpt-4o-realtime-preview'] as $id) {
         ok(!in_array($id, $picked, true), $id . ' is not something to write a course with');
     }
+});
+
+/* -------------------------------------- what a gateway is allowed to differ on */
+
+test('the upload address and the purpose come from the preset, not from OpenAI', static function (): void {
+    // The default: what OpenAI, Groq and every gateway that copied them expect.
+    $plain = PresetSpec::fromArray('plain', ['label' => 'Plain', 'base_url' => 'https://plain.test/v1']);
+    same('/files', $plain->uploadPath(), 'the upload goes where the files live');
+    same('batch', $plain->filePurpose, 'and is called what OpenAI calls it');
+    ok($plain->sendsWindow, 'and carries a completion window');
+
+    // Together: a different address, a different word, and no window at all.
+    $together = Presets::spec('together');
+    same('/files/upload', $together->uploadPath(), 'Together uploads to its own address');
+    same('/files', $together->filesPath, 'but deletes and downloads from the ordinary one');
+    same('batch-api', $together->filePurpose, 'and spells the purpose differently');
+    same(false, $together->sendsWindow, 'its window cannot be changed, so it is not sent');
+    same(50000, $together->maxBatchRequests, 'its published request ceiling');
+    same(100, $together->maxBatchMegabytes, 'and its published file ceiling, which is not OpenAI\'s');
+});
+
+test('a preset that says nothing about its ceilings still gets OpenAI\'s', static function (): void {
+    $plain = PresetSpec::fromArray('plain', ['label' => 'Plain', 'base_url' => 'https://plain.test/v1']);
+    same(50000, $plain->maxBatchRequests, 'the request ceiling is the default');
+    same(200, $plain->maxBatchMegabytes, 'and so is the byte one');
+
+    // The round trip a custom account takes when it is stored and read back.
+    $again = PresetSpec::fromArray('plain', $plain->toArray());
+    same($plain->uploadPath(), $again->uploadPath(), 'the upload path survives being stored');
+    same($plain->filePurpose, $again->filePurpose, 'and so does the purpose');
+    same($plain->sendsWindow, $again->sendsWindow, 'and the window decision');
+    same($plain->maxBatchMegabytes, $again->maxBatchMegabytes, 'and the ceilings');
+});
+
+/* ------------------------------------------------------- researching a page */
+
+test('the research decision reaches every provider that can act on it', static function (): void {
+    $body = static function (object $provider, AiRequest $request): array {
+        $m = new ReflectionMethod($provider, 'payload');
+        $m->setAccessible(true);
+        return $m->invoke($provider, $request);
+    };
+
+    $on = new AiRequest('claude-opus-5', 'sys', 'usr', 0.7, 4000, true, 3);
+    $off = new AiRequest('claude-opus-5', 'sys', 'usr', 0.7, 4000);
+
+    $anthropic = new AnthropicProvider(['api_key' => 'k']);
+    $tools = $body($anthropic, $on)['tools'] ?? null;
+    same('web_search_20250305', (string)($tools[0]['type'] ?? ''), 'Anthropic attaches its search tool');
+    same(3, (int)($tools[0]['max_uses'] ?? 0), 'with the per-page cap');
+    same(false, isset($body($anthropic, $off)['tools']), 'and nothing at all when research is off');
+
+    $router = new OpenRouterProvider(['api_key' => 'k']);
+    $plugins = $body($router, new AiRequest('anthropic/claude-opus-5', 's', 'u', 0.7, 0, true, 4))['plugins'] ?? null;
+    same('web', (string)($plugins[0]['id'] ?? ''), 'OpenRouter asks for its web plugin');
+
+    // The one provider where the model decides rather than the account: this
+    // endpoint only searches on the search-tuned models.
+    $openai = new OpenAiProvider(['api_key' => 'k']);
+    ok(isset($body($openai, new AiRequest('gpt-4o-search-preview', 's', 'u', 0.7, 0, true, 2))['web_search_options']),
+        'OpenAI sends the option to a model that understands it');
+    same(false, isset($body($openai, new AiRequest('gpt-5.6', 's', 'u', 0.7, 0, true, 2))['web_search_options']),
+        'and never to one that does not');
+});
+
+test('a request carries its research decision through withModel', static function (): void {
+    // withModel names every field, so one left out is dropped in silence - and
+    // it is the queued path that calls it, where nothing is noticed for a day.
+    $request = (new AiRequest('m:batch', 's', 'u', 0.7, 0, true, 7))->withModel('m');
+    same('m', $request->model, 'the model is what changed');
+    same(true, $request->research, 'and the research decision survived');
+    same(7, $request->maxSearches, 'along with its cap');
+});
+
+test('search narration never becomes the first paragraph of a page', static function (): void {
+    $extract = new ReflectionMethod(AnthropicProvider::class, 'extractText');
+    $extract->setAccessible(true);
+
+    // Without a search this is every text block joined, exactly as before.
+    same('AB', $extract->invoke(null, ['content' => [
+        ['type' => 'text', 'text' => 'A'],
+        ['type' => 'text', 'text' => 'B'],
+    ]]), 'an ordinary answer is unchanged');
+
+    // With one, the model narrates before it searches. That narration is not
+    // the page, and publishing it would put "I will search for..." into
+    // BookStack as the opening line.
+    same('# The page', $extract->invoke(null, ['content' => [
+        ['type' => 'text', 'text' => 'I will look up the current version.'],
+        ['type' => 'server_tool_use', 'id' => 's1'],
+        ['type' => 'web_search_tool_result', 'content' => []],
+        ['type' => 'text', 'text' => '# The page'],
+    ]]), 'only what follows the last search result is kept');
+
+    same('', $extract->invoke(null, ['content' => [
+        ['type' => 'text', 'text' => 'searching'],
+        ['type' => 'web_search_tool_result', 'content' => []],
+    ]]), 'a turn that searched and said nothing after it is empty, not narration');
 });

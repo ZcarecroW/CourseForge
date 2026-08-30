@@ -56,7 +56,14 @@ final class PageGenerator
 
         try {
             $plan = self::plan($profile, $project, $pageId, $feedback);
-            $content = Completion::run($profile, 'page', $plan['system'], $plan['user']);
+            $content = Completion::run(
+                $profile,
+                'page',
+                $plan['system'],
+                $plan['user'],
+                $plan['research'],
+                $plan['max_searches'],
+            );
             return self::store($project, $plan['page'], $content);
         } catch (Throwable $e) {
             self::fail($pageId, $e->getMessage());
@@ -69,7 +76,7 @@ final class PageGenerator
      *
      * @param array<string,mixed> $profile
      * @param array<string,mixed> $project
-     * @return array{page:array<string,mixed>,system:string,user:string}
+     * @return array{page:array<string,mixed>,system:string,user:string,research:bool,max_searches:int}
      */
     public static function plan(array $profile, array $project, int $pageId, string $feedback = ''): array
     {
@@ -128,7 +135,20 @@ final class PageGenerator
                 : ''
         );
 
-        return ['page' => $page, 'system' => $system, 'user' => $user];
+        // The two research facts travel beside the prompt rather than inside
+        // it, because they have two audiences. The prompt text tells whoever
+        // writes the page to look things up; these say who is doing the looking.
+        // CourseForge's own path turns them into the provider's search tool, and
+        // `get_page_brief` hands them to a connected client that has a search
+        // tool of its own - which is the cheaper of the two, since that client
+        // is already paying for its searches.
+        return [
+            'page' => $page,
+            'system' => $system,
+            'user' => $user,
+            'research' => (bool)($features['web_research'] ?? false),
+            'max_searches' => max(0, (int)($params['research_max_searches'] ?? 0)),
+        ];
     }
 
     /**

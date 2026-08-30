@@ -207,7 +207,7 @@ final class AdminTools
                     . 'somebody can create their own account from the setup screen rather than being handed a '
                     . 'password over a chat. The database keeps only a hash, so the code cannot be read back later - '
                     . 'pass it on now, or read the file on the server. Only one invite is ever open, so this cancels '
-                    . 'any earlier one, and it is good for a single account. Costs nothing.',
+                    . 'any earlier one. It is good for a single account unless max_uses says otherwise. Costs nothing.',
                 properties: [
                     'role' => Schema::enum(
                         'The role the account created with this code gets. Defaults to user.',
@@ -217,6 +217,13 @@ final class AdminTools
                         'How long the code stays valid. Defaults to ' . Invite::DEFAULT_TTL_HOURS . ' hours.',
                         1,
                         720
+                    ),
+                    'max_uses' => Schema::int(
+                        'How many accounts this one code may create. Defaults to 1. Anything above that is a code '
+                            . 'worth several accounts to whoever finds the file it is written in, so raise it only '
+                            . 'for a group you are expecting.',
+                        1,
+                        Invite::MAX_USES
                     ),
                 ],
                 required: [],
@@ -782,20 +789,34 @@ final class AdminTools
             $args->enum('role', [Actor::ROLE_USER, Actor::ROLE_ADMIN], Actor::ROLE_USER),
             max(1, min(720, $args->int('ttl_hours', Invite::DEFAULT_TTL_HOURS))),
             $actor->username,
+            max(1, min(Invite::MAX_USES, $args->int('max_uses', 1))),
         );
 
-        Audit::record($actor->username, 'user.invite', $issued['role'], 'written to ' . $issued['path'], 'mcp');
+        $maxUses = (int)$issued['max_uses'];
+
+        Audit::record(
+            $actor->username,
+            'user.invite',
+            $issued['role'],
+            'written to ' . $issued['path'] . ', good for ' . $maxUses . ' account(s)',
+            'mcp'
+        );
 
         return [
             'code' => $issued['code'],
             'role' => $issued['role'],
+            'max_uses' => $maxUses,
             'expires_at' => $issued['expires_at'],
             'expires' => self::when((int)$issued['expires_at']),
             'file' => $issued['path'],
             'note' => 'The code was written to ' . $issued['path'] . ' on the server and is returned here exactly '
                 . 'once - the database keeps only a hash of it. Any invite issued earlier has been cancelled.',
             'next' => 'Whoever holds this code opens the installation in a browser and types it into the setup '
-                . 'screen. The code and its file are removed the moment an account is created with it.',
+                . 'screen. ' . ($maxUses > 1
+                    ? 'It creates ' . $maxUses . ' accounts in all, and the code and its file are removed when the '
+                        . 'last of them is made - until then anyone who can read that file can take one of the '
+                        . 'remaining places.'
+                    : 'The code and its file are removed the moment an account is created with it.'),
         ];
     }
 

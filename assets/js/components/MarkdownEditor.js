@@ -109,6 +109,16 @@ const crossReferences = marker(/\(\u{1F517}\s*[^()\n]+\)/gu, 'cm-cf-xref');
 /** `{{c1::hidden text}}` — an Anki cloze deletion. */
 const clozeDeletions = marker(/\{\{c\d+::[^{}\n]*\}\}/g, 'cm-cf-cloze');
 
+/**
+ * `{{page_title}}` — a slot the prompt library fills in per request.
+ *
+ * Only switched on for the prompt screens (`tokens`), because in a page these
+ * braces would be a cloze deletion and the two must not be confused. The
+ * pattern deliberately will not match `{{c1::…}}`: a cloze has a digit and two
+ * colons after the `c`, and a placeholder name never contains a colon.
+ */
+const placeholderTokens = marker(/\{\{[a-z_][a-z0-9_]*\}\}/g, 'cm-cf-token');
+
 /* -- languages offered inside fenced blocks -------------------------------- */
 
 /**
@@ -253,6 +263,19 @@ export const MarkdownEditor = {
     placeholder: { type: String, default: '' },
     /** Changes when a different document is opened; same value means "same page". */
     resetKey: { type: [String, Number], default: 0 },
+
+    // What follows is what makes this the editor for a prompt and an outline as
+    // well as for a page. The defaults are the page, so nothing that already
+    // uses this component has to say anything.
+
+    /** Line numbers and the active-line gutter. Off for a short template. */
+    gutter: { type: Boolean, default: true },
+    /** The cross-reference and cloze markers, which only mean anything in a page. */
+    markers: { type: Boolean, default: true },
+    /** `{{placeholder}}` highlighting, which only means anything in a prompt. */
+    tokens: { type: Boolean, default: false },
+    /** What a screen reader calls this box. */
+    label: { type: String, default: 'Page content, Markdown' },
   },
   emits: ['update:modelValue', 'scroll'],
   setup(props, { emit, expose }) {
@@ -263,8 +286,7 @@ export const MarkdownEditor = {
     let echoing = false;          // guards the round trip back from the parent
 
     const extensions = () => [
-      lineNumbers(),
-      highlightActiveLineGutter(),
+      ...(props.gutter ? [lineNumbers(), highlightActiveLineGutter()] : []),
       highlightActiveLine(),
       highlightSpecialChars(),
       history(),
@@ -280,7 +302,7 @@ export const MarkdownEditor = {
       EditorState.allowMultipleSelections.of(true),
       EditorState.tabSize.of(2),
       EditorView.lineWrapping,
-      EditorView.contentAttributes.of({ spellcheck: 'false', 'aria-label': 'Page content, Markdown' }),
+      EditorView.contentAttributes.of({ spellcheck: 'false', 'aria-label': props.label }),
       // The line the cursor is on is highlighted, and while text is selected
       // that line is part of the selection — so the highlight would sit on top
       // of exactly the end an author is watching. This is what lets the
@@ -290,8 +312,8 @@ export const MarkdownEditor = {
       )),
       markdown({ base: markdownLanguage, extensions: [fencedCode], addKeymap: true }),
       syntaxHighlighting(highlightStyle),
-      crossReferences,
-      clozeDeletions,
+      ...(props.markers ? [crossReferences, clozeDeletions] : []),
+      ...(props.tokens ? [placeholderTokens] : []),
       cmPlaceholder(props.placeholder),
       darkness.of(EditorView.darkTheme.of(resolvedTheme.value === 'dark')),
       // CodeMirror's own history keymap gives redo Ctrl+Shift+Z on macOS and on
@@ -387,7 +409,25 @@ export const MarkdownEditor = {
       view?.dispatch({ effects: darkness.reconfigure(EditorView.darkTheme.of(theme === 'dark')) });
     });
 
-    expose({ topLine, scrollToLine, focus: () => view?.focus() });
+    /**
+     * Drops text in at the caret, replacing the selection.
+     *
+     * The prompt screens used to do this by hand against a textarea's
+     * selectionStart/selectionEnd; CodeMirror owns its own selection, so it has
+     * to be asked. The caret lands after what was inserted, which is where
+     * somebody who has just clicked a placeholder chip wants to carry on.
+     */
+    const insertAtCursor = (text) => {
+      if (!view) return;
+      const { from, to } = view.state.selection.main;
+      view.dispatch({
+        changes: { from, to, insert: text },
+        selection: { anchor: from + text.length },
+      });
+      view.focus();
+    };
+
+    expose({ topLine, scrollToLine, insertAtCursor, focus: () => view?.focus() });
 
     return { host };
   },

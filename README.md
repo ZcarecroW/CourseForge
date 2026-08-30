@@ -13,7 +13,8 @@ chapters, written pages, flashcards — and publishes it into a
         └─ CourseForge publishes it      into BookStack, links and all
 ```
 
-You can do all of that in a browser, or you can do all of it from Claude Code.
+You can do all of that in a browser, or you can do all of it from an AI client —
+Claude Code, the Claude desktop app, OpenAI Codex, Cursor, VS Code or Gemini CLI.
 
 ## What it is made of
 
@@ -60,10 +61,10 @@ background, is in [docs.md](docs.md).
 
 ### The whole application, over MCP
 
-CourseForge 3.2 offered a Claude client six tools, all of them variations on
+CourseForge 3.2 offered a connected client six tools, all of them variations on
 "here is a writing brief, give me the page back". That is still here, and it is
-still the cheapest way to write a course: the writing happens inside Claude, on
-your own subscription, and the server never holds a credential.
+still the cheapest way to write a course: the writing happens inside the client,
+on your own subscription, and the server never holds a credential.
 
 Version 4 adds the other half — everything the browser can do:
 
@@ -71,6 +72,19 @@ Version 4 adds the other half — everything the browser can do:
 claude mcp add --transport http courseforge https://your-install/api/mcp.php \
   --header "Authorization: Bearer cf4_..."
 ```
+
+The endpoint is ordinary streamable HTTP with a bearer token, so it is not a
+Claude feature — Codex takes the same connection in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.courseforge]
+url = "https://your-install/api/mcp.php"
+bearer_token_env_var = "COURSEFORGE_TOKEN"
+tool_timeout_sec = 1800
+```
+
+The **Connect** screen writes the exact configuration for whichever client you
+use, so neither of these has to be typed from memory.
 
 > *"Create a Vue 3 course in CourseForge, design the outline, then queue the
 > whole thing to Anthropic's batch queue and tell me what it will cost."*

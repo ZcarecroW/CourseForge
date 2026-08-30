@@ -21,6 +21,12 @@ if (PHP_SAPI !== 'cli') {
  * publishes the plain code by writing INVITE-CODE.txt next to index.html. A
  * test has no business rewriting the installation's own invite file, so it
  * makes its own row and points it at the scratch directory instead.
+ *
+ * An invite may now be worth more than one account, so a third property joins
+ * the two above: a code with places left is still open, and the last place can
+ * only be taken once however many callers reach for it at the same moment. The
+ * helper below defaults to one use, which is what makes every test written
+ * before that existed still describe the behaviour it was written for.
  */
 
 use CourseForge\Security\Invite;
@@ -34,16 +40,36 @@ function inviteHash(string $code): string
 }
 
 /** @return array{0:string,1:int} the plain code and the row it was written as */
-function openInvite(int $expiresAt = 0): array
+function openInvite(int $expiresAt = 0, int $maxUses = 1): array
 {
     Db::run('UPDATE invites SET used_at = ?, used_by = ? WHERE used_at = 0', [time(), 'superseded by a test']);
 
     $code = 'ABCD-EFGH-JKLM-NPQR-STUV-WXYZ';
     Db::run(
-        'INSERT INTO invites (code_hash, role, file_path, created_at, expires_at) VALUES (?,?,?,?,?)',
-        [inviteHash($code), 'admin', CF_DATA . '/' . Invite::FILE, time(), $expiresAt]
+        'INSERT INTO invites (code_hash, role, file_path, created_at, expires_at, max_uses) VALUES (?,?,?,?,?,?)',
+        [inviteHash($code), 'admin', CF_DATA . '/' . Invite::FILE, time(), $expiresAt, $maxUses]
     );
     return [$code, Db::lastId()];
+}
+
+/**
+ * Spends the invite, putting INVITE-CODE.txt back if anything removed it.
+ *
+ * This suite runs inside a real installation and the file next to index.html is
+ * that installation's own; consume() itself does not touch it, but a test that
+ * gets this wrong would delete the code its developer is using.
+ */
+function spend(array $invite, string $username): bool
+{
+    $rootFile = CF_ROOT . '/' . Invite::FILE;
+    $saved = is_file($rootFile) ? (string)file_get_contents($rootFile) : null;
+    try {
+        return Invite::consume($invite, $username);
+    } finally {
+        if ($saved !== null && !is_file($rootFile)) {
+            file_put_contents($rootFile, $saved);
+        }
+    }
 }
 
 test('a code that does not match the open invite is refused', static function (): void {
@@ -117,4 +143,77 @@ test('a wrong code is refused the same way when there is no invite at all', stat
         'refused'
     );
     same(false, Invite::status()['open'], 'and the status says so plainly');
+});
+
+/* ------------------------------------------------- an invite worth several */
+
+test('an invite for several accounts stays open until its places run out', static function (): void {
+    [$code, $id] = openInvite(0, 3);
+
+    foreach (['alice' => 1, 'bob' => 2] as $who => $expected) {
+        ok(spend(Invite::verify($code), (string)$who), $who . ' takes a place');
+        same($expected, (int)(Db::row('SELECT uses FROM invites WHERE id = ?', [$id])['uses'] ?? 0), 'the count moves');
+        ok(Invite::open() !== null, 'and the invite is still open after ' . $expected);
+    }
+
+    ok(spend(Invite::verify($code), 'carol'), 'carol takes the last one');
+    same(null, Invite::open(), 'which closes it');
+    same(403, raises(static fn(): array => Invite::verify($code), 'a used-up code')->status(), 'and the code is refused');
+
+    $row = Db::row('SELECT uses, used_at, used_by FROM invites WHERE id = ?', [$id]) ?? [];
+    same(3, (int)($row['uses'] ?? 0), 'all three places were taken');
+    ok((int)($row['used_at'] ?? 0) > 0, 'the row is stamped closed');
+    same('carol', (string)($row['used_by'] ?? ''), 'by whoever took the last place');
+});
+
+test('the last place is only ever handed out once', static function (): void {
+    [$code, $id] = openInvite(0, 2);
+
+    $invite = Invite::verify($code);
+    ok(spend($invite, 'alice'), 'the first place is taken');
+
+    // Both callers hold the row as it was BEFORE either of them spent it, which
+    // is exactly the shape of two requests arriving with the same code at once.
+    // The count is re-read inside the UPDATE, so only one of them can match.
+    $taken = 0;
+    foreach (['bob', 'carol'] as $who) {
+        if (spend($invite, $who)) {
+            $taken++;
+        }
+    }
+
+    same(1, $taken, 'exactly one of the two racing callers gets the last place');
+    same(2, (int)(Db::row('SELECT uses FROM invites WHERE id = ?', [$id])['uses'] ?? 0), 'and the count never passes the ceiling');
+    same(null, Invite::open(), 'the invite is closed');
+});
+
+test('an expiry closes an invite that still has places left', static function (): void {
+    [$code, $id] = openInvite(time() - 60, 5);
+
+    same(null, Invite::open(), 'an invite past its expiry is not offered, however many places it had');
+    same(403, raises(static fn(): array => Invite::verify($code), 'an expired code')->status(), 'refused');
+    same(0, (int)(Db::row('SELECT uses FROM invites WHERE id = ?', [$id])['uses'] ?? -1), 'and nothing was spent');
+});
+
+test('status reports the places, and an invite with places left keeps its file', static function (): void {
+    [$code, $id] = openInvite(0, 3);
+    $file = CF_DATA . '/' . Invite::FILE;
+    file_put_contents($file, 'the code lives here');
+
+    $status = Invite::status();
+    same(3, (int)$status['max_uses'], 'the ceiling is reported');
+    same(0, (int)$status['uses'], 'and so is the count');
+    same(3, (int)$status['uses_left'], 'and what is left');
+
+    $invite = Invite::verify($code);
+    spend($invite, 'alice');
+    Invite::discard(Db::row('SELECT * FROM invites WHERE id = ?', [$id]) ?? []);
+    ok(is_file($file), 'the file survives, because the code is in it and two places are left');
+    same(2, (int)Invite::status()['uses_left'], 'and the status says how many');
+
+    spend(Invite::verify($code), 'bob');
+    spend(Invite::verify($code), 'carol');
+    Invite::discard(Db::row('SELECT * FROM invites WHERE id = ?', [$id]) ?? []);
+    same(false, is_file($file), 'the last place takes the file with it');
+    same(false, Invite::status()['open'], 'and the invite is closed');
 });

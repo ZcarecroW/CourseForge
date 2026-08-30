@@ -25,8 +25,12 @@ use CourseForge\Support\HttpException;
  * worth.
  *
  * The plain code is in that file and nowhere else - the database keeps a hash,
- * the same way it does for a password or a connection token. An invite is good
- * for one account and, unless it is the first one, has an expiry.
+ * the same way it does for a password or a connection token. An invite carries
+ * a number of uses and, unless it is the first one, an expiry; the ordinary
+ * invite is worth one account, and an administrator can issue one worth more
+ * when a whole group is being let in at once. A code worth five accounts is
+ * worth five accounts to whoever finds the file, which is why the ceiling is
+ * low and the file is still the only place the code exists.
  */
 final class Invite
 {
@@ -34,6 +38,16 @@ final class Invite
 
     /** How long an invite an administrator issues from the app stays valid. */
     public const DEFAULT_TTL_HOURS = 48;
+
+    /**
+     * The most accounts one code may ever create.
+     *
+     * Not a technical limit - the counter would hold any number. It is a blast
+     * radius: the code sits in a plain file, and whoever finds that file gets
+     * every remaining use of it. Fifty is enough for a cohort and small enough
+     * that leaving one open is not the same as leaving the door open.
+     */
+    public const MAX_USES = 50;
 
     /**
      * Makes sure a brand-new installation has an open invite and a file to read
@@ -61,24 +75,36 @@ final class Invite
      * Writes a new invite and its file.
      *
      * @param int $ttlHours 0 for an invite that does not expire (the first one)
-     * @return array{code:string,path:string,role:string,expires_at:int}
+     * @param int $maxUses how many accounts this one code may create
+     * @return array{code:string,path:string,role:string,expires_at:int,max_uses:int}
      */
-    public static function issue(string $role, int $ttlHours = self::DEFAULT_TTL_HOURS, string $issuedBy = ''): array
-    {
+    public static function issue(
+        string $role,
+        int $ttlHours = self::DEFAULT_TTL_HOURS,
+        string $issuedBy = '',
+        int $maxUses = 1,
+    ): array {
         $role = Actor::normaliseRole($role);
         $code = self::freshCode();
         $expires = $ttlHours > 0 ? time() + ($ttlHours * 3600) : 0;
+        // Clamped rather than refused: every caller already clamps at its own
+        // edge, and this is the one place none of them can bypass.
+        $maxUses = max(1, min(self::MAX_USES, $maxUses));
 
         // Only one invite is ever open: the file holds exactly one code, so a
         // second open row would be a code nobody can read.
         Db::run('UPDATE invites SET used_at = ?, used_by = ? WHERE used_at = 0', [time(), 'superseded']);
         Db::run(
-            'INSERT INTO invites (code_hash, role, created_at, expires_at, issued_by) VALUES (?, ?, ?, ?, ?)',
-            [self::hash($code), $role, time(), $expires, $issuedBy]
+            'INSERT INTO invites (code_hash, role, created_at, expires_at, issued_by, max_uses) '
+                . 'VALUES (?, ?, ?, ?, ?, ?)',
+            [self::hash($code), $role, time(), $expires, $issuedBy, $maxUses]
         );
 
-        $path = self::write(Db::lastId(), $code, $role, $expires);
-        return ['code' => $code, 'path' => $path, 'role' => $role, 'expires_at' => $expires];
+        $path = self::write(Db::lastId(), $code, $role, $expires, $maxUses);
+        return [
+            'code' => $code, 'path' => $path, 'role' => $role,
+            'expires_at' => $expires, 'max_uses' => $maxUses,
+        ];
     }
 
     /**
@@ -88,8 +114,13 @@ final class Invite
      */
     public static function open(): ?array
     {
+        // Two conditions, and both are needed. "uses < max_uses" is what runs
+        // out on its own; "used_at = 0" is still how a row is closed by hand -
+        // superseded by a newer invite, or abandoned because its file was lost -
+        // and such a row can be closed with slots still on it.
         return Db::row(
-            'SELECT * FROM invites WHERE used_at = 0 AND (expires_at = 0 OR expires_at > ?) ORDER BY id DESC LIMIT 1',
+            'SELECT * FROM invites WHERE used_at = 0 AND uses < max_uses '
+                . 'AND (expires_at = 0 OR expires_at > ?) ORDER BY id DESC LIMIT 1',
             [time()]
         );
     }
@@ -136,12 +167,17 @@ final class Invite
     /**
      * Spends an invite, and says whether this caller is the one who spent it.
      *
-     * The write is conditional on the row still being open rather than being a
-     * bare UPDATE, because "an invite is good for one account" has to hold when
-     * two requests arrive with the same code at the same instant. SQLite
-     * serialises the two statements, so the second one matches no rows and is
-     * told so - two simultaneous setups used to produce two administrators from
-     * a single one-shot code.
+     * The write is conditional on the row still having a slot rather than being
+     * a bare UPDATE, because "an invite is good for N accounts" has to hold when
+     * two requests arrive with the same code at the same instant. The count is
+     * re-read inside the statement and SQLite serialises the two writers, so the
+     * one that arrives second at the last slot matches no rows and is told so -
+     * two simultaneous setups used to produce two administrators from a single
+     * one-shot code.
+     *
+     * Taking the last slot is what stamps used_at, which is what closes the row.
+     * used_by therefore names whoever took that last one; the record of each
+     * individual redemption is the invite.redeem line in the audit log.
      *
      * The caller is expected to be inside the transaction that creates the
      * account, so that a spent invite and an account are the same event.
@@ -149,8 +185,10 @@ final class Invite
     public static function consume(array $invite, string $username): bool
     {
         return Db::run(
-            'UPDATE invites SET used_at = ?, used_by = ? WHERE id = ? AND used_at = 0',
-            [time(), $username, (int)$invite['id']]
+            'UPDATE invites SET uses = uses + 1, used_by = ?, '
+                . 'used_at = CASE WHEN uses + 1 >= max_uses THEN ? ELSE 0 END '
+                . 'WHERE id = ? AND used_at = 0 AND uses < max_uses',
+            [$username, time(), (int)$invite['id']]
         )->rowCount() > 0;
     }
 
@@ -162,9 +200,20 @@ final class Invite
      * deleting it before the account is certain would leave an invite nobody
      * can read. Both fixed locations are swept as well as the recorded one, so
      * that a file left behind by an earlier invite cannot outlive it.
+     *
+     * An invite with slots left keeps its file, for the same reason: the code is
+     * in it and nowhere else, and the next person to redeem it has to be able to
+     * be sent it. The row is re-read rather than trusted from the caller's copy,
+     * which was fetched before the slot was taken and would still say the invite
+     * is open even on the redemption that closed it.
      */
     public static function discard(array $invite): void
     {
+        $row = Db::row('SELECT used_at FROM invites WHERE id = ?', [(int)($invite['id'] ?? 0)]);
+        if ($row !== null && (int)$row['used_at'] === 0) {
+            return;
+        }
+
         @unlink(self::pathOf($invite));
         @unlink(CF_ROOT . '/' . self::FILE);
         @unlink(CF_DATA . '/' . self::FILE);
@@ -182,9 +231,14 @@ final class Invite
     {
         $invite = self::open();
         if ($invite === null) {
-            return ['open' => false, 'path' => '', 'role' => '', 'expires_at' => 0];
+            return [
+                'open' => false, 'path' => '', 'role' => '', 'expires_at' => 0,
+                'uses' => 0, 'max_uses' => 0, 'uses_left' => 0,
+            ];
         }
         $path = self::pathOf($invite);
+        $uses = (int)$invite['uses'];
+        $maxUses = (int)$invite['max_uses'];
         return [
             'open' => true,
             'path' => $path,
@@ -192,6 +246,9 @@ final class Invite
             'role' => (string)$invite['role'],
             'created_at' => (int)$invite['created_at'],
             'expires_at' => (int)$invite['expires_at'],
+            'uses' => $uses,
+            'max_uses' => $maxUses,
+            'uses_left' => max(0, $maxUses - $uses),
         ];
     }
 
@@ -233,19 +290,42 @@ final class Invite
      * data directory if it is not. Both are refused over HTTP by the shipped
      * server configuration.
      */
-    private static function write(int $inviteId, string $code, string $role, int $expires): string
-    {
-        $when = $expires > 0
-            ? 'This code expires on ' . gmdate('Y-m-d H:i', $expires) . ' UTC.'
-            : 'This code does not expire, but it can only be used once.';
+    private static function write(
+        int $inviteId,
+        string $code,
+        string $role,
+        int $expires,
+        int $maxUses = 1,
+    ): string {
+        // How many accounts, said once and reused, because the count has to
+        // agree in all three places this file states it.
+        $many = $maxUses > 1;
+        $accounts = $many ? "{$maxUses} {$role} accounts" : "one {$role} account";
+
+        $lifetime = $expires > 0
+            ? 'This code expires on ' . gmdate('Y-m-d H:i', $expires) . ' UTC'
+            : 'This code does not expire';
+        $when = $lifetime . ($many
+            ? ", and it can be used {$maxUses} times."
+            : ', but it can only be used once.');
 
         // The first code is the only way to reach the setup screen; a later one
         // is redeemed against an installation that already has accounts, and
         // saying "setup screen" there would send its holder to a form that
         // refuses them.
         $purpose = $expires > 0
-            ? "This code creates one {$role} account, whose password is chosen by whoever uses it:"
+            ? "This code creates {$accounts}, whose password" . ($many ? 's are' : ' is')
+                . ' chosen by whoever uses it:'
             : "Type this code into the setup screen to create the first {$role} account:";
+
+        // A code worth several accounts is worth several accounts to whoever
+        // finds it, and the file is where it is findable. Say so here rather
+        // than only in the documentation.
+        $fate = $many
+            ? "The code is deleted the moment the {$maxUses}th account is created with it, "
+                . 'so until then anyone who can read this file can create one of the '
+                . 'remaining accounts.'
+            : 'The code is deleted the moment an account is created with it.';
 
         $body = <<<TXT
         CourseForge - invite code
@@ -257,9 +337,9 @@ final class Invite
 
         {$when}
 
-        The code is deleted the moment an account is created with it. If you lose
-        this file before then, an administrator can issue a new invite from
-        Settings, or you can delete the row from the `invites` table and restart.
+        {$fate} If you lose this file before then, an administrator can issue a
+        new invite from Settings, or you can delete the row from the `invites`
+        table and restart.
 
         Nobody who cannot read this file can create an account, which is the
         whole point of it - keep it off a public web server. The shipped

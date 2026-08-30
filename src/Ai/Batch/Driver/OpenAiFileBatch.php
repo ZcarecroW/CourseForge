@@ -106,14 +106,22 @@ final class OpenAiFileBatch
         $fileId = $this->upload($jsonl);
 
         $path = $spec->batchesPath;
-        $res = $this->provider->batchRequest('POST', $path, [
+        $body = [
             'input_file_id' => $fileId,
             // Not the URL that was just posted to. Groq serves its batches at
             // /openai/v1/batches and wants "/v1/chat/completions" here, without
             // the prefix, which is why the preset carries the field separately.
             'endpoint' => $spec->batchEndpoint,
-            'completion_window' => $spec->window,
-        ]);
+        ];
+        // Sent only where it means something. Together documents a window that
+        // "defaults to 24h and cannot be changed" and a create body with no
+        // such field, and a submission is validated hours after it is accepted
+        // - so an argument about a field nobody can change is not worth having
+        // at the point where the whole course has already been encoded.
+        if ($spec->sendsWindow) {
+            $body['completion_window'] = $spec->window;
+        }
+        $res = $this->provider->batchRequest('POST', $path, $body);
         $this->assertQueueExists($res->status, $path);
         $this->provider->batchAssert($res, 'the batch submission', $this->provider->batchUrl($path), true);
 
@@ -322,7 +330,9 @@ final class OpenAiFileBatch
     private function upload(string $jsonl): string
     {
         $spec = $this->provider->spec();
-        $url = $this->provider->batchUrl($spec->filesPath);
+        // The address the upload actually went to, so a 404 names the path that
+        // answered rather than the one files are deleted from.
+        $url = $this->provider->batchUrl($spec->uploadPath());
 
         $res = $this->provider->batchUpload($jsonl, self::FILENAME);
 
@@ -332,7 +342,7 @@ final class OpenAiFileBatch
                 . number_format(strlen($jsonl) / 1048576, 1) . ' MB). Generate this run in smaller selections.'
             );
         }
-        $this->assertUploadLane($res->status, $spec->filesPath);
+        $this->assertUploadLane($res->status, $spec->uploadPath());
         $this->provider->batchAssert($res, 'the batch file upload', $url, true);
 
         $id = (string)(is_array($res->data) ? ($res->data['id'] ?? '') : '');

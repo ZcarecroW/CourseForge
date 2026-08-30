@@ -15,7 +15,7 @@ use RuntimeException;
  */
 final class Db
 {
-    public const SCHEMA_VERSION = 6;
+    public const SCHEMA_VERSION = 7;
 
     private static ?PDO $pdo = null;
 
@@ -362,6 +362,8 @@ final class Db
                 issued_by  TEXT NOT NULL DEFAULT '',
                 created_at INTEGER NOT NULL,
                 expires_at INTEGER NOT NULL DEFAULT 0,
+                max_uses   INTEGER NOT NULL DEFAULT 1,
+                uses       INTEGER NOT NULL DEFAULT 0,
                 used_at    INTEGER NOT NULL DEFAULT 0,
                 used_by    TEXT NOT NULL DEFAULT ''
             );
@@ -481,11 +483,31 @@ final class Db
         // actually resets a password.
         self::ensureColumn($pdo, 'users', 'password_reset_at', 'INTEGER NOT NULL DEFAULT 0');
 
+        // An invite that is worth several accounts is one row with a counter
+        // rather than several rows, because the plain code lives in exactly one
+        // file and a second open row would be a code nobody can read.
+        //
+        // The defaults are what make this invisible to an installation that
+        // upgrades: every invite it already has is worth one account and has
+        // been used zero times, which is precisely what it meant before the
+        // columns existed.
+        self::ensureColumn($pdo, 'invites', 'max_uses', 'INTEGER NOT NULL DEFAULT 1');
+        self::ensureColumn($pdo, 'invites', 'uses', 'INTEGER NOT NULL DEFAULT 0');
+
+        // A row that was genuinely redeemed before the counter existed would
+        // otherwise read as "0 of 1 used" for ever. The three excluded names
+        // are the ones the application writes when it closes a row
+        // administratively rather than because somebody spent it.
+        $pdo->exec(
+            "UPDATE invites SET uses = 1 "
+            . "WHERE uses = 0 AND used_at > 0 AND used_by NOT IN ('', 'superseded', 'file lost')"
+        );
+
         if (self::schemaVersion($pdo) < 3) {
             self::upgradeToV3($pdo);
         }
-        // Versions 4, 5 and 6 only add tables and columns, which the statements
-        // above have already made - there is no data to move.
+        // Versions 4, 5, 6 and 7 only add tables and columns, which the
+        // statements above have already made - there is no data to move.
         if (self::schemaVersion($pdo) < self::SCHEMA_VERSION) {
             self::setMeta($pdo, 'schema_version', (string)self::SCHEMA_VERSION);
         }

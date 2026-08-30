@@ -163,6 +163,21 @@
   line-height: 1.35;
 }
 .chip--magic { background: var(--magic-soft); color: var(--magic); }
+
+/* A row of chips used as a picker rather than as labels: quiet until chosen,
+   so the row reads as one control with one answer. Padding is even, because
+   nothing follows the text - the label chips leave room for a button. */
+button.chip {
+  padding-inline: 9px;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background var(--speed) var(--ease), color var(--speed) var(--ease);
+}
+button.chip:hover { color: var(--text); }
+button.chip.chip--on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .chip--off { background: var(--neutral-soft); color: var(--text-faint); text-decoration: line-through; }
 .chip--inherited { background: transparent; border: 1px dashed var(--border-strong); color: var(--text-dim); padding-right: 9px; }
 .chip__value { opacity: 0.72; }

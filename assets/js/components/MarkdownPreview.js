@@ -2,157 +2,26 @@
  * The rendered half of the editor.
  *
  * `core/markdown.js` produces the HTML synchronously and leaves three kinds of
- * placeholder behind — a fenced block, a Mermaid diagram, a formula — each of
- * which needs a library this component loads on first use. Everything here is
- * about making that finishing pass cheap enough to survive continuous typing:
+ * placeholder behind — a fenced block, a Mermaid diagram, a formula — which
+ * `core/enhance.js` fills in. That pass is shared with `MarkdownBlock`, so a
+ * code block here and a code block in a release note are the same thing; what
+ * is left in this file is only what the *editor* needs on top of it:
  *
  * - the Markdown is re-rendered on a short debounce, not per character;
- * - every library caches by source, so a placeholder that did not change is
- *   refilled from memory rather than laid out again;
  * - each pass carries a token, and a pass whose token has been superseded drops
- *   its result instead of writing into a document that no longer exists.
- *
- * A fenced block also gets a header built here rather than in the Markdown:
- * the sanitiser that stands between a generated page and the DOM forbids
- * `<button>`, and rightly so. Everything that arrives as text is sanitised;
- * the three controls above a block are constructed, so they are not text at any
- * point and there is nothing to sanitise. One delegated listener on the body
- * serves all of them, which also means the header costs nothing per block.
- *
- * The component also answers where each source line ended up on screen, which
- * is what lets the split view keep both halves on the same passage.
+ *   its result instead of writing into a document that no longer exists;
+ * - and every top-level block's position is measured afterwards, which is what
+ *   lets the split view keep both halves on the same passage.
  */
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { renderMarkdown } from '@/core/markdown.js';
-import { planBlock, highlightCode } from '@/core/highlight.js';
-import { renderDiagram } from '@/core/diagrams.js';
-import { renderMath } from '@/core/math.js';
+import { enhance, bindBlocks, resetDiagrams } from '@/core/enhance.js';
 import { resolvedTheme } from '@/core/theme.js';
-import { codeWrap, codeNumbers, toggleCodeWrap, toggleCodeNumbers, copyText } from '@/core/codeview.js';
-import { toast } from '@/core/toast.js';
+import { codeWrap, codeNumbers } from '@/core/codeview.js';
 
-import { ICONS } from '@/components/AppIcon.js';
 import EmptyState from '@/components/EmptyState.js';
 
 const DEBOUNCE = 180;
-const COPIED_FOR = 1600;
-
-/* -- the header above a fenced block --------------------------------------- */
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
-/** One of `AppIcon`'s glyphs, built by hand because this is not a template. */
-function glyph(name, className) {
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('width', '13');
-  svg.setAttribute('height', '13');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '2');
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-  svg.setAttribute('aria-hidden', 'true');
-  if (className) svg.setAttribute('class', className);
-  for (const d of ICONS[name] ?? []) {
-    const path = document.createElementNS(SVG_NS, 'path');
-    path.setAttribute('d', d);
-    svg.append(path);
-  }
-  return svg;
-}
-
-/**
- * A control in the header. The two toggles carry both of their glyphs and let
- * the stylesheet decide which one shows, so flipping a preference is a class on
- * the scroller rather than a walk over every block on the page.
- */
-function control(action, label, icons) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = `cf-block__btn cf-block__btn--${action}`;
-  button.dataset.codeAction = action;
-  button.setAttribute('aria-label', label);
-  button.title = label;
-  for (const [name, state] of icons) button.append(glyph(name, `cf-block__icon is-${state}`));
-  return button;
-}
-
-const TOGGLE_TITLES = {
-  wrap: ['Long lines wrap — click to let them scroll instead (all code blocks)',
-    'Long lines scroll — click to wrap them instead (all code blocks)'],
-  numbers: ['Line numbers are shown — click to hide them (all code blocks)',
-    'Line numbers are hidden — click to show them (all code blocks)'],
-};
-
-const COPY_LABEL = 'Copy this block';
-
-/** The tick after a copy is a class on the block; the label is what says so. */
-function uncopy(figure) {
-  figure.classList.remove('is-copied');
-  const button = figure.querySelector('[data-code-action="copy"]');
-  if (!button) return;
-  button.setAttribute('aria-label', COPY_LABEL);
-  button.title = COPY_LABEL;
-}
-
-/** Keeps the two toggles' labels and pressed state in step with the preference. */
-function describeToggles(root) {
-  if (!root) return;
-  for (const [action, [on, off]] of Object.entries(TOGGLE_TITLES)) {
-    const pressed = action === 'wrap' ? codeWrap.value : codeNumbers.value;
-    for (const button of root.querySelectorAll(`[data-code-action="${action}"]`)) {
-      button.title = pressed ? on : off;
-      button.setAttribute('aria-label', pressed ? on : off);
-      button.setAttribute('aria-pressed', String(pressed));
-    }
-  }
-}
-
-/**
- * Wraps one plain `<pre class="cf-code">` in its header. The line anchor moves
- * to the wrapper, because the wrapper is now what occupies that place on the
- * page and the scroll link measures real positions.
- */
-function dress(block, code, plan) {
-  const figure = document.createElement('figure');
-  figure.className = 'cf-block';
-  figure.cfCode = code;
-
-  const line = block.getAttribute('data-src-line');
-  if (line !== null) {
-    figure.setAttribute('data-src-line', line);
-    block.removeAttribute('data-src-line');
-  }
-  block.removeAttribute('data-info');
-
-  const bar = document.createElement('figcaption');
-  bar.className = 'cf-block__bar';
-
-  const name = document.createElement('span');
-  name.className = 'cf-block__lang';
-  name.textContent = plan.label;
-  if (plan.detected) {
-    name.classList.add('is-detected');
-    name.title = plan.replaced
-      ? `Fenced as “${plan.replaced}”, but this reads as ${plan.label}`
-      : `No language on the fence — this reads as ${plan.label}`;
-  }
-  bar.append(name);
-
-  const tools = document.createElement('span');
-  tools.className = 'cf-block__tools';
-  tools.append(
-    control('wrap', TOGGLE_TITLES.wrap[0], [['wrap-text', 'on'], ['wrap-text-off', 'off']]),
-    control('numbers', TOGGLE_TITLES.numbers[0], [['list-ordered', 'on'], ['list-ordered-off', 'off']]),
-    control('copy', COPY_LABEL, [['copy', 'on'], ['check', 'done']]),
-  );
-  bar.append(tools);
-
-  block.replaceWith(figure);
-  figure.append(bar, block);
-  return figure;
-}
 
 export const MarkdownPreview = {
   name: 'MarkdownPreview',
@@ -169,119 +38,9 @@ export const MarkdownPreview = {
     let timer = null;
     let pass = 0;
     let anchors = [];
-    let copiedTimer = null;
+    let unbind = null;
 
     const hasContent = computed(() => props.source.trim() !== '');
-
-    /* -- the finishing pass ----------------------------------------------- */
-
-    /**
-     * The source of a diagram or a formula is the element's own text, which
-     * rendering then replaces. It is kept on the node as well, so a second pass
-     * over the same element — a theme change redraws diagrams without touching
-     * the Markdown — still has the original to work from.
-     */
-    const sourceOf = (element) => {
-      element.cfSource ??= element.textContent;
-      return element.cfSource;
-    };
-
-    const fill = (element, markup) => {
-      element.innerHTML = markup;
-      element.classList.add('is-rendered');
-      element.classList.remove('is-failed');
-    };
-
-    /** A diagram that does not parse is replaced by what Mermaid said about it. */
-    const fail = (element, error) => {
-      element.textContent = String(error?.message ?? error);
-      element.classList.add('is-rendered', 'is-failed');
-    };
-
-    /** Swaps the plain listing inside a dressed block for its highlighted twin. */
-    const swapCode = (figure, markup) => {
-      const holder = document.createElement('div');
-      holder.innerHTML = markup;
-      const next = holder.firstElementChild;
-      const current = figure.querySelector('pre');
-      if (!next || !current) return;
-      // Shiki calls its element `shiki`; both share the presentation rules.
-      next.classList.add('cf-code');
-      current.replaceWith(next);
-    };
-
-    async function enhance(token) {
-      const root = body.value;
-      if (!root) return;
-
-      const jobs = [];
-
-      // Every block is dressed, whether or not a grammar can be found for it:
-      // the header, the numbers and the copy button do not depend on Shiki. A
-      // pass that follows a theme change rather than an edit runs over the same
-      // elements again, and a block already inside its header is finished —
-      // dressing it twice would nest one figure inside another.
-      for (const block of root.querySelectorAll('pre.cf-code')) {
-        if (block.closest('.cf-block')) continue;
-        const code = block.textContent.replace(/\n$/, '');
-        const plan = planBlock(code, block.dataset.info ?? '');
-        const figure = dress(block, code, plan);
-        if (!plan.id) continue;
-        jobs.push(highlightCode(code, plan.id).then((markup) => {
-          if (token === pass && markup && figure.isConnected) swapCode(figure, markup);
-        }));
-      }
-      describeToggles(root);
-
-      // Both sources are the element's own text, which is also what is on
-      // screen until the library that replaces them has loaded.
-      for (const slot of root.querySelectorAll('div.cf-diagram:not(.is-rendered)')) {
-        jobs.push(renderDiagram(sourceOf(slot), resolvedTheme.value)
-          .then((svg) => { if (token === pass && slot.isConnected) fill(slot, svg); })
-          .catch((error) => { if (token === pass && slot.isConnected) fail(slot, error); }));
-      }
-
-      // A formula that does not compile comes back as MathJax's own error
-      // markup, so a rejection here only means the library never arrived —
-      // in which case the LaTeX stays on screen and the next pass tries again.
-      for (const slot of root.querySelectorAll('.cf-math:not(.is-rendered)')) {
-        jobs.push(renderMath(sourceOf(slot), slot.classList.contains('cf-math--block'))
-          .then((markup) => { if (token === pass && slot.isConnected) fill(slot, markup); })
-          .catch((error) => console.warn('[CourseForge] no formulas:', error)));
-      }
-
-      await Promise.all(jobs);
-      if (token !== pass) return;
-      measure();
-      emit('rendered');
-    }
-
-    /* -- the block controls ------------------------------------------------ */
-
-    async function copyBlock(button) {
-      const figure = button.closest('.cf-block');
-      if (!figure) return;
-      if (!await copyText(figure.cfCode ?? '')) {
-        toast.error('The clipboard is not available in this browser.');
-        return;
-      }
-      clearTimeout(copiedTimer);
-      for (const other of body.value?.querySelectorAll('.cf-block.is-copied') ?? []) uncopy(other);
-
-      figure.classList.add('is-copied');
-      button.setAttribute('aria-label', 'Copied');
-      button.title = 'Copied';
-      copiedTimer = setTimeout(() => uncopy(figure), COPIED_FOR);
-    }
-
-    const onBodyClick = (event) => {
-      const button = event.target.closest?.('[data-code-action]');
-      if (!button) return;
-      const action = button.dataset.codeAction;
-      if (action === 'wrap') toggleCodeWrap();
-      else if (action === 'numbers') toggleCodeNumbers();
-      else if (action === 'copy') copyBlock(button);
-    };
 
     /* -- where each source line landed ------------------------------------ */
 
@@ -348,11 +107,19 @@ export const MarkdownPreview = {
 
     /* -- rendering --------------------------------------------------------- */
 
+    /**
+     * The measuring that used to end the finishing pass now follows it here:
+     * `enhance` is shared with every other reader of Markdown in the
+     * application, and none of them has a scroll link to re-align.
+     */
+    const finish = (token) => enhance(body.value, { alive: () => token === pass })
+      .then(() => { if (token === pass) { measure(); emit('rendered'); } });
+
     function render() {
       pass += 1;
       const token = pass;
       html.value = renderMarkdown(props.source);
-      nextTick(() => enhance(token));
+      nextTick(() => finish(token));
     }
 
     watch(() => props.source, () => {
@@ -363,11 +130,9 @@ export const MarkdownPreview = {
     // A theme change only concerns diagrams: Shiki ships both palettes in one
     // render and MathJax draws in `currentColor`.
     watch(resolvedTheme, () => {
-      for (const slot of body.value?.querySelectorAll('div.cf-diagram.is-rendered') ?? []) {
-        slot.classList.remove('is-rendered');
-      }
+      resetDiagrams(body.value);
       pass += 1;
-      enhance(pass);
+      finish(pass);
     });
 
     /**
@@ -391,24 +156,21 @@ export const MarkdownPreview = {
     };
 
     // Wrapping and numbering are a class on the scroller, so nothing is
-    // re-rendered; only the words on the two toggles have to catch up. Both
-    // change the height of every block, so the scroll link is told to re-align.
-    watch([codeWrap, codeNumbers], () => {
-      describeToggles(body.value);
-      nextTick(remeasure);
-    });
+    // re-rendered, and `bindBlocks` keeps the words on the two toggles in step.
+    // Both change the height of every block, so the scroll link is told to
+    // re-align, which is all that is left for this screen to do about it.
+    watch([codeWrap, codeNumbers], () => nextTick(remeasure));
 
     onMounted(() => {
-      enhance(pass);
-      body.value.addEventListener('click', onBodyClick);
+      finish(pass);
+      unbind = bindBlocks(body.value);
       sizes = new ResizeObserver(remeasure);
       sizes.observe(body.value);
     });
 
     onBeforeUnmount(() => {
       clearTimeout(timer);
-      clearTimeout(copiedTimer);
-      body.value?.removeEventListener('click', onBodyClick);
+      unbind?.();
       sizes?.disconnect();
     });
 
@@ -421,7 +183,7 @@ export const MarkdownPreview = {
     };
   },
   template: `
-    <div class="pane__body view-pad cf-preview" ref="scroller" @scroll.passive="onScroll"
+    <div class="pane__body view-pad cf-preview cf-reader" ref="scroller" @scroll.passive="onScroll"
          :class="{ 'is-wrap': codeWrap, 'is-numbered': codeNumbers }">
       <div v-show="hasContent" class="prose" ref="body" v-html="html"></div>
       <empty-state v-if="!hasContent" icon="file-text" title="No content yet"

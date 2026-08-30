@@ -33,12 +33,12 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { state, loadUpdate, loadSettings, go } from '@/core/store.js';
 import { get, post } from '@/core/api.js';
 import { attempt } from '@/core/toast.js';
-import { renderMarkdown } from '@/core/markdown.js';
 import { formatDateTime, relativeTime, plural } from '@/core/format.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';
 import EmptyState from '@/components/EmptyState.js';
+import MarkdownBlock from '@/components/MarkdownBlock.js';
 import ViewHeader from '@/components/ViewHeader.js';
 
 /**
@@ -82,7 +82,7 @@ const OUTCOMES = {
 
 export const UpdatesView = {
   name: 'UpdatesView',
-  components: { AppIcon, AppModal, EmptyState, ViewHeader },
+  components: { AppIcon, AppModal, EmptyState, MarkdownBlock, ViewHeader },
   setup() {
     const loading = ref(true);
     const checking = ref(false);
@@ -254,8 +254,6 @@ export const UpdatesView = {
       return '';
     });
 
-    /** Release notes are Markdown written by somebody else, so they are sanitised. */
-    const notes = computed(() => renderMarkdown(latest.value?.body ?? ''));
 
     /* -------------------------------------------------------------- checking */
 
@@ -396,7 +394,7 @@ export const UpdatesView = {
 
     return {
       state, loading, checking, info, latest, settings, schedule, readiness, backups, history,
-      currentVersion, headline, blocking, warnings, canInstall, automatic, schedulerProblem, notes,
+      currentVersion, headline, blocking, warnings, canInstall, automatic, schedulerProblem,
       checkNow, job, jobTitle, askInstall, askRollback, closeJob, startJob, finished, logLines,
       openLog, historyLines, triggerLabel, outcomeFor, reload, go,
       formatDateTime, relativeTime, plural,
@@ -482,7 +480,10 @@ export const UpdatesView = {
             </span>
           </div>
           <div class="card__body">
-            <div v-if="notes" class="prose" v-html="notes"></div>
+            <!-- The same rendering a page gets: highlighted fences, real diagrams,
+                 typeset formulas. Release notes used to be the one place in the
+                 application where a fenced mermaid block stayed a placeholder for ever. -->
+            <markdown-block v-if="latest && latest.body" :source="latest.body" compact/>
             <p v-else class="hint">This release was published without any notes.</p>
           </div>
         </section>

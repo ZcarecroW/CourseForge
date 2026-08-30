@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace CourseForge\Ai\Provider;
 
+use CourseForge\Ai\AiRequest;
+
 /**
  * OpenAI itself, and every endpoint that was configured before the preset
  * picker existed.
@@ -36,7 +38,7 @@ namespace CourseForge\Ai\Provider;
  * LM Studio catalogue against OpenAI's own model names would empty the picker
  * of the models the user actually has.
  */
-class OpenAiProvider extends OpenAiCompatibleProvider
+class OpenAiProvider extends OpenAiCompatibleProvider implements SearchCapable
 {
     /**
      * The preset OpenAI would have if it were in the table.
@@ -267,6 +269,72 @@ class OpenAiProvider extends OpenAiCompatibleProvider
      * @param array<string,mixed> $payload
      * @return array<string,mixed>
      */
+    /**
+     * Models that can search from /chat/completions.
+     *
+     * This is the one provider where the capability belongs to the model rather
+     * than to the account, and it is worth being exact about why. OpenAI's
+     * general web-search tool lives on the Responses API; CourseForge speaks
+     * chat/completions, where searching is instead a `web_search_options` field
+     * that only the search-tuned models honour. Sending it anywhere else is at
+     * best ignored, so the model is what decides and `searchModels()` publishes
+     * the list rather than letting the toggle fail quietly.
+     */
+    private const SEARCH_MODELS = '/-search(-preview)?(-\\d{4}-\\d{2}-\\d{2})?$/i';
+
+    /* ------------------------------------------------------- SearchCapable */
+
+    public function supportsSearch(): bool
+    {
+        return true;
+    }
+
+    /**
+     * The search-tuned models this account can actually see.
+     *
+     * Non-empty on purpose, unlike the other three providers: here it is a real
+     * restriction, and the interface's contract is that an empty array means
+     * "the provider did not say". Saying nothing would let somebody switch
+     * research on for a course written by an ordinary model and get no
+     * searching and no explanation.
+     *
+     * @return array<int,string>
+     */
+    public function searchModels(): array
+    {
+        $out = [];
+        foreach ($this->models() as $model) {
+            $id = is_array($model) ? (string)($model['id'] ?? '') : (string)$model;
+            if ($id !== '' && preg_match(self::SEARCH_MODELS, $id) === 1) {
+                $out[] = $id;
+            }
+        }
+        return $out;
+    }
+
+    public function searchNote(): string
+    {
+        return 'On this endpoint only OpenAI\'s search-tuned models can search, and they are billed '
+            . 'per call on top of their tokens. A course written by any other model ignores the toggle.';
+    }
+
+    /** The shared body, plus the one field that is OpenAI's alone. */
+    protected function payload(AiRequest $request): array
+    {
+        $payload = parent::payload($request);
+
+        // Added here rather than in the shared builder because it is not a
+        // shared field: OpenRouter, Groq, Together and the rest of the
+        // compatible lane have never heard of it, and OpenRouter - which does
+        // search, through a plugin - would then carry two contradictory ways of
+        // asking for the same thing.
+        if ($request->research && preg_match(self::SEARCH_MODELS, trim($request->model)) === 1) {
+            $payload['web_search_options'] = new \stdClass();
+        }
+
+        return $payload;
+    }
+
     protected function tuneForModel(array $payload, string $model): array
     {
         if (preg_match(self::REASONING, trim($model)) !== 1) {

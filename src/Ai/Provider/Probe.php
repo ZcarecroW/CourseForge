@@ -47,8 +47,14 @@ final class Probe
      * definitive `no` on a batch list whose download died mid-body. Nothing
      * distinguishes such a row from an honest one after the fact, so they all
      * go rather than leaving one installation quietly unable to batch.
+     *
+     * 4 retires every row version 3 wrote, because version 3 asked the upload
+     * lane about `purpose=batch` on every gateway. A gateway whose purpose is
+     * spelled differently - Together's is `batch-api` - could answer that with
+     * a refusal that says nothing about whether the lane works, so the stored
+     * verdict was about a question the run never asks.
      */
-    public const VERSION = 3;
+    public const VERSION = 4;
 
     /** The queue is there and this key may use it. */
     public const YES = 'yes';
@@ -154,7 +160,10 @@ final class Probe
 
         // Probe 3 - is there an upload lane? A queue without one cannot be fed
         // by the file-JSONL driver, whatever the queue itself reports.
-        $files = $this->get($this->spec->filesPath . '?purpose=batch&limit=1');
+        // The purpose the submission will actually use, not the word OpenAI
+        // happens to use for it: Together's is 'batch-api', and a probe that
+        // asks a different question from the one the run asks is not a probe.
+        $files = $this->get($this->spec->filesPath . '?purpose=' . rawurlencode($this->spec->filePurpose) . '&limit=1');
         $codes['files'] = $files->status;
 
         if ($files->status === 404 || $files->status === 405) {

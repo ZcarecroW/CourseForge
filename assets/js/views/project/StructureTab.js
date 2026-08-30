@@ -8,10 +8,11 @@ import { saveSettings } from './actions.js';
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';
 import EmptyState from '@/components/EmptyState.js';
+import MarkdownBlock from '@/components/MarkdownBlock.js';
 
 export const StructureTab = {
   name: 'StructureTab',
-  components: { AppIcon, AppModal, EmptyState },
+  components: { AppIcon, AppModal, EmptyState, MarkdownBlock },
   setup() {
     const project = openCourse;
     const topic = ref(project.value?.topic ?? '');
@@ -189,7 +190,9 @@ export const StructureTab = {
                 Published book title: <strong>{{ publishedAs }}</strong>, from the <code>#</code> line of the outline.
                 In CourseForge this course is called <strong>{{ project.name }}</strong> — rename it under Settings.
               </p>
-              <p v-if="project.book_desc" class="t-xs dim mb-3">{{ project.book_desc }}</p>
+              <!-- Written by the model in the same Markdown as every page, so it
+                   is rendered like one rather than shown as a flat grey string. -->
+              <markdown-block v-if="project.book_desc" :source="project.book_desc" compact class="dim mb-3"/>
               <ol v-if="project.chapters.length" class="col gap-3" style="list-style:none;padding:0">
                 <li v-for="chapter in project.chapters" :key="chapter.id">
                   <div class="t-sm semi">{{ chapter.idx + 1 }}. {{ chapter.title }}</div>

@@ -28,7 +28,7 @@
  * the pages come back within a day, for roughly half the money, and the tab can
  * be closed while it happens.
  */
-import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { state, loadProfiles, loadCatalogue, declareUnsaved } from '@/core/store.js';
 import { post, put, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
@@ -39,6 +39,7 @@ import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';
 import ComboBox from '@/components/ComboBox.js';
 import EmptyState from '@/components/EmptyState.js';
+import PromptWorkbench from '@/components/PromptWorkbench.js';
 import ViewHeader from '@/components/ViewHeader.js';
 
 const MODEL_SLOTS = [
@@ -152,7 +153,7 @@ const UNKNOWN_PROVIDER = {
 
 export const ProfilesView = {
   name: 'ProfilesView',
-  components: { AppIcon, AppModal, ComboBox, EmptyState, ViewHeader },
+  components: { AppIcon, AppModal, ComboBox, EmptyState, PromptWorkbench, ViewHeader },
   setup() {
     const tab = ref('accounts');
     const selectedId = ref(null);
@@ -167,7 +168,6 @@ export const ProfilesView = {
     const listOpen = ref(false);            // the profile list is a drawer below 1024px
     const picker = ref(null);               // the AI account whose provider is being chosen
     const providerSearch = ref('');
-    const textareas = {};
 
     /**
      * What the selected profile looked like when it was opened.
@@ -619,6 +619,15 @@ export const ProfilesView = {
 
     /* --------------------------------------------------------- prompts */
 
+    /**
+     * The prompt groups, shaped the way `PromptWorkbench` wants them — `key`
+     * rather than `id`, because that is what the administrator's screen has
+     * always called it and the two now feed the same component.
+     *
+     * A group with no slots in it still gets no tab. The catalogue is data, an
+     * installation can empty a group out, and a tab that opens onto nothing is
+     * worse than a tab that is not there.
+     */
     const groups = computed(() => {
       const buckets = {};
       for (const [key, slot] of Object.entries(state.promptSlots)) {
@@ -626,7 +635,7 @@ export const ProfilesView = {
       }
       return Object.entries(state.promptGroups)
         .filter(([id]) => buckets[id]?.length)
-        .map(([id, group]) => ({ id, ...group, slots: buckets[id] }));
+        .map(([id, group]) => ({ key: id, ...group, slots: buckets[id] }));
     });
 
     const defaultOf = (key) => state.promptSlots[key]?.value ?? '';
@@ -648,72 +657,25 @@ export const ProfilesView = {
       draft.value ? Object.keys(state.promptSlots).filter(isCustom).length : 0
     );
     const slotCount = computed(() => Object.keys(state.promptSlots).length);
-    const customInGroup = (group) => group.slots.filter((slot) => isCustom(slot.key)).length;
 
-    /* The same shape as the admin Prompts screen: a tab per group, a search
-     * that looks through all of them, and one prompt open at a time. */
-
-    const promptGroup = ref('');
-    const promptSearch = ref('');
-    const promptKey = ref('');
-
+    /**
+     * Getting around the forty-one slots — the tabbar, the search, the two
+     * panes — is `components/PromptWorkbench.js`, which is the same component
+     * the administrator's Prompts screen renders. This tab supplies the two
+     * things that differ: the slots, and what an override means.
+     */
     const promptSlotList = computed(() =>
-      groups.value.flatMap((group) => group.slots.map((slot) => ({ ...slot, group: group.id }))));
+      groups.value.flatMap((group) => group.slots.map((slot) => ({ ...slot, group: group.key }))));
 
-    const promptSearching = computed(() => promptSearch.value.trim() !== '');
-
-    // The text currently in the slot is indexed too: somebody hunting for the
-    // prompt that mentions Mermaid remembers the phrase, not the slot name.
-    const promptHaystack = computed(() => promptSlotList.value.map((slot) => ({
-      slot,
-      label: slot.label,
-      key: slot.key,
-      description: slot.description ?? '',
-      text: textOf(slot.key),
-    })));
-
-    const promptMatches = useFuzzy(promptHaystack, promptSearch, {
-      keys: ['label', 'key', 'description', 'text'],
+    /** Every slot's current text, which is the profile's override or the config default. */
+    const promptValues = computed(() => {
+      const out = {};
+      for (const slot of promptSlotList.value) out[slot.key] = textOf(slot.key);
+      return out;
     });
 
-    const promptsInGroup = (id) => promptSlotList.value.filter((slot) => slot.group === id);
-
-    const visiblePrompts = computed(() =>
-      promptSearching.value
-        ? promptMatches.value.map((hit) => hit.slot)
-        : promptsInGroup(promptGroup.value));
-
-    const currentPromptGroup = computed(() =>
-      groups.value.find((group) => group.id === promptGroup.value) ?? null);
-
-    const currentPrompt = computed(() =>
-      promptSlotList.value.find((slot) => slot.key === promptKey.value) ?? null);
-
-    const pickPromptGroup = (id) => {
-      promptGroup.value = id;
-      promptSearch.value = '';
-      if (!promptsInGroup(id).some((slot) => slot.key === promptKey.value)) {
-        promptKey.value = promptsInGroup(id)[0]?.key ?? '';
-      }
-    };
-
-    const promptGroupLabel = (id) => groups.value.find((group) => group.id === id)?.label ?? id;
-
-    const pickPrompt = (slot) => {
-      promptKey.value = slot.key;
-      // Choosing a search result from another group takes the group with it, so
-      // clearing the search does not make the open prompt disappear.
-      if (slot.group !== promptGroup.value) promptGroup.value = slot.group;
-    };
-
-    // The first group, and the first slot in it, so the tab is never blank.
-    watch(groups, (list) => {
-      if (!list.length) return;
-      if (!list.some((group) => group.id === promptGroup.value)) promptGroup.value = list[0].id;
-      if (!promptSlotList.value.some((slot) => slot.key === promptKey.value)) {
-        promptKey.value = promptsInGroup(promptGroup.value)[0]?.key ?? '';
-      }
-    }, { immediate: true });
+    /** No catalogue yet: the workbench holds its empty state rather than flashing it. */
+    const promptsLoading = computed(() => Object.keys(state.promptSlots).length === 0);
 
     const resetAllPrompts = () => {
       if (!draft.value || !customCount.value) return;
@@ -721,21 +683,6 @@ export const ProfilesView = {
       toast.success('All prompts follow the config defaults again.');
     };
 
-    /** Drops a {{placeholder}} at the caret, so nobody has to type them by hand. */
-    const insertPlaceholder = async (key, placeholder) => {
-      const el = textareas[key];
-      const token = `{{${placeholder}}}`;
-      const current = textOf(key);
-      if (!el) { setPrompt(key, `${current}${token}`); return; }
-      const start = el.selectionStart ?? current.length;
-      const end = el.selectionEnd ?? start;
-      setPrompt(key, current.slice(0, start) + token + current.slice(end));
-      await nextTick();
-      el.focus();
-      el.setSelectionRange(start + token.length, start + token.length);
-    };
-
-    const registerTextarea = (key, el) => { if (el) textareas[key] = el; };
     const toggleGroup = (id) => { openGroups[id] = !(openGroups[id] ?? true); };
     const groupOpen = (id) => openGroups[id] ?? true;
 
@@ -753,10 +700,8 @@ export const ProfilesView = {
       checks, checkAccount, queueState,
       isBatch, setBatch, batchState, bareModel, batchModelsFor, modelsFetched, slotQueue,
       groups, defaultOf, textOf, isCustom, setPrompt, resetPrompt, resetAllPrompts,
-      customCount, slotCount, customInGroup, insertPlaceholder, registerTextarea,
+      customCount, slotCount, promptSlotList, promptValues, promptsLoading,
       toggleGroup, groupOpen, plural, relativeTime,
-      promptGroup, promptSearch, promptKey, promptSearching, visiblePrompts,
-      currentPromptGroup, currentPrompt, pickPromptGroup, pickPrompt, promptGroupLabel,
       isDirty, discard,
     };
   },
@@ -824,10 +769,17 @@ export const ProfilesView = {
             </button>
           </nav>
 
-          <div class="pane__body view-pad">
-
-            <!-- ------------------------------------------------ accounts -->
-            <div v-if="tab === 'accounts'" class="grid grid-2 container">
+          <!--
+            Two shapes, not one. Accounts and Models & output are a column of
+            cards and want a padded scroller, which is what pane__body is.
+            The Prompts tab is a workbench - the same component the
+            administrator's Prompts screen renders - and it wants the pane
+            itself, because a workbench dropped inside a padded scroller is
+            exactly what used to make this tab float in the middle of the
+            window instead of filling it.
+          -->
+          <div v-if="tab === 'accounts'" class="pane__body view-pad">
+            <div class="grid grid-2 container">
               <section class="col gap-3">
                 <div class="row between">
                   <h3 class="card__title">BookStack instances</h3>
@@ -958,9 +910,10 @@ export const ProfilesView = {
                 </p>
               </section>
             </div>
+          </div>
 
-            <!-- -------------------------------------------------- models -->
-            <div v-else-if="tab === 'models'" class="col gap-6 container-narrow">
+          <div v-else-if="tab === 'models'" class="pane__body view-pad">
+            <div class="col gap-6 container-narrow">
               <div v-for="slot in MODEL_SLOTS" :key="slot.key" class="card card--pad">
                 <h3 class="card__title">{{ slot.label }}</h3>
                 <p class="hint mb-4">{{ slot.hint }}</p>
@@ -1081,122 +1034,62 @@ export const ProfilesView = {
                 </div>
               </div>
             </div>
-
-            <!-- ------------------------------------------------- prompts -->
-            <div v-else class="col gap-4 container">
-              <div class="card card--pad row wrap gap-3">
-                <p class="hint grow" style="min-width:280px">
-                  Every prompt starts as the value in <code>data/config.json</code>. Editing one overrides it
-                  <strong>for this profile only</strong>; clearing an override makes it follow the config again.
-                  Click a placeholder chip to drop it at the cursor.
-                </p>
-                <span class="badge none">{{ customCount }} / {{ slotCount }} customised</span>
-                <button class="btn btn--sm none" :disabled="!customCount" @click="resetAllPrompts">
-                  <app-icon name="inherit" :size="13"/> Reset all
-                </button>
-              </div>
-
-              <nav class="tabbar">
-                <button v-for="group in groups" :key="group.id" class="tab"
-                        :class="{ 'is-active': !promptSearching && promptGroup === group.id }"
-                        @click="pickPromptGroup(group.id)">
-                  {{ group.label }}
-                  <span v-if="customInGroup(group)" class="badge badge--warning">{{ customInGroup(group) }}</span>
-                </button>
-              </nav>
-
-              <!-- Two cards in a grid, not two panes in a workspace: this sits
-                   inside a tab panel next to Accounts and Models & output, and
-                   has to look like them rather than like the full-page screen
-                   the layout was borrowed from. Below the breakpoint the grid
-                   stacks, so nothing needs hiding behind a drawer. -->
-              <div class="prompt-grid">
-                <aside class="card prompt-grid__list">
-                  <div class="card__head">
-                    <span class="eyebrow grow truncate">
-                      {{ promptSearching ? 'Matches in every group'
-                                         : (currentPromptGroup ? currentPromptGroup.label : 'Prompts') }}
-                    </span>
-                    <span class="badge none">{{ visiblePrompts.length }}</span>
-                  </div>
-
-                  <div class="prompt-grid__scroll col gap-3">
-                    <div style="position:relative">
-                      <app-icon name="search" :size="13"
-                                style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
-                      <input v-model="promptSearch" placeholder="Find a prompt…" spellcheck="false"
-                             style="padding-left:28px">
-                    </div>
-
-                    <p v-if="currentPromptGroup && !promptSearching" class="hint">
-                      {{ currentPromptGroup.description }}
-                    </p>
-
-                    <div class="col gap-1">
-                      <button v-for="slot in visiblePrompts" :key="slot.key"
-                              class="tree__page" :class="{ 'is-active': promptKey === slot.key }"
-                              :title="slot.label" @click="pickPrompt(slot)">
-                        <span class="grow truncate">
-                          {{ slot.label }}
-                          <span v-if="promptSearching" class="t-2xs faint"> · {{ promptGroupLabel(slot.group) }}</span>
-                        </span>
-                        <span v-if="isCustom(slot.key)" class="dot none" style="background:var(--warning)"
-                              title="Overridden by this profile"></span>
-                      </button>
-                    </div>
-
-                    <p v-if="!visiblePrompts.length" class="hint">Nothing matches that.</p>
-                  </div>
-                </aside>
-
-                <section v-if="currentPrompt" class="card card--pad col gap-3">
-                  <div class="row wrap between gap-2">
-                    <div class="col gap-1">
-                      <h4>{{ currentPrompt.label }}</h4>
-                      <code class="t-2xs dim">{{ currentPrompt.key }}</code>
-                    </div>
-                    <div class="row gap-2">
-                      <span class="badge" :class="isCustom(currentPrompt.key) ? 'badge--warning' : ''">
-                        {{ isCustom(currentPrompt.key) ? 'customised' : 'config default' }}
-                      </span>
-                      <button class="btn btn--ghost btn--sm" :disabled="!isCustom(currentPrompt.key)"
-                              @click="resetPrompt(currentPrompt.key)">
-                        <app-icon name="inherit" :size="13"/> Reset
-                      </button>
-                    </div>
-                  </div>
-
-                  <p class="hint">{{ currentPrompt.description }}</p>
-
-                  <div v-if="currentPrompt.placeholders.length" class="col gap-2">
-                    <!-- Worded and cased exactly as the admin Prompts screen
-                         words it: these two screens edit the same slots and a
-                         reader moving between them should not have to notice
-                         which one they are on. -->
-                    <span class="label">Placeholders</span>
-                    <div class="row wrap gap-1">
-                      <button v-for="placeholder in currentPrompt.placeholders" :key="placeholder"
-                              class="placeholder-token" title="Insert this placeholder"
-                              @click="insertPlaceholder(currentPrompt.key, placeholder)">{{ placeholder }}</button>
-                    </div>
-                  </div>
-
-                  <textarea :ref="el => registerTextarea(currentPrompt.key, el)"
-                            :value="textOf(currentPrompt.key)"
-                            @input="setPrompt(currentPrompt.key, $event.target.value)"
-                            rows="18" spellcheck="false" class="mono prompt-grid__text"
-                            placeholder="Empty → nothing is sent for this slot"></textarea>
-
-                  <details v-if="isCustom(currentPrompt.key) && defaultOf(currentPrompt.key)">
-                    <summary class="t-xs dim" style="cursor:pointer">Show the config default</summary>
-                    <pre class="log mt-2" style="white-space:pre-wrap;max-height:280px">{{ defaultOf(currentPrompt.key) }}</pre>
-                  </details>
-                </section>
-
-                <empty-state v-else class="card card--pad" icon="file-text" title="No prompt selected"/>
-              </div>
-            </div>
           </div>
+
+          <prompt-workbench v-else :groups="groups" :slot-list="promptSlotList"
+                            :values="promptValues" :loading="promptsLoading"
+                            box-placeholder="Empty → nothing is sent for this slot"
+                            empty-title="No prompt selected"
+                            empty-hint="Every AI request is built from these slots. One you leave alone follows the installation default; one you edit here applies only to the courses that use this profile."
+                            @edit="setPrompt($event.key, $event.text)">
+
+            <template #note>
+              <app-icon name="layers" :size="15" class="c-accent none" style="margin-top:1px"/>
+              <span class="grow">
+                Every prompt starts as the value the <strong>whole installation</strong> holds, which is what
+                Administration &rsaquo; Prompts writes. Editing one here overrides it
+                <strong>for this profile only</strong>; clearing an override makes it follow the installation
+                again.
+              </span>
+              <span class="badge none">{{ customCount }} / {{ slotCount }} customised</span>
+              <button class="btn btn--sm none" :disabled="!customCount" @click="resetAllPrompts">
+                <app-icon name="inherit" :size="13"/> Reset all
+              </button>
+            </template>
+
+            <template #group-badge="{ slotsIn }">
+              <span v-if="slotsIn.filter((slot) => isCustom(slot.key)).length" class="badge badge--warning">
+                {{ slotsIn.filter((slot) => isCustom(slot.key)).length }}
+              </span>
+            </template>
+
+            <template #mark="{ item }">
+              <span v-if="isCustom(item.key)" class="dot none" style="background:var(--warning)"
+                    title="Overridden by this profile"></span>
+            </template>
+
+            <template #status="{ item }">
+              <span class="badge none" :class="isCustom(item.key) ? 'badge--warning' : ''">
+                {{ isCustom(item.key) ? 'customised' : 'installation default' }}
+              </span>
+              <button class="btn btn--sm none" :disabled="!isCustom(item.key)" @click="resetPrompt(item.key)">
+                <app-icon name="inherit" :size="13"/> Reset
+              </button>
+            </template>
+
+            <template #footer="{ item }">
+              <p class="hint">
+                An override you deliberately leave empty is honoured - that slot then sends nothing at all for
+                courses on this profile. <strong>Reset</strong> is what puts it back to following the
+                installation.
+              </p>
+
+              <details v-if="isCustom(item.key) && defaultOf(item.key)">
+                <summary class="t-xs dim" style="cursor:pointer">Show what the installation holds</summary>
+                <pre class="log mt-2" style="white-space:pre-wrap;max-height:280px">{{ defaultOf(item.key) }}</pre>
+              </details>
+            </template>
+          </prompt-workbench>
         </template>
 
         <empty-state v-else icon="sliders" title="No profile selected"

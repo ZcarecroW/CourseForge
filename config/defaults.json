@@ -145,6 +145,13 @@
         "label": "Auto links",
         "description": "Lets the AI drop (🔗 Title) cross references, which CourseForge turns into real BookStack links after publishing.",
         "default": false
+      },
+      "web_research": {
+        "order": 140,
+        "icon": "search",
+        "label": "Web research",
+        "description": "Look up the current state of the topic before writing - latest versions, current documentation, recent releases - and cite what was found. Costs money on most providers, and a client connected over MCP does its own searching instead.",
+        "default": false
       }
     },
     "params": {
@@ -221,6 +228,17 @@
         "unit": "",
         "type": "text",
         "default": ""
+      },
+      "research_max_searches": {
+        "order": 80,
+        "label": "Searches per page",
+        "description": "Upper bound on web searches while writing one page. 0 leaves it to the provider. Only used where web research is switched on.",
+        "unit": "max",
+        "type": "int",
+        "min": 0,
+        "max": 20,
+        "step": 1,
+        "default": 5
       }
     }
   },
@@ -663,6 +681,25 @@
       "description": "Appended when auto links are off. Leave empty to send nothing.",
       "placeholders": [],
       "value": "Do not write cross-reference markers and do not link to other pages of the course. Mention other topics in plain words only."
+    },
+    "feature_web_research_on": {
+      "group": "features",
+      "order": 141,
+      "label": "Web research – enabled",
+      "description": "Appended when web research is on for this page. Written for two readers at once: the model CourseForge sends the page to, which may have a server-side search tool attached, and a client connected over MCP, which reads this out of the page brief and searches with its own tool. Both are told the same thing, because the requirement is the same.",
+      "placeholders": [
+        "page_title",
+        "research_max_searches"
+      ],
+      "value": "Research before writing.\n- Establish the current state of this topic on the web: the latest stable version, the current official documentation, anything released or deprecated recently, and what practitioners actually recommend today.\n- Prefer official documentation, specifications, changelogs and release notes over blog posts and tutorials.\n- Where a statement depends on a version or a date, say which one it is true of.\n- Never invent a source, a title, a version number or a URL, and never cite a page you did not actually read. If the search finds nothing usable, write the page from what you know and say plainly which parts may have moved on.\n- Close the page with a \"## Sources\" section listing what you used as Markdown links, each with a half-sentence saying what it supplied."
+    },
+    "feature_web_research_off": {
+      "group": "features",
+      "order": 142,
+      "label": "Web research – disabled",
+      "description": "Appended when web research is off. Leave empty to send nothing, which is what it does.",
+      "placeholders": [],
+      "value": ""
     }
   }
 }

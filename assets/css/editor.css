@@ -186,6 +186,16 @@
   background: var(--accent-soft);
   color: var(--accent);
 }
+/* A prompt's `{{placeholder}}`: the same idea as a cloze, in the accent
+   colour rather than the warning one, because it is a slot being filled rather
+   than something being hidden. */
+.cf-editor .cm-cf-token {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--r-xs);
+  padding: 0 2px;
+}
+
 .cf-editor .cm-cf-cloze {
   padding: 1px 2px;
   border-radius: var(--r-xs);
@@ -267,12 +277,18 @@
 .prose .cf-block__btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Each toggle carries both of its glyphs; which one shows is the state of the
-   preference, so flipping it touches no block at all. */
+   preference, so flipping it touches no block at all.
+
+   `.cf-reader` is the carrier: any element holding rendered Markdown that
+   wants the reader's two preferences applied to the blocks inside it. The
+   editor's preview scroller is one, and so is every MarkdownBlock - which is
+   what makes a fenced block in a release note behave like one in a page rather
+   than being the only unhighlighted code in the application. */
 .prose .cf-block__icon { display: none; }
-.cf-preview.is-wrap .cf-block__btn--wrap .is-on,
-.cf-preview:not(.is-wrap) .cf-block__btn--wrap .is-off,
-.cf-preview.is-numbered .cf-block__btn--numbers .is-on,
-.cf-preview:not(.is-numbered) .cf-block__btn--numbers .is-off,
+.cf-reader.is-wrap .cf-block__btn--wrap .is-on,
+.cf-reader:not(.is-wrap) .cf-block__btn--wrap .is-off,
+.cf-reader.is-numbered .cf-block__btn--numbers .is-on,
+.cf-reader:not(.is-numbered) .cf-block__btn--numbers .is-off,
 .cf-block__btn--copy .is-on { display: inline-block; }
 
 .prose .cf-block.is-copied .cf-block__btn--copy { color: var(--success); }
@@ -300,10 +316,10 @@
 :root[data-theme="light"] .prose .shiki code,
 :root[data-theme="light"] .prose .shiki span { color: var(--shiki-light); }
 
-/* -- preview: wrapping and line numbers ------------------------------------- */
+/* -- reading a block: wrapping and line numbers ----------------------------- */
 
-.cf-preview.is-wrap .prose .cf-block pre,
-.cf-preview.is-wrap .prose .cf-block pre code {
+.cf-reader.is-wrap .prose .cf-block pre,
+.cf-reader.is-wrap .prose .cf-block pre code {
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
@@ -312,12 +328,12 @@
    a wrapped line hangs under its own first character instead of under its
    number, and copying the block cannot pick a number up. It is a counter, so
    the markup carries nothing that has to be renumbered when the text changes. */
-.cf-preview.is-numbered .prose .cf-block pre code {
+.cf-reader.is-numbered .prose .cf-block pre code {
   counter-reset: cf-line;
   padding-left: 3.4em;
 }
-.cf-preview.is-numbered .prose .cf-block .line { position: relative; }
-.cf-preview.is-numbered .prose .cf-block .line::before {
+.cf-reader.is-numbered .prose .cf-block .line { position: relative; }
+.cf-reader.is-numbered .prose .cf-block .line::before {
   content: counter(cf-line);
   counter-increment: cf-line;
   position: absolute;

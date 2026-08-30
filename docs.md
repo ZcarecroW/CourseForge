@@ -294,8 +294,16 @@ Four properties are worth knowing before you deploy:
   fresh code is written.
 - **One invite is open at a time.** The file holds exactly one code, so issuing
   a second closes the first — a second open row would be a code nobody can read.
-- **It is spent on use.** Creating the account marks the invite used and deletes
-  the file, from the install root and from `data/`.
+- **It is spent on use.** Creating an account takes one of the invite's places.
+  When the last one goes the invite closes and the file is deleted, from the
+  install root and from `data/`; while places remain the file stays, because the
+  plain code is in it and the next person still needs it.
+- **An invite may be worth more than one account.** *Good for* on the invite form
+  (and `max_uses` on `issue_invite` over MCP) takes a number up to fifty, for
+  letting a whole group in with one code. It defaults to one. A code worth ten
+  accounts is worth ten accounts to whoever finds the file, so raise it only for
+  a group you are expecting, and the diagnostics say so while such an invite is
+  open.
 - **The door closes for good.** Once any account exists, the setup route reports
   `needs_setup: false` and refuses to create anything. There is no second chance
   to slip in through it.
@@ -573,7 +581,9 @@ places:
 The profile layer wins. Somebody who edits the wrong one sees no change at all
 and no explanation for it, which is why both screens say so at the top, present
 the same slots in the same order under the same labels, and mark the ones that
-have been changed.
+have been changed. Since 4.4 that is a guarantee rather than a discipline: both
+screens render `components/PromptWorkbench.js`, so the navigation, the search
+and the editor are literally the same component and cannot drift apart again.
 
 The two layers treat an **empty** slot differently, and the difference is
 deliberate:
@@ -588,10 +598,14 @@ deliberate:
 
 Both screens show the description of each slot and offer clickable chips for the
 placeholders that slot understands; clicking one drops it at the cursor.
-Forty-one slots is too many for one long page, so the administrator's screen is
-three panes of narrowing scope — group, slot, editor — with a search that
-ignores the groups entirely, because the usual question is "where is the one
-about diagrams" rather than "show me group three".
+Forty-one slots is too many for one long page, so both are three panes of
+narrowing scope — group, slot, editor — with a search that ignores the groups
+entirely, because the usual question is "where is the one about diagrams" rather
+than "show me group three".
+
+The prompt itself is edited in the same CodeMirror a page is, with the gutter and
+the page-only markers switched off and `{{placeholder}}` highlighting switched
+on — a prompt is a Markdown-ish template, and it is easier to read as one.
 
 | Group | Slots | Sent when |
 |---|---|---|
@@ -2318,11 +2332,24 @@ while the library is still loading.
 which is the shape Shiki's own output has.** The preview swaps one for the
 other when the grammar lands, and because both have the same structure, line
 numbers are a CSS counter and wrapping is one rule — for highlighted and plain
-blocks alike. The header above a block is built in `MarkdownPreview.js` with DOM
+blocks alike. The header above a block is built in `core/enhance.js` with DOM
 calls rather than written into the Markdown, because the sanitiser forbids
 `<button>` in generated prose and should go on forbidding it; a constructed
-element is not text and there is nothing to sanitise. One delegated listener on
-the rendered body serves every block's three controls.
+element is not text and there is nothing to sanitise. One delegated listener per
+rendered body serves every block's three controls.
+
+**The finishing pass is shared, and that is new in 4.4.** `core/enhance.js`
+exports three functions — `enhance(root)` fills every placeholder under an
+element and resolves when it has, `bindBlocks(root)` makes the controls work and
+returns its own teardown, `resetDiagrams(root)` marks diagrams for redrawing
+after a theme change. Two components drive it. `MarkdownPreview` is the editor's:
+it debounces on typing and measures where each source line landed, which is what
+the split view's scroll link reads. `MarkdownBlock` is everything else — release
+notes, a course description — and is the same rendering with none of that.
+Before this the pass lived inside the preview, which meant the editor was the
+only place in the application where a fenced block was ever coloured: release
+notes rendered their code grey and a ```` ```mermaid ```` block in them stayed on
+"drawing diagram…" for ever.
 
 **Sanitising is not skipped for any of them, and the defaults are not trusted
 either.** The prose is sanitised with `<style>`, `<form>` and the form controls
@@ -2333,9 +2360,11 @@ the author of the text is a language model. Shiki's output goes through
 DOMPurify as well. Mermaid's SVG does too, with `foreignObject` allowed by name
 — it is how Mermaid draws node labels, and DOMPurify treats HTML inside SVG as a
 namespace escape unless told otherwise; what is inside is still sanitised as
-HTML. That last option is the one thing DOMPurify 3.2.4 carries over between
-calls instead of resetting, so the other two sanitisers pin it back to the
-default rather than inherit it. MathJax is configured without the `require` and
+HTML. That last option used to be the one thing DOMPurify carried over
+between calls instead of resetting — a diagram rendered before a code block left
+`foreignObject` allowed where it must never be — so the other two sanitisers pin
+it back. 3.4.14 resets it per call and the pin now agrees with the default rather
+than correcting it; it stays because the boundary is worth stating out loud. MathJax is configured without the `require` and
 `autoload` packages, which is both what keeps it from fetching extension files
 that were never vendored and what removes `\href`, the one TeX macro that can
 put a `javascript:` URL on the page.

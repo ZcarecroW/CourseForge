@@ -58,7 +58,7 @@ use RuntimeException;
  *
  * It is offered in the account picker as beta for the same reason.
  */
-final class GeminiProvider extends HttpProvider implements BatchCapable
+final class GeminiProvider extends HttpProvider implements BatchCapable, SearchCapable
 {
     /** The account kind stored in a profile, and the key Providers maps to this class. */
     public const KIND = 'gemini';
@@ -478,6 +478,30 @@ final class GeminiProvider extends HttpProvider implements BatchCapable
      *
      * @return array<string,mixed>
      */
+    /* ------------------------------------------------------- SearchCapable */
+
+    public function supportsSearch(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Empty: the models listing says nothing about grounding either, and the
+     * tool is accepted across the current families.
+     *
+     * @return array<int,string>
+     */
+    public function searchModels(): array
+    {
+        return [];
+    }
+
+    public function searchNote(): string
+    {
+        return 'Grounding with Google Search is billed per request that uses it, not per search, '
+            . 'and the free tier includes a daily allowance.';
+    }
+
     private function payload(AiRequest $request): array
     {
         $payload = [
@@ -504,6 +528,14 @@ final class GeminiProvider extends HttpProvider implements BatchCapable
         }
         if ($config !== []) {
             $payload['generationConfig'] = $config;
+        }
+
+        // Grounding with Google Search is a tool with an empty configuration
+        // object - there is no per-request cap to set, which is why
+        // maxSearches is not read here. The older googleSearchRetrieval spelling
+        // belongs to the 1.5 family and is an error on everything current.
+        if ($request->research) {
+            $payload['tools'] = [['google_search' => new \stdClass()]];
         }
 
         // Three things are deliberately absent. `candidateCount` is unsupported

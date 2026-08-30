@@ -134,8 +134,11 @@ export async function highlightCode(code, id) {
     });
     // Shiki escapes what it tokenises, but this is generated text on its way
     // into the DOM, so it takes the same route as everything else. The one
-    // option is pinned because DOMPurify 3.2.4 carries it over between calls,
-    // and `core/diagrams.js` has good reason to widen it for its own SVG.
+    // option is pinned to say where the boundary is: `core/diagrams.js` has
+    // good reason to widen it for its own SVG, and this is not that place.
+    // (Under DOMPurify 3.2.4 the pin was also a repair, because the option
+    // carried over between calls; 3.4.14 resets it and the pin now agrees
+    // with the default rather than correcting it.)
     const clean = DOMPurify.sanitize(markup, { HTML_INTEGRATION_POINTS: { 'annotation-xml': true } });
 
     if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value);

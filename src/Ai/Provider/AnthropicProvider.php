@@ -52,7 +52,7 @@ use Throwable;
  * hours, and the discount stacks with the prompt cache. The queue protocol
  * lives in AnthropicInlineBatch; what a request body looks like lives here.
  */
-final class AnthropicProvider extends HttpProvider implements BatchCapable
+final class AnthropicProvider extends HttpProvider implements BatchCapable, SearchCapable
 {
     /** Required on every call, and unchanged since the API launched. */
     private const VERSION = '2023-06-01';
@@ -426,6 +426,20 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable
             $payload['system'] = self::system($request->system, $queued);
         }
 
+        // The basic search tool, deliberately, and not the newer dated
+        // variants. The newer ones only exist on the current generation, and
+        // this field is a model id somebody typed - it may be any Claude model
+        // the account can reach, including one older than that. /v1/models
+        // reports no web-search capability at all, so there is nothing to
+        // branch on; the variant that works everywhere is the one to send.
+        if ($request->research) {
+            $tool = ['type' => 'web_search_20250305', 'name' => 'web_search'];
+            if ($request->maxSearches > 0) {
+                $tool['max_uses'] = $request->maxSearches;
+            }
+            $payload['tools'] = [$tool];
+        }
+
         // A queued request is the one that cannot be corrected: there is no
         // retry behind it and no error to read for a day, so it omits what the
         // listing could not confirm.
@@ -564,11 +578,19 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable
         if ($record === null) {
             return $whenUnknown;
         }
-        if (($record['legacy_thinking'] ?? null) === true) {
-            return true; // still the budget_tokens generation, which still samples
-        }
+        // The effort ladder is asked about FIRST, and the order is the whole
+        // point. A current model reports both: it still lists
+        // thinking.types.enabled among the shapes it knows, and it also lists
+        // low..max under effort. Reading the legacy flag first therefore says
+        // "this one still samples" about exactly the generation that answers a
+        // sampling parameter with a 400. An effort ladder is the marker that
+        // cannot be misread - no model has ever had one and accepted
+        // temperature - so it is the one that decides.
         if (($record['effort'] ?? []) !== []) {
             return false; // moved to output_config.effort, where sampling is a 400
+        }
+        if (($record['legacy_thinking'] ?? null) === true) {
+            return true; // still the budget_tokens generation, which still samples
         }
         if (($record['thinking'] ?? null) !== true) {
             return true; // a model with no thinking at all predates the change
@@ -580,6 +602,34 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable
     {
         $message = strtolower($message);
         return str_contains($message, 'temperature') || str_contains($message, 'top_p') || str_contains($message, 'top_k');
+    }
+
+    /* ------------------------------------------------------- SearchCapable */
+
+    public function supportsSearch(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Empty, and that is the honest answer rather than a shrug.
+     *
+     * /v1/models reports batch, citations, code execution, context management,
+     * effort, image and PDF input, structured outputs and thinking. It says
+     * nothing at all about web search, so there is no subset to name and the
+     * toggle is offered for every model this account can reach.
+     *
+     * @return array<int,string>
+     */
+    public function searchModels(): array
+    {
+        return [];
+    }
+
+    public function searchNote(): string
+    {
+        return 'Anthropic charges $10 per 1,000 searches, and what comes back is billed as input '
+            . 'tokens on top. A 200-page course researching five times a page is a thousand searches.';
     }
 
     private function driver(): AnthropicInlineBatch
@@ -881,8 +931,31 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable
      */
     private static function extractText(array $message): string
     {
+        $blocks = (array)($message['content'] ?? []);
+
+        // With the search tool attached the answer is not the whole of the text.
+        // The model narrates first - "I'll look up the current version" - then
+        // the server tool runs, and only what follows the last result is the
+        // page. Concatenating every text block would publish the narration as
+        // the opening paragraph, which is the kind of thing nobody notices until
+        // it is in BookStack.
+        //
+        // Everything before the last tool block is therefore dropped. With no
+        // tool blocks at all - every request that does not research - the loop
+        // below finds nothing and this is exactly what it was before.
+        $lastTool = -1;
+        foreach ($blocks as $index => $block) {
+            $type = is_array($block) ? ($block['type'] ?? '') : '';
+            if ($type === 'web_search_tool_result' || $type === 'server_tool_use') {
+                $lastTool = (int)$index;
+            }
+        }
+
         $parts = [];
-        foreach ((array)($message['content'] ?? []) as $block) {
+        foreach ($blocks as $index => $block) {
+            if ((int)$index <= $lastTool) {
+                continue;
+            }
             if (is_array($block) && ($block['type'] ?? '') === 'text' && is_string($block['text'] ?? null)) {
                 $parts[] = $block['text'];
             }

@@ -390,8 +390,11 @@ final class Diagnostics
                 $checks[] = self::ok('invite', 'Invite', 'none open');
             } else {
                 $expires = (int)$invite['expires_at'];
-                $detail = 'open for one ' . $invite['role'] . ' account, '
-                    . ($expires > 0 ? 'until ' . gmdate('Y-m-d H:i', $expires) . ' UTC' : 'with no expiry');
+                $left = (int)$invite['uses_left'];
+                $detail = 'open for ' . ($left === 1 ? 'one' : $left) . ' more ' . $invite['role']
+                    . ' account' . ($left === 1 ? '' : 's')
+                    . ((int)$invite['max_uses'] > 1 ? ' (' . $invite['uses'] . ' of ' . $invite['max_uses'] . ' used)' : '')
+                    . ', ' . ($expires > 0 ? 'until ' . gmdate('Y-m-d H:i', $expires) . ' UTC' : 'with no expiry');
 
                 $checks[] = $pending
                     ? self::ok('invite', 'Invite', $detail)
@@ -399,7 +402,9 @@ final class Diagnostics
                         'invite',
                         'Invite',
                         $detail,
-                        'Setup is finished, so nobody needs this. Spend it or clear the row from the invites table.'
+                        'Setup is finished, so nobody needs this'
+                            . ($left > 1 ? ', and it is worth ' . $left . ' accounts to whoever finds the file' : '')
+                            . '. Spend it or clear the row from the invites table.'
                     );
             }
 

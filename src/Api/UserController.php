@@ -168,9 +168,15 @@ final class UserController
             $request->enum('role', [Actor::ROLE_USER, Actor::ROLE_ADMIN], Actor::ROLE_USER),
             max(1, min(24 * 30, (int)($request->intOrNull('ttl_hours') ?? Invite::DEFAULT_TTL_HOURS))),
             $me->username,
+            max(1, min(Invite::MAX_USES, (int)($request->intOrNull('max_uses') ?? 1))),
         );
 
-        Audit::record($me->username, 'user.invite', $issued['role'], 'written to ' . $issued['path']);
+        Audit::record(
+            $me->username,
+            'user.invite',
+            $issued['role'],
+            'written to ' . $issued['path'] . ', good for ' . $issued['max_uses'] . ' account(s)'
+        );
 
         // The code goes back once, so the administrator can pass it on without
         // having to open a file on the server.

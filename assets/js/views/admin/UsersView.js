@@ -50,6 +50,14 @@ function suggestPassword() {
   return [0, 4, 8, 12].map((at) => letters.slice(at, at + 4).join('')).join('-');
 }
 
+/**
+ * The most accounts one code may create, mirroring Invite::MAX_USES.
+ *
+ * The server clamps as well, and is the authority; this is here so the number
+ * input can say what it will accept before somebody finds out by being refused.
+ */
+const MAX_INVITE_USES = 50;
+
 /** How long an invite stays usable, offered as whole hours and days. */
 const TTL_CHOICES = [
   { hours: 1, label: '1 hour' },
@@ -74,7 +82,7 @@ export const UsersView = {
     });
 
     /** The invite form. */
-    const inviteDraft = reactive({ role: 'user', ttl: 48 });
+    const inviteDraft = reactive({ role: 'user', ttl: 48, uses: 1 });
 
     /**
      * The two things that are readable once and never again. They are held here
@@ -291,6 +299,10 @@ export const UsersView = {
       const data = await post('admin/invite', {
         role: inviteDraft.role,
         ttl_hours: inviteDraft.ttl,
+        // A number input that has been emptied holds NaN rather than a number,
+        // and NaN posts as null. One is what the server would have used anyway,
+        // but sending it is what keeps the audit line honest.
+        max_uses: Math.max(1, Math.min(MAX_INVITE_USES, Math.round(inviteDraft.uses) || 1)),
       });
       fresh.invite = data.invite;
     }, 'Issue invite');
@@ -333,7 +345,7 @@ export const UsersView = {
       passwordFor, passwordDraft, openPassword, savePassword,
       deleting, deleteChoice, transferTo, typedName, inheritors, needsTyping, deleteReady,
       openDelete, confirmDelete,
-      inviteDraft, issueInvite, TTL_CHOICES,
+      inviteDraft, issueInvite, TTL_CHOICES, MAX_INVITE_USES,
       fresh, copy, copied, reload,
       formatDateTime, relativeTime, plural,
     };
@@ -415,7 +427,12 @@ export const UsersView = {
           </div>
 
           <p class="hint">
-            <template v-if="fresh.invite.expires_at">
+            <template v-if="fresh.invite.max_uses > 1">
+              It creates {{ fresh.invite.max_uses }} accounts in all<template v-if="fresh.invite.expires_at">,
+              and stops working on {{ formatDateTime(fresh.invite.expires_at) }} even if places are left</template>.
+              Until the last one is taken, anybody who can read that file can take one of the others.
+            </template>
+            <template v-else-if="fresh.invite.expires_at">
               It stops working on {{ formatDateTime(fresh.invite.expires_at) }}, or the moment somebody uses it -
               whichever comes first.
             </template>
@@ -633,6 +650,9 @@ export const UsersView = {
               <p class="t-sm grow">
                 An invite for {{ roleLabel(state.invite.role).toLowerCase() }} is already open.
               </p>
+              <span v-if="state.invite.max_uses > 1" class="badge none">
+                {{ state.invite.uses }} of {{ state.invite.max_uses }} used
+              </span>
             </div>
             <p class="hint">
               Its code is in <span class="mono">{{ state.invite.path }}</span
@@ -661,14 +681,24 @@ export const UsersView = {
                 </option>
               </select>
             </div>
+            <div class="form-row none" style="min-width:140px">
+              <label for="invite-uses">Good for</label>
+              <div class="row gap-2">
+                <input id="invite-uses" v-model.number="inviteDraft.uses" type="number"
+                       min="1" :max="MAX_INVITE_USES" step="1" class="grow">
+                <span class="t-xs dim none">account(s)</span>
+              </div>
+            </div>
             <button class="btn none push" :disabled="busy" @click="issueInvite">
               <app-icon name="link" :size="14"/> Issue an invite
             </button>
           </div>
 
           <p class="hint">
-            Only one invite is ever open at a time, it works for exactly one account, and it is deleted the
-            moment that account is created.
+            Only one invite is ever open at a time, and it is deleted the moment the last account it is good for
+            is created. Leave <strong>Good for</strong> at one unless you are expecting a group: the code sits in
+            a plain file on the server, and a code worth ten accounts is worth ten accounts to whoever finds it.
+            At most {{ MAX_INVITE_USES }}.
           </p>
         </section>
       </div>

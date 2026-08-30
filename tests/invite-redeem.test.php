@@ -43,13 +43,14 @@ use CourseForge\Support\Request;
  *
  * @return string the plain code
  */
-function redeemOpenInvite(string $role, int $expiresAt = 0): string
+function redeemOpenInvite(string $role, int $expiresAt = 0, int $maxUses = 1): string
 {
     Db::run('UPDATE invites SET used_at = ?, used_by = ? WHERE used_at = 0', [time(), 'superseded by a test']);
 
     $code = 'RDMA-RDMB-RDMC-RDMD-RDME-RDMF';
     Db::run(
-        'INSERT INTO invites (code_hash, role, file_path, created_at, expires_at, issued_by) VALUES (?,?,?,?,?,?)',
+        'INSERT INTO invites (code_hash, role, file_path, created_at, expires_at, issued_by, max_uses) '
+            . 'VALUES (?,?,?,?,?,?,?)',
         [
             hash('sha256', 'courseforge-invite:' . Invite::normalise($code)),
             $role,
@@ -57,6 +58,7 @@ function redeemOpenInvite(string $role, int $expiresAt = 0): string
             time(),
             $expiresAt,
             'a test',
+            $maxUses,
         ]
     );
     file_put_contents(CF_DATA . '/' . Invite::FILE, "not the real one\n");
@@ -311,4 +313,54 @@ test('the tidying up', static function (): void {
     Db::run('DELETE FROM login_attempts');
     @unlink(CF_DATA . '/' . Invite::FILE);
     ok(!is_file(CF_DATA . '/' . Invite::FILE), 'the scratch invite file, the accounts and the open invite are gone');
+});
+
+/* ------------------------------------------------- one code, several people */
+
+test('one code makes as many accounts as it was issued for, and no more', static function (): void {
+    redeemInstallationWithAccounts();
+    $code = redeemOpenInvite(Actor::ROLE_USER, 0, 3);
+    $file = CF_DATA . '/' . Invite::FILE;
+
+    foreach (['redeem-one', 'redeem-two', 'redeem-three'] as $index => $username) {
+        $answer = redeemAttempt([
+            'invite_code' => $code,
+            'username' => $username,
+            'password' => 'a-long-enough-password',
+        ]);
+        ok(is_array($answer), $username . ' was let in');
+        same($username, (string)Users::require($username)['username'], 'and has an account');
+        // The role on the row is what every redeemer gets, not just the first.
+        same(Actor::ROLE_USER, (string)Users::require($username)['role'], 'with the role the invite carries');
+
+        $open = Invite::status()['open'];
+        same($index < 2, $open, $index < 2 ? 'places are left' : 'and the last one closes it');
+    }
+
+    // The file is the only place the plain code exists, so it has to outlive
+    // every redemption but the last.
+    same(false, is_file($file), 'the file goes with the last place');
+
+    $refused = redeemAttempt([
+        'invite_code' => $code,
+        'username' => 'redeem-four',
+        'password' => 'a-long-enough-password',
+    ]);
+    ok(is_string($refused), 'a fourth is refused');
+    same(null, Users::find('redeem-four'), 'and no account was made for them');
+});
+
+test('the file outlives a redemption that leaves places behind', static function (): void {
+    redeemInstallationWithAccounts();
+    $code = redeemOpenInvite(Actor::ROLE_USER, 0, 2);
+    $file = CF_DATA . '/' . Invite::FILE;
+
+    ok(is_array(redeemAttempt([
+        'invite_code' => $code,
+        'username' => 'redeem-keeps-file',
+        'password' => 'a-long-enough-password',
+    ])), 'the first of two is let in');
+
+    ok(is_file($file), 'the code is still readable, because somebody else still needs it');
+    same(1, (int)Invite::status()['uses_left'], 'and one place is left');
 });

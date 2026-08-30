@@ -15,6 +15,7 @@ import { post, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
 import { relativeTime, percent, plural } from '@/core/format.js';
+import { excerpt } from '@/core/markdown.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';
@@ -147,7 +148,7 @@ export const ProjectsView = {
       state, isAdmin, search, sort, projects, showCreate, creating, draft, confirmDelete,
       ownerFilter, owners, showOwners, isForeign, deleting, deleteScope,
       create, remove, open, profileName,
-      relativeTime, percent, plural,
+      relativeTime, percent, plural, excerpt,
     };
   },
   template: `
@@ -203,7 +204,9 @@ export const ProjectsView = {
                 </button>
               </div>
 
-              <p class="t-xs dim clamp-2" style="min-height:2.6em">{{ project.topic || 'No topic set.' }}</p>
+              <!-- Two clamped lines on a card is the wrong place for a heading or
+                   a code fence, so this one is flattened rather than rendered. -->
+              <p class="t-xs dim clamp-2" style="min-height:2.6em">{{ excerpt(project.topic) || 'No topic set.' }}</p>
 
               <div>
                 <div class="bar">

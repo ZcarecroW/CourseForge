@@ -74,7 +74,17 @@ final class BatchDriver
         $items = [];
         foreach ($pageIds as $pageId) {
             $plan = PageGenerator::plan($profile, $project, $pageId);
-            $request = Completion::request($profile, 'page', $plan['system'], $plan['user']);
+            // The research decision has to travel into the queue too. A page
+            // queued with it on and submitted without it comes back tomorrow
+            // written from memory, and nothing about the result says so.
+            $request = Completion::request(
+                $profile,
+                'page',
+                $plan['system'],
+                $plan['user'],
+                $plan['research'],
+                $plan['max_searches'],
+            );
             $items[] = new BatchItemRequest(RunManager::customId($pageId), $request->withModel($model));
         }
 

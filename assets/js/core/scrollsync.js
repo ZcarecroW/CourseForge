@@ -44,8 +44,18 @@ export function useScrollSync(editor, preview) {
   // the following, and "there is no position to read" must not be mistaken for
   // "the position is the top" — that would throw the surviving half to line 0
   // every time the other one is unmounted or the pane is resized.
-  const toEditor = () => { if (preview.value) editor.value?.scrollToLine(preview.value.topLine()); };
-  const toPreview = () => { if (editor.value) preview.value?.scrollToLine(editor.value.topLine()); };
+  //
+  // Present is not the same as ready, which is the third state and the one that
+  // used to throw. The editor arrives through defineAsyncComponent, so until
+  // CodeMirror has been fetched the ref holds the loading stand-in — an
+  // ordinary component that answers to neither method. Asking whether the pair
+  // of methods is there covers both that window and a null ref, so a scroll
+  // during the fetch is simply a scroll that nothing follows.
+  const ready = (half) => typeof half.value?.topLine === 'function'
+    && typeof half.value?.scrollToLine === 'function';
+
+  const toEditor = () => { if (ready(preview) && ready(editor)) editor.value.scrollToLine(preview.value.topLine()); };
+  const toPreview = () => { if (ready(editor) && ready(preview)) preview.value.scrollToLine(editor.value.topLine()); };
 
   const fromEditor = () => {
     if (enabled.value && driver === 'editor') onFrame(toPreview);

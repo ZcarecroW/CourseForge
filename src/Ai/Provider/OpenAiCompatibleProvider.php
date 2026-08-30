@@ -357,8 +357,8 @@ class OpenAiCompatibleProvider extends HttpProvider implements BatchCapable
     public function batchLimits(): BatchLimits
     {
         return new BatchLimits(
-            50000,
-            self::uploadBytes(200 * BatchLimits::MEGABYTE),
+            $this->spec->maxBatchRequests,
+            self::uploadBytes($this->spec->maxBatchMegabytes * BatchLimits::MEGABYTE),
             null,
             $this->spec->window,
             30,
@@ -445,12 +445,16 @@ class OpenAiCompatibleProvider extends HttpProvider implements BatchCapable
     public function batchUpload(string $jsonl, string $filename): HttpResult
     {
         $this->assertConfigured();
-        $url = $this->url($this->spec->filesPath);
+        // Two things gateways disagree about while still calling themselves
+        // OpenAI-compatible: where the upload goes, and what the purpose is
+        // called. Together proves both - /files/upload and 'batch-api' - and it
+        // also wants a file_name field beside them, which the others ignore.
+        $url = $this->url($this->spec->uploadPath());
         try {
             return Http::multipart(
                 $url,
                 $this->headers(),
-                ['purpose' => 'batch'],
+                ['purpose' => $this->spec->filePurpose, 'file_name' => $filename],
                 ['file' => ['filename' => $filename, 'type' => 'application/jsonl', 'content' => $jsonl]],
                 $this->chatTimeout(),
             );

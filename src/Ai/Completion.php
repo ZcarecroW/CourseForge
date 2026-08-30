@@ -23,14 +23,27 @@ use CourseForge\Support\HttpException;
 final class Completion
 {
     /** @param array<string,mixed> $profile */
-    public static function run(array $profile, string $slot, string $system, string $user): string
-    {
-        return self::provider($profile, $slot)->chat(self::request($profile, $slot, $system, $user));
+    public static function run(
+        array $profile,
+        string $slot,
+        string $system,
+        string $user,
+        bool $research = false,
+        int $maxSearches = 0,
+    ): string {
+        return self::provider($profile, $slot)
+            ->chat(self::request($profile, $slot, $system, $user, $research, $maxSearches));
     }
 
     /** The request a slot would send, without sending it. @param array<string,mixed> $profile */
-    public static function request(array $profile, string $slot, string $system, string $user): AiRequest
-    {
+    public static function request(
+        array $profile,
+        string $slot,
+        string $system,
+        string $user,
+        bool $research = false,
+        int $maxSearches = 0,
+    ): AiRequest {
         $config = self::modelConfig($profile, $slot);
         return new AiRequest(
             ModelId::base($config['model']),
@@ -38,6 +51,8 @@ final class Completion
             $user,
             $config['temperature'],
             $config['max_tokens'],
+            $research,
+            $maxSearches,
         );
     }
 

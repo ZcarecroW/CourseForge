@@ -47,15 +47,31 @@ final class Presets
         'chat_path'        => '/chat/completions',
         'models_path'      => '/models',
         'files_path'       => '/files',
+        // Where the upload POST goes when it is not files_path, and the value
+        // of the multipart `purpose` field. Together is the row that forced
+        // both: it uploads to /files/upload and calls the purpose 'batch-api',
+        // while still deleting and downloading from /files like everyone else.
+        'files_upload_path' => '',
+        'file_purpose'     => 'batch',
         'batches_path'     => '/batches',
         'batch_endpoint'   => '/v1/chat/completions',
         'window'           => '24h',
+        // Whether the create body may carry completion_window at all. Together
+        // publishes a window that "defaults to 24h and cannot be changed" and
+        // its documented create body has no such field, so it is not sent.
+        'sends_window'     => true,
         'max_tokens_field' => 'max_tokens',
         'strip'            => [],
         'local'            => false,
         'requires_key'     => true,
         'verified'         => false,
         'models_quirk'     => 'Standard OpenAI {object:list,data:[{id}]}.',
+        // OpenAI's published ceilings, which are the right guess for a gateway
+        // nobody has checked rather than a fact about all of them - Together
+        // publishes 100 MB and disproves it. A row that has been read overrides
+        // them.
+        'max_batch_requests'  => 50000,
+        'max_batch_megabytes' => 200,
     ];
 
     /** @return array<string,array<string,mixed>> */
@@ -89,10 +105,18 @@ final class Presets
         ],
         'together' => [
             'label'    => 'Together AI',
-            'base_url' => 'https://api.together.xyz/v1',
+            // api.together.xyz still answers, but every current document uses
+            // api.together.ai and that is where the batch tutorial points.
+            'base_url' => 'https://api.together.ai/v1',
             'batch'    => 'probe',
-            'docs'     => 'https://docs.together.ai/reference',
-            'hint'     => 'Large open-weight catalogue. Probe decides whether the queue is available.',
+            'files_upload_path' => '/files/upload',
+            'file_purpose'      => 'batch-api',
+            'sends_window'      => false,
+            'max_batch_requests' => 50000,
+            'max_batch_megabytes' => 100,
+            'docs'     => 'https://docs.together.ai/docs/inference/batch/tutorial',
+            'hint'     => 'Large open-weight catalogue. Its queue takes 50,000 requests and a 100 MB file, '
+                . 'and uploads to its own address; the probe still decides whether this key can reach it.',
         ],
         'fireworks' => [
             'label'    => 'Fireworks AI',

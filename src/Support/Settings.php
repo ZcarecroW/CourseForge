@@ -29,7 +29,7 @@ final class Settings
     /**
      * @return array<int,array{key:string,label:string,description:string,group:string,type:string,
      *                          default:mixed,secret?:bool,min?:int,max?:int,unit?:string,options?:array,
-     *                          admin_only?:bool,advanced?:bool,placeholder?:string}>
+     *                          admin_only?:bool,advanced?:bool,placeholder?:string,suggest?:string}>
      */
     public static function catalogue(): array
     {
@@ -42,9 +42,18 @@ final class Settings
                 'default' => 'CourseForge',
             ],
             [
+                // 'suggest' names a list the screen already has, rather than
+                // shipping the languages a second time: they are in
+                // assets/js/core/format.js, which is where the profile editor's
+                // identical picker reads them from. A suggested field is still a
+                // free-text one - the coercion below is 'string' and stays that
+                // way, because a course may be written in a language nobody
+                // thought to list.
                 'key' => 'app.default_language', 'group' => 'general', 'type' => 'string',
+                'suggest' => 'languages',
                 'label' => 'Default course language',
-                'description' => 'What a new profile starts with. Every course can still choose its own.',
+                'description' => 'What a new profile starts with. Every course can still choose its own. '
+                    . 'Fuzzy search, or type any language at all.',
                 'default' => 'English',
             ],
             [

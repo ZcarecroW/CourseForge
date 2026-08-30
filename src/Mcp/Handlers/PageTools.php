@@ -213,6 +213,18 @@ final class PageTools
 
         $plan = PageGenerator::plan($profile, $project, (int)$page['id'], $args->raw('feedback'));
 
+        // The research decision reaches a connected client as a fact rather
+        // than only as a sentence buried in the system instructions, because
+        // this is the one consumer that can act on it directly: a client with a
+        // search tool of its own searches for free, where CourseForge's own
+        // path would be paying its provider per search. The instructions still
+        // carry the wording - what to prefer, what to cite, what never to
+        // invent - so the two paths ask for the same thing.
+        $research = (bool)$plan['research'];
+        $maxSearches = (int)$plan['max_searches'];
+
+        $write = 'call write_page with course_id ' . $project['id'] . ' and page_id ' . $page['id'] . '.';
+
         return [
             'course_id' => (int)$project['id'],
             'page_id' => (int)$page['id'],
@@ -220,8 +232,15 @@ final class PageTools
             'chapter_title' => (string)$plan['page']['chapter_title'],
             'system_instructions' => $plan['system'],
             'writing_brief' => $plan['user'],
-            'next_step' => 'Write the page from the brief above, then call write_page with course_id '
-                . $project['id'] . ' and page_id ' . $page['id'] . '.',
+            'web_research' => $research,
+            'max_searches' => $research ? $maxSearches : 0,
+            'next_step' => $research
+                ? 'This page asks for web research. Search the web first for the current state of the '
+                    . 'topic - latest stable versions, current official documentation, recent releases '
+                    . 'or deprecations' . ($maxSearches > 0 ? ' (about ' . $maxSearches . ' searches is enough)' : '')
+                    . ' - then write the page from the brief above, citing what you actually read in a '
+                    . 'closing "## Sources" section. Then ' . $write
+                : 'Write the page from the brief above, then ' . $write,
         ];
     }
 

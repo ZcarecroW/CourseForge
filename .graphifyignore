@@ -1,0 +1,75 @@
+# ── graphify: what must NOT enter the knowledge graph ───────────────────────
+# Same syntax as .gitignore. A pattern with no leading/middle slash matches at
+# ANY depth, so `vendor/` also catches `assets/vendor/`.
+#
+# This file can only ever EXCLUDE more than .gitignore — it can never re-include
+# something .gitignore already dropped.
+#
+# Why this matters: minified library bundles are the single biggest quality
+# killer. Their mangled symbols (rJ(), uo(), Arr) flood the god-node ranking,
+# bury the project's real architecture, and eat the budget of every query.
+
+# --- Minified / built bundles, by name -------------------------------------
+*.min.js
+*.min.mjs
+*.min.css
+*.bundle.js
+*.prod.js
+*.production.js
+*-bundle.js
+*.map
+
+# --- Shipped library builds that are NOT named .min.js ----------------------
+# (this is the trap: vue.global.prod.js and tailwindcss-browser.js are both
+#  minified but neither matches *.min.js)
+vue.global*.js
+vue.runtime*.js
+vue.esm*.js
+react.production*.js
+react-dom.production*.js
+tailwind*.js
+tailwindcss*.js
+jquery*.js
+bootstrap.bundle*.js
+alpine*.js
+htmx*.js
+lodash*.js
+moment*.js
+chart*.js
+three*.js
+d3*.js
+
+# --- Vendored / third-party directories ------------------------------------
+vendor/
+vendors/
+third-party/
+third_party/
+3rdparty/
+node_modules/
+bower_components/
+
+# --- Build output ----------------------------------------------------------
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.svelte-kit/
+_build/
+coverage/
+
+# --- Generated code --------------------------------------------------------
+*.generated.*
+*_pb2.py
+*.pb.go
+
+# --- graphify's own output (never index the graph into itself) -------------
+graphify-out/
+
+# --- CourseForge specifics --------------------------------------------------
+# The single largest file in the repo: a 148 KB hand-written manual, not code.
+docs.md
+# Runtime state (SQLite, settings, update backups) — gitignored, but be explicit.
+data/
+.cf-tmp/

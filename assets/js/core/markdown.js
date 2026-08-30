@@ -165,11 +165,13 @@ const md = new Marked({ gfm: true, breaks: false })
 /**
  * Marked reports no positions, so the line of every top-level block is counted
  * off the token stream before parsing. Adding up the `raw` lengths is not quite
- * enough: a link reference definition is consumed but never emitted as a token
- * of its own, so those lines would go unaccounted for and every block below
- * them would be reported too high. Finding each `raw` back in the source closes
- * that gap, and falls back to the running total for any token whose text is not
- * verbatim in it.
+ * enough, because what the lexer emits is marked's business and it changes:
+ * a link reference definition used to be consumed silently and is now a token
+ * of its own, and marked 18 trims trailing blank lines out of `raw` where 15
+ * left them in. Either way the running total drifts. Finding each `raw` back in
+ * the source is what makes the count independent of those decisions — the line
+ * is read off the text rather than accumulated — and the running total is only
+ * the fallback for a token whose text is not verbatim in the source.
  */
 function withLines(tokens, source) {
   let index = 0;
@@ -199,10 +201,14 @@ function withLines(tokens, source) {
  * produces, and the inline HTML that is actually useful in prose — `kbd`,
  * `sub`, `sup`, `abbr`, `details` — is untouched.
  *
- * `HTML_INTEGRATION_POINTS` is pinned for a different reason: DOMPurify 3.2.4
- * carries that one option over from the previous call instead of resetting it,
- * so rendering a diagram would otherwise leave `foreignObject` registered here
- * too — the one place it must never be.
+ * `HTML_INTEGRATION_POINTS` is pinned for a different reason. It began as a
+ * repair: DOMPurify 3.2.4 carried that one option over from the previous call
+ * instead of resetting it, so rendering a diagram left `foreignObject`
+ * registered here too — the one place it must never be. 3.4.14 resets it per
+ * call, so the line no longer fixes anything. It stays because `core/diagrams.js`
+ * deliberately widens the same option for its own SVG, and the boundary between
+ * the two is worth stating out loud rather than inheriting from a default that
+ * has already changed once.
  */
 const PROSE_POLICY = {
   FORBID_TAGS: ['style', 'form', 'input', 'button', 'select', 'option', 'textarea'],

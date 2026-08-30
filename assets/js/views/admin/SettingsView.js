@@ -27,10 +27,11 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { state, loadSettings, applySettings, declareUnsaved } from '@/core/store.js';
 import { get, put, post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
-import { relativeTime, formatDateTime, plural } from '@/core/format.js';
+import { relativeTime, formatDateTime, plural, LANGUAGES } from '@/core/format.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';
+import ComboBox from '@/components/ComboBox.js';
 import EmptyState from '@/components/EmptyState.js';
 import ViewHeader from '@/components/ViewHeader.js';
 
@@ -55,7 +56,7 @@ const STATUS = {
 
 export const SettingsView = {
   name: 'SettingsView',
-  components: { AppIcon, AppModal, EmptyState, ViewHeader },
+  components: { AppIcon, AppModal, ComboBox, EmptyState, ViewHeader },
   setup() {
     const loading = ref(true);
     const saving = ref(false);
@@ -188,6 +189,19 @@ export const SettingsView = {
 
     /** Whether a number field declares limits worth printing under the box. */
     const hasRange = (field) => typeof field.min === 'number' && typeof field.max === 'number';
+
+    /**
+     * The lists a field may ask to be suggested from, by name.
+     *
+     * The catalogue is server-side and these lists are not, so a field says
+     * which one it wants rather than carrying it: shipping the languages down
+     * with the settings would be a second copy of what the profile editor
+     * already reads out of core/format.js, and the two would drift. A name
+     * nobody has a list for is simply not suggested, so a later release can
+     * add `suggest` to a field before this screen knows about it.
+     */
+    const SUGGESTIONS = { languages: LANGUAGES };
+    const suggestionsFor = (field) => SUGGESTIONS[field.suggest] ?? null;
 
     /** What the release ships, in words, so "reset" is never a leap of faith. */
     const defaultText = (field) => {
@@ -443,7 +457,7 @@ export const SettingsView = {
     return {
       state, loading, saving, busy, draft, load, save, discard,
       groups, fieldsOf, advancedShown, toggleAdvanced,
-      isDirty, dirtyCount, overridden, defaultText, hasRange, resetField, resetEverything,
+      isDirty, dirtyCount, overridden, defaultText, hasRange, suggestionsFor, resetField, resetEverything,
       scheduler, schedulerHealth, cronLine, cronCurlLine, cronUrlShown, copyCronUrl, revealedCronUrl,
       php, phpBusy, setUpPhp,
       confirmToken, confirmResetAll, confirmSecret, removeSecret, freshToken, generateToken, CRON_TOKEN,
@@ -712,6 +726,14 @@ export const SettingsView = {
                 <!-- text -->
                 <textarea v-else-if="field.type === 'text'" v-model="draft[field.key]" rows="5"
                           spellcheck="false" :placeholder="field.placeholder || ''"></textarea>
+
+                <!-- a string with suggestions: fuzzy-searched, never constrained -->
+                <div v-else-if="suggestionsFor(field)" class="row">
+                  <combo-box :model-value="String(draft[field.key] ?? '')"
+                             @update:model-value="draft[field.key] = $event"
+                             :options="suggestionsFor(field)"
+                             :placeholder="field.placeholder || ''"/>
+                </div>
 
                 <!-- string, and anything a later release adds -->
                 <input v-else v-model="draft[field.key]" type="text" :placeholder="field.placeholder || ''">

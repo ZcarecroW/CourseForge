@@ -16,7 +16,7 @@
  *
  * - `SHIKI` — every grammar in `assets/vendor/shiki/langs`, as
  *   `id: 'Display Name'` or `id: 'Display Name|alias,alias'`. Generated from
- *   `@shikijs/langs` 3.23.0, aliases and all; see `VENDOR.md`.
+ *   `@shikijs/langs` 4.4.3, aliases and all; see `VENDOR.md`.
  * - `EXTRA` — aliases the grammars do not declare but an author (or a language
  *   model) will write anyway: `golang`, `mysql`, `htaccess`, `c++`. Applied
  *   after `SHIKI`, so it can also correct one — Shiki hands `cmd` to Visual
@@ -40,6 +40,8 @@ const SHIKI = {
   abap: 'ABAP',
   'actionscript-3': 'ActionScript|actionscript,as3',
   ada: 'Ada',
+  ahk: 'AutoHotkey|ahk1',
+  ahk2: 'AutoHotkey 2',
   'angular-html': 'Angular HTML',
   'angular-ts': 'Angular TypeScript',
   apache: 'Apache Conf',
@@ -67,6 +69,7 @@ const SHIKI = {
   clarity: 'Clarity',
   clojure: 'Clojure|clj',
   cmake: 'CMake',
+  chapel: 'Chapel|chpl',
   cobol: 'COBOL',
   codeowners: 'CODEOWNERS',
   codeql: 'CodeQL|ql',
@@ -172,12 +175,14 @@ const SHIKI = {
   nginx: 'Nginx',
   nim: 'Nim',
   nix: 'Nix',
+  nsis: 'NSIS',
   nushell: 'Nushell|nu',
   'objective-c': 'Objective-C|objc',
   'objective-cpp': 'Objective-C++|objcpp',
   ocaml: 'OCaml',
   odin: 'Odin',
   openscad: 'OpenSCAD|scad',
+  org: 'Org Mode',
   pascal: 'Pascal',
   perl: 'Perl',
   php: 'PHP',
@@ -202,6 +207,7 @@ const SHIKI = {
   racket: 'Racket',
   raku: 'Raku|perl6',
   razor: 'ASP.NET Razor',
+  rbs: 'RBS|ruby-signature',
   reg: 'Windows Registry Script',
   regexp: 'RegExp|regex',
   rel: 'Rel',
@@ -221,6 +227,7 @@ const SHIKI = {
   shellscript: 'Shell|bash,sh,shell,zsh',
   shellsession: 'Shell Session|console',
   smalltalk: 'Smalltalk',
+  smithy: 'Smithy',
   solidity: 'Solidity',
   soy: 'Closure Templates|closure-templates',
   sparql: 'SPARQL',

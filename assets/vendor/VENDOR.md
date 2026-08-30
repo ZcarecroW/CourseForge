@@ -14,10 +14,10 @@ Only two things are required when updating one of these:
 
 | Specifier   | File                        | Version | Licence      | Source                                                    |
 |-------------|-----------------------------|---------|--------------|-----------------------------------------------------------|
-| `vue`       | `vue.esm-browser.prod.js`   | 3.5.13  | MIT          | https://unpkg.com/vue@3.5.13/dist/vue.esm-browser.prod.js |
-| `marked`    | `marked.esm.js`             | 15.0.7  | MIT          | https://unpkg.com/marked@15.0.7/lib/marked.esm.js         |
-| `dompurify` | `purify.es.mjs`             | 3.2.4   | MPL-2.0/Apache-2.0 | https://unpkg.com/dompurify@3.2.4/dist/purify.es.mjs |
-| `fuse`      | `fuse.mjs`                  | 7.1.0   | Apache-2.0   | https://unpkg.com/fuse.js@7.1.0/dist/fuse.mjs             |
+| `vue`       | `vue.esm-browser.prod.js`   | 3.5.42  | MIT          | https://unpkg.com/vue@3.5.42/dist/vue.esm-browser.prod.js |
+| `marked`    | `marked.esm.js`             | 18.0.11 | MIT          | https://unpkg.com/marked@18.0.11/lib/marked.esm.js        |
+| `dompurify` | `purify.es.mjs`             | 3.4.14  | MPL-2.0/Apache-2.0 | https://unpkg.com/dompurify@3.4.14/dist/purify.es.mjs |
+| `fuse`      | `fuse.mjs`                  | 7.5.0   | Apache-2.0   | https://unpkg.com/fuse.js@7.5.0/dist/fuse.mjs             |
 
 ## The editor — CodeMirror 6
 
@@ -47,7 +47,7 @@ is exactly what an import map is for.
 | `@lezer/css`                  | `lezer-css.js`          | 1.3.6   |
 | `@lezer/javascript`           | `lezer-javascript.js`   | 1.5.4   |
 | `@lezer/php`                  | `lezer-php.js`          | 1.0.5   |
-| `@marijn/find-cluster-break`  | `find-cluster-break.js` | 1.0.3   |
+| `@marijn/find-cluster-break`  | `find-cluster-break.js` | 1.0.4   |
 | `style-mod`                   | `style-mod.js`          | 4.1.3   |
 | `w3c-keyname`                 | `w3c-keyname.js`        | 2.2.8   |
 | `crelt`                       | `crelt.js`              | 1.0.7   |
@@ -80,11 +80,11 @@ block would try to reach npm. The explicit table in
 
 | Specifier / path                    | Version  | Licence   | Source                                                            |
 |-------------------------------------|----------|-----------|-------------------------------------------------------------------|
-| `shiki` → `shiki/core.js`           | 3.23.0   | MIT       | https://esm.sh/@shikijs/core@3.23.0/es2022/core.bundle.mjs        |
-| `shiki/engine` → `shiki/engine-javascript.js` | 3.23.0 | MIT | https://esm.sh/@shikijs/engine-javascript@3.23.0/es2022/engine-javascript.bundle.mjs |
-| `shiki/langs/*.mjs` (346 files)     | 3.23.0   | MIT       | https://unpkg.com/@shikijs/langs@3.23.0/dist/<name>.mjs            |
-| `shiki/themes/*.mjs` (2 files)      | 3.23.0   | MIT       | https://unpkg.com/@shikijs/themes@3.23.0/dist/<name>.mjs           |
-| `mermaid.min.js`                    | 11.16.1  | MIT       | https://unpkg.com/mermaid@11.16.1/dist/mermaid.min.js              |
+| `shiki` → `shiki/core.js`           | 4.4.3    | MIT       | https://esm.sh/@shikijs/core@4.4.3/es2022/core.bundle.mjs        |
+| `shiki/engine` → `shiki/engine-javascript.js` | 4.4.3 | MIT | https://esm.sh/@shikijs/engine-javascript@4.4.3/es2022/engine-javascript.bundle.mjs |
+| `shiki/langs/*.mjs` (360 files)     | 4.4.3    | MIT       | https://unpkg.com/@shikijs/langs@4.4.3/dist/<name>.mjs             |
+| `shiki/themes/*.mjs` (2 files)      | 4.4.3    | MIT       | https://unpkg.com/@shikijs/themes@4.4.3/dist/<name>.mjs            |
+| `mermaid.min.js`                    | 11.17.2  | MIT       | https://unpkg.com/mermaid@11.17.2/dist/mermaid.min.js              |
 | `mathjax/tex-mml-svg.js`            | 3.2.2    | Apache-2.0| https://unpkg.com/mathjax@3.2.2/es5/tex-mml-svg.js                 |
 
 ## Notes
@@ -100,6 +100,12 @@ a generated page and script execution in the editor.
 **marked** only ever renders the preview. What gets published is the raw
 Markdown — BookStack does its own rendering.
 
+From version 16 the published `lib/marked.esm.js` is minified, so this is the
+one vendored file that is no longer readable source. It is still the package's
+own build from the package's own path — the rule at the top of this file holds —
+but a stack trace from inside marked will not be legible, and the map is not
+vendored. Worth knowing before debugging the preview.
+
 **Fuse.js** powers the fuzzy inputs (model picker, tag picker, course and tag
 search) behind `core/fuzzy.js`, which is the only file that imports it.
 
@@ -111,10 +117,10 @@ that the highlighter is handed at runtime — one file per language, fetched the
 first time a block in that language appears. The JavaScript regex engine is used
 rather than the Oniguruma one so there is no `.wasm` to serve.
 
-`langs/` is the *entire* `@shikijs/langs` distribution: 253 grammars, 93 files
+`langs/` is the *entire* `@shikijs/langs` distribution: 260 grammars, 100 files
 that are nothing but an alias (`bash.mjs` re-exports `shellscript.mjs`), and
 `index.mjs` left out because it imports all of them at once. Two hundred and
-thirty-two are offered to an author through `assets/js/core/languages.js`; the
+thirty-nine are offered to an author through `assets/js/core/languages.js`; the
 remaining twenty-one exist only because something else imports them — a Vue file
 needs `vue-directives`, a C++ file needs `cpp-macro` — and every grammar states
 those dependencies as ordinary relative imports, which is the reason to vendor
@@ -127,10 +133,21 @@ runtime, which would defeat the point of vendoring; the UMD file is one
 self-contained payload with no dynamic imports in it at all.
 
 **MathJax** is version 3 rather than 4, and the SVG output rather than CHTML.
-Both follow from the same requirement: version 3's SVG component carries its
-glyph outlines inside the single file, so there are no web fonts to vendor and
-nothing is fetched at runtime. Version 4 splits the font into a separate package
-that its loader would go looking for.
+Both follow from the same requirement: nothing may be fetched at runtime.
+Version 3's SVG component carries every glyph outline it will ever need inside
+the single file, so there are no web fonts to vendor.
+
+Version 4 nearly does the same and not quite. Its combined `tex-mml-svg.js` does
+inline the common outlines — the claim that it moves the whole font out is
+wrong — but the new default font's *extended* ranges were broken out into
+separately loaded chunks, and the bundle carries
+`dynamicPrefix: "@mathjax/mathjax-newcm-font/js/svg/dynamic"` with a loader that
+defaults to jsDelivr. MathJax's own documentation is plain about what happens
+then: it pauses and waits for the data to arrive. So on an offline install a
+`\mathcal` would hang rather than render. Vendoring v4 properly means also
+vendoring that dynamic directory out of a 49 MB font package and repointing
+`MathJax.loader.paths` — a project rather than a version bump. 3.2.2 is the last
+3.x release, so this pin cannot drift any further.
 
 The trailing `//# sourceMappingURL=` comments were removed from `marked.esm.js`
 and `purify.es.mjs`: the `.map` files are not vendored, and leaving the comments
@@ -147,7 +164,7 @@ and no flash of unstyled icons.
 
 ## Weight
 
-About 16 MB on disk, in 484 files — most of it the two grammar directories.
+About 17.5 MB on disk, in 496 files — most of it the two grammar directories.
 Almost none of it is on the critical path, because everything added for the
 editor and the preview is behind a lazy import, and both grammar sets are
 fetched one file at a time. Measured on a page that uses all of it
