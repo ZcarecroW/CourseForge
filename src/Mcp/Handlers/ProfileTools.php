@@ -13,9 +13,11 @@ use CourseForge\Mcp\Schema;
 use CourseForge\Mcp\Scopes;
 use CourseForge\Mcp\Tool;
 use CourseForge\Publish\BookStackClient;
+use CourseForge\Publish\Targets;
 use CourseForge\Security\Access;
 use CourseForge\Security\Actor;
 use CourseForge\Support\Audit;
+use CourseForge\Support\Config;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Runtime;
 
@@ -137,6 +139,20 @@ final class ProfileTools
                         . 'everything but a self-hosted or proxied gateway.',
                         'https://api.openai.com/v1'
                     ),
+                    'preset_key' => Schema::string(
+                        'A row of the provider catalogue rather than a raw driver kind - "groq", "together", '
+                        . '"deepseek", "llamacpp" and the rest, as list_providers reports them. Naming one picks the '
+                        . 'endpoint and the label with it, which is what the browser\'s provider picker does; '
+                        . 'ai_kind is then optional. Every preset runs on the OpenAI-compatible driver.',
+                        'groq'
+                    ),
+                    'organization' => Schema::string('The OpenAI organization id, for an account that belongs to one.'),
+                    'cli_path' => Schema::string(
+                        'Where the Claude CLI lives on this server, for the subscription account when it is not on '
+                        . 'the PATH.'
+                    ),
+                    'site_url' => Schema::string('OpenRouter only: the site this traffic is attributed to.'),
+                    'site_name' => Schema::string('OpenRouter only: the name shown beside that attribution.'),
                     'model' => Schema::string(
                         'The model that writes the pages - where the budget goes. Add ":batch" to route a whole '
                         . 'course through the provider\'s queue at about half price.',
@@ -167,7 +183,7 @@ final class ProfileTools
                         'The BookStack API token secret. Written only: no tool will ever hand it back.'
                     ),
                 ],
-                required: ['name', 'ai_kind'],
+                required: ['name'],
                 handler: static fn(Actor $actor, array $args): array => self::createProfile($actor, Args::of($args)),
             ),
 
@@ -187,6 +203,7 @@ final class ProfileTools
                     'ai_id' => Schema::string(
                         'Which AI account to change, when the profile holds more than one. get_profile lists the ids.'
                     ),
+                    'ai_name' => Schema::string('A new name for that AI account, for the picker.'),
                     'ai_kind' => Schema::enum(
                         'Change the account to another kind. The base URL follows the new kind\'s default unless you '
                         . 'gave one yourself or had typed one.',
@@ -194,6 +211,20 @@ final class ProfileTools
                     ),
                     'api_key' => Schema::string('A new key, replacing the stored one. Empty or omitted keeps what is stored.'),
                     'base_url' => Schema::string('A new endpoint for the account.'),
+                    'preset_key' => Schema::string(
+                        'A row of the provider catalogue rather than a raw driver kind - "groq", "together", '
+                        . '"deepseek", "llamacpp" and the rest, as list_providers reports them. Naming one picks the '
+                        . 'endpoint and the label with it, which is what the browser\'s provider picker does; '
+                        . 'ai_kind is then optional. Every preset runs on the OpenAI-compatible driver.',
+                        'groq'
+                    ),
+                    'organization' => Schema::string('The OpenAI organization id, for an account that belongs to one.'),
+                    'cli_path' => Schema::string(
+                        'Where the Claude CLI lives on this server, for the subscription account when it is not on '
+                        . 'the PATH.'
+                    ),
+                    'site_url' => Schema::string('OpenRouter only: the site this traffic is attributed to.'),
+                    'site_name' => Schema::string('OpenRouter only: the name shown beside that attribution.'),
                     'model' => Schema::string('The model that writes the pages. Add ":batch" to queue the run at about half price.'),
                     'structure_model' => Schema::string('The model that designs the outline.'),
                     'language' => Schema::string('The language the course is written in.'),
@@ -206,9 +237,16 @@ final class ProfileTools
                     'max_tokens' => Schema::int('The token ceiling for one reply, for both slots. 0 is the provider default.', 0),
                     'concurrency' => Schema::int('How many pages a run writes at once.', 1, 12),
                     'bookstack_id' => Schema::string('Which BookStack instance to change, when the profile holds more than one.'),
+                    'bookstack_name' => Schema::string('A new name for that BookStack instance, for the picker.'),
                     'bookstack_url' => Schema::string('The BookStack base URL.'),
                     'bookstack_token_id' => Schema::string('The BookStack API token id.'),
                     'bookstack_token_secret' => Schema::string('A new BookStack token secret. Empty or omitted keeps the stored one.'),
+                    'typography' => Schema::bool(
+                        'Whether a page generated with this profile has its punctuation set the way the course '
+                        . 'language sets it before it is stored. Omitted leaves the profile as it is; a profile that '
+                        . 'has never said follows the installation. This decides nothing about courses that are '
+                        . 'already written - fix_typography corrects one of those whatever this says.'
+                    ),
                 ],
                 required: ['profile_id'],
                 handler: static fn(Actor $actor, array $args): array => self::updateProfile($actor, Args::of($args)),
@@ -233,6 +271,215 @@ final class ProfileTools
                 required: ['profile_id', 'confirm_name'],
                 handler: static fn(Actor $actor, array $args): array => self::deleteProfile($actor, Args::of($args)),
                 destructive: true,
+            ),
+
+            new Tool(
+                name: 'add_ai_account',
+                scope: Scopes::PROFILES,
+                title: 'Add an AI account to a profile',
+                description: 'Adds another AI account to a profile that already has one - an OpenAI key beside an '
+                    . 'Anthropic one, a self-hosted gateway beside both, the Claude subscription beside a metered '
+                    . 'key. update_profile changes an account a profile already holds; this is how it gets a second. '
+                    . 'Call list_providers first for the kinds this installation speaks. Nothing points at the new '
+                    . 'account until you say so: use set_model_slot to send the outline or the pages through it. The '
+                    . 'key is stored on the server and can never be read back. Costs nothing.',
+                properties: [
+                    'profile_id' => Schema::int('The profile to add the account to.'),
+                    'kind' => Schema::enum(
+                        'The kind of AI account. Call list_providers for what each one is and whether it needs a key.',
+                        Providers::kinds()
+                    ),
+                    'name' => Schema::string(
+                        'A name for this account, which is how the model slots refer to it. Defaults to the '
+                        . 'provider\'s own label.',
+                        'OpenAI - fallback'
+                    ),
+                    'api_key' => Schema::string(
+                        'The API key. Required for every kind whose needs_key is true. Written only: no tool will '
+                        . 'ever hand it back.'
+                    ),
+                    'base_url' => Schema::string(
+                        'The endpoint. Omit to use the default list_providers gives for this kind.',
+                        'https://api.openai.com/v1'
+                    ),
+                    'preset_key' => Schema::string(
+                        'A row of the provider catalogue rather than a raw driver kind - "groq", "together", '
+                        . '"deepseek", "llamacpp" and the rest, as list_providers reports them. Naming one picks the '
+                        . 'endpoint and the label with it, which is what the browser\'s provider picker does; '
+                        . 'ai_kind is then optional. Every preset runs on the OpenAI-compatible driver.',
+                        'groq'
+                    ),
+                    'organization' => Schema::string('The OpenAI organization id, for an account that belongs to one.'),
+                    'cli_path' => Schema::string(
+                        'Where the Claude CLI lives on this server, for the subscription account when it is not on '
+                        . 'the PATH.'
+                    ),
+                    'site_url' => Schema::string('OpenRouter only: the site this traffic is attributed to.'),
+                    'site_name' => Schema::string('OpenRouter only: the name shown beside that attribution.'),
+                ],
+                required: ['profile_id'],
+                handler: static fn(Actor $actor, array $args): array => self::addAiAccount($actor, Args::of($args)),
+            ),
+
+            new Tool(
+                name: 'delete_ai_account',
+                scope: Scopes::PROFILES,
+                title: 'Remove an AI account from a profile',
+                description: 'Takes one AI account out of a profile. Its key goes with it and cannot be recovered, '
+                    . 'because nothing here can read a key back to copy it elsewhere first. A model slot pointing at '
+                    . 'the account is left pointing at nothing, which stops that slot generating until it is pointed '
+                    . 'somewhere with set_model_slot - so the answer says which slots those were. Removing the last '
+                    . 'account of a profile is refused: a profile with no account cannot write a word, and deleting '
+                    . 'the profile is the honest way to say that. Costs nothing.',
+                properties: [
+                    'profile_id' => Schema::int('The profile the account belongs to.'),
+                    'ai_id' => Schema::string('The account to remove. get_profile lists the ids.'),
+                ],
+                required: ['profile_id', 'ai_id'],
+                handler: static fn(Actor $actor, array $args): array => self::deleteAiAccount($actor, Args::of($args)),
+                destructive: true,
+            ),
+
+            new Tool(
+                name: 'add_bookstack_instance',
+                scope: Scopes::PROFILES,
+                title: 'Add a BookStack instance to a profile',
+                description: 'Adds another BookStack instance to a profile that already has one - a staging wiki '
+                    . 'beside a live one, the wikis of two departments, a customer\'s install beside your own. '
+                    . 'update_profile changes an instance a profile already holds; this is how it gets a second, '
+                    . 'which is what a course needs before set_publish_targets can send it to more than one wiki. '
+                    . 'The token secret is stored on the server and can never be read back. Costs nothing.',
+                properties: [
+                    'profile_id' => Schema::int('The profile to add the instance to.'),
+                    'url' => Schema::string('The BookStack base URL, without a trailing slash.', 'https://docs.example.com'),
+                    'token_id' => Schema::string('The BookStack API token id. Not a secret; it is readable back.'),
+                    'token_secret' => Schema::string(
+                        'The BookStack API token secret. Written only: no tool will ever hand it back.'
+                    ),
+                    'name' => Schema::string(
+                        'A name for this instance, which is how a course names its destination.',
+                        'Staging wiki'
+                    ),
+                ],
+                required: ['profile_id', 'url', 'token_id', 'token_secret'],
+                handler: static fn(Actor $actor, array $args): array => self::addInstance($actor, Args::of($args)),
+            ),
+
+            new Tool(
+                name: 'delete_bookstack_instance',
+                scope: Scopes::PROFILES,
+                title: 'Remove a BookStack instance from a profile',
+                description: 'Takes one BookStack instance out of a profile, with its token. A course that publishes '
+                    . 'to that instance loses the destination and the record of the book it made there, so publishing '
+                    . 'to the same wiki later would create a second book beside the first - the call is refused with '
+                    . 'the names of those courses unless you send confirm. Nothing is deleted inside BookStack '
+                    . 'itself, here or ever. Costs nothing.',
+                properties: [
+                    'profile_id' => Schema::int('The profile the instance belongs to.'),
+                    'bookstack_id' => Schema::string('The instance to remove. get_profile lists the ids.'),
+                    'confirm' => Schema::bool(
+                        'Go through with it even though courses publish to this instance. Their destinations and the '
+                        . 'record of what was published there are forgotten.'
+                    ),
+                ],
+                required: ['profile_id', 'bookstack_id'],
+                handler: static fn(Actor $actor, array $args): array => self::deleteInstance($actor, Args::of($args)),
+                destructive: true,
+            ),
+
+            new Tool(
+                name: 'set_model_slot',
+                scope: Scopes::PROFILES,
+                title: 'Point one model slot at an account and a model',
+                description: 'Sets the outline slot or the page slot on its own: which AI account it runs through, '
+                    . 'which model, and that slot\'s own temperature and token ceiling. update_profile sets both '
+                    . 'slots together, which is right when a profile has one account and wrong as soon as it has two '
+                    . '- the outline is one call and can afford the expensive model, while the pages are hundreds '
+                    . 'and may want a cheaper one, a different provider, or ":batch" on the end to go through the '
+                    . 'provider\'s queue at about half price. Call list_models for the ids an account will accept. '
+                    . 'Costs nothing.',
+                properties: [
+                    'profile_id' => Schema::int('The profile to change.'),
+                    'slot' => Schema::enum(
+                        'Which slot: "outline" designs the course structure, "page" writes the pages.',
+                        ['outline', 'page']
+                    ),
+                    'model' => Schema::string(
+                        'The model id, as list_models reports it. Add ":batch" to route this slot through the '
+                        . 'provider\'s queue.',
+                        'claude-opus-5'
+                    ),
+                    'ai_id' => Schema::string(
+                        'The AI account this slot runs through. Omit to leave it where it points, or when the '
+                        . 'profile holds only one account.'
+                    ),
+                    'temperature' => [
+                        'type' => 'number',
+                        'description' => 'Sampling temperature for this slot alone. 0.7 unless you have a reason.',
+                        'minimum' => 0,
+                        'maximum' => 2,
+                    ],
+                    'max_tokens' => Schema::int(
+                        'The token ceiling for one reply from this slot. 0 means the provider\'s own default.',
+                        0
+                    ),
+                ],
+                required: ['profile_id', 'slot'],
+                handler: static fn(Actor $actor, array $args): array => self::setModelSlot($actor, Args::of($args)),
+                idempotent: true,
+            ),
+
+            new Tool(
+                name: 'list_prompt_slots',
+                scope: Scopes::PROFILES,
+                title: 'List the prompt slots a profile can override',
+                description: 'Every prompt slot this installation has: its key, the group it belongs to, what it is '
+                    . 'for, the placeholders it may use, and the wording currently in force for the installation - '
+                    . 'which is what a profile that overrides nothing uses. This is the read a profile needs before '
+                    . 'set_profile_prompts can change one, and unlike get_prompts it needs no administrator, because '
+                    . 'overriding a slot for one profile is not the same power as rewriting it for everybody. '
+                    . 'Costs nothing.',
+                properties: [
+                    'group' => Schema::string('One group only, as the group field of a slot reports it.', 'page'),
+                    'include_text' => Schema::bool(
+                        'Include the full wording of each slot rather than only what it is for. These are long.'
+                    ),
+                ],
+                required: [],
+                handler: static fn(Actor $actor, array $args): array => self::listPromptSlots(Args::of($args)),
+                readOnly: true,
+                idempotent: true,
+            ),
+
+            new Tool(
+                name: 'set_profile_prompts',
+                scope: Scopes::PROFILES,
+                title: 'Override prompt slots for one profile',
+                description: 'Replaces the wording this profile uses for one or more prompt slots, leaving the '
+                    . 'installation\'s own prompts alone for every other profile. This is the per-profile half of '
+                    . 'get_prompts and set_prompts, which are the installation-wide pair and need an administrator: '
+                    . 'a profile override needs only the profile. Call get_prompts for the slot names and what each '
+                    . 'one is for, and get_profile with include_prompt_text to read back what this profile '
+                    . 'currently overrides. A slot named in reset goes back to the installation\'s wording; an empty '
+                    . 'string is a deliberate override that sends nothing for that slot, which is not the same '
+                    . 'thing. Costs nothing.',
+                properties: [
+                    'profile_id' => Schema::int('The profile to change.'),
+                    'prompts' => [
+                        'type' => 'object',
+                        'description' => 'Slot name to the text this profile should use instead. Unknown slot names '
+                            . 'are refused rather than silently stored.',
+                        'additionalProperties' => ['type' => 'string'],
+                    ],
+                    'reset' => [
+                        'type' => 'array',
+                        'description' => 'Slot names to stop overriding, so the installation\'s wording applies again.',
+                        'items' => ['type' => 'string'],
+                    ],
+                ],
+                required: ['profile_id'],
+                handler: static fn(Actor $actor, array $args): array => self::setProfilePrompts($actor, Args::of($args)),
+                idempotent: true,
             ),
 
             new Tool(
@@ -421,8 +668,7 @@ final class ProfileTools
     private static function createProfile(Actor $actor, Args $args): array
     {
         $name = $args->requiredStr('name');
-        $kind = self::requireKind($args);
-        $catalogue = self::catalogueEntry($kind);
+        ['kind' => $kind, 'preset' => $preset, 'catalogue' => $catalogue] = self::chosenProvider($args, 'ai_kind');
         $label = (string)($catalogue['label'] ?? $kind);
 
         $apiKey = $args->str('api_key');
@@ -438,17 +684,18 @@ final class ProfileTools
         // stored, and nothing arrives in the blob by accident.
         $data = Profiles::defaults();
         $accountId = self::newId();
-        $data['ai'] = [[
+        $data['ai'] = [self::accountExtras($args, [
             'id' => $accountId,
             'name' => $label,
             'kind' => $kind,
+            'preset_key' => $preset,
             'base_url' => self::normaliseUrl($args->has('base_url') ? $args->str('base_url') : self::defaultUrl($catalogue)),
             'api_key' => $apiKey,
             'organization' => '',
             'cli_path' => '',
             'site_url' => '',
             'site_name' => '',
-        ]];
+        ])];
 
         $pageModel = $args->str('model');
         // One model unless told otherwise: a profile whose two slots disagree
@@ -525,7 +772,8 @@ final class ProfileTools
         $accounts = self::entries($data, 'ai');
         $target = null;
 
-        $touchesAccount = $args->has('ai_kind') || $args->str('api_key') !== '' || $args->has('base_url');
+        $touchesAccount = $args->has('ai_kind') || $args->str('api_key') !== '' || $args->has('base_url')
+            || $args->has('ai_name') || $args->has('preset_key') || self::hasExtras($args);
         if ($touchesAccount || $args->str('ai_id') !== '') {
             if ($accounts === []) {
                 if (!$args->has('ai_kind')) {
@@ -558,18 +806,20 @@ final class ProfileTools
                 $target = self::accountIndex($accounts, $args);
                 $account = $accounts[$target];
 
-                if ($args->has('ai_kind')) {
-                    $kind = self::requireKind($args);
-                    $previous = self::catalogueEntry(Providers::kindOf($account));
+                if ($args->has('ai_kind') || $args->has('preset_key')) {
+                    ['kind' => $kind, 'preset' => $preset, 'catalogue' => $chosen]
+                        = self::chosenProvider($args, 'ai_kind', Providers::kindOf($account));
+                    $previous = Providers::entryFor($account);
                     $account['kind'] = $kind;
+                    $account['preset_key'] = $preset;
                     // The base URL follows the new kind only while it still
                     // holds the old kind's default: a URL somebody typed is
                     // never thrown away, which is what the browser does too.
                     if (!$args->has('base_url')
                         && ((string)$account['base_url'] === '' || (string)$account['base_url'] === self::defaultUrl($previous))) {
-                        $account['base_url'] = self::defaultUrl(self::catalogueEntry($kind));
+                        $account['base_url'] = self::defaultUrl($chosen);
                     }
-                    $changed[] = 'ai_kind';
+                    $changed[] = $args->has('preset_key') ? 'preset_key' : 'ai_kind';
                 }
                 if ($args->has('base_url')) {
                     $account['base_url'] = self::normaliseUrl($args->str('base_url'));
@@ -579,6 +829,16 @@ final class ProfileTools
                     $account['api_key'] = $args->str('api_key');
                     $changed[] = 'api_key';
                 }
+                if ($args->has('ai_name')) {
+                    $account['name'] = $args->requiredStr('ai_name');
+                    $changed[] = 'ai_name';
+                }
+                foreach (self::ACCOUNT_EXTRAS as $extra) {
+                    if ($args->has($extra)) {
+                        $changed[] = $extra;
+                    }
+                }
+                $account = self::accountExtras($args, $account);
 
                 $accounts[$target] = $account;
             }
@@ -631,6 +891,7 @@ final class ProfileTools
 
         $instances = self::entries($data, 'bookstack');
         $touchesBookStack = $args->has('bookstack_url')
+            || $args->has('bookstack_name')
             || $args->has('bookstack_token_id')
             || $args->str('bookstack_token_secret') !== ''
             || self::givenInstanceId($args) !== '';
@@ -659,16 +920,25 @@ final class ProfileTools
                     $instance['token_secret'] = $args->str('bookstack_token_secret');
                     $changed[] = 'bookstack_token_secret';
                 }
+                if ($args->has('bookstack_name')) {
+                    $instance['name'] = $args->requiredStr('bookstack_name');
+                    $changed[] = 'bookstack_name';
+                }
                 $instances[$index] = $instance;
             }
             $data['bookstack'] = $instances;
         }
 
+        if ($args->has('typography')) {
+            $data['typography'] = $args->bool('typography');
+            $changed[] = 'typography';
+        }
+
         if ($changed === []) {
             throw HttpException::unprocessable(
-                'Nothing to change. Give at least one field - name, ai_kind, api_key, base_url, model, '
-                . 'structure_model, language, temperature, max_tokens, concurrency or one of the bookstack_ fields. '
-                . 'An empty api_key is treated as "keep the stored one", not as a change.'
+                'Nothing to change. Give at least one field - name, ai_kind, ai_name, api_key, base_url, model, '
+                . 'structure_model, language, temperature, max_tokens, concurrency, typography or one of the '
+                . 'bookstack_ fields. An empty api_key is treated as "keep the stored one", not as a change.'
             );
         }
 
@@ -690,6 +960,423 @@ final class ProfileTools
             'next' => in_array('api_key', $changed, true) || in_array('ai_kind', $changed, true)
                 ? 'Call check_profile to prove the new credentials work.'
                 : 'Call get_profile to see the profile in full.',
+        ];
+    }
+
+
+    /**
+     * Adds a second AI account, which update_profile deliberately will not do.
+     *
+     * update_profile's account arguments name *the* account of a profile that
+     * has one, and adding through them would mean an argument that edits when
+     * an id is given and creates when it is not - so a mistyped ai_id would
+     * quietly make a new account holding the key that was meant to replace an
+     * old one. Adding is its own verb here for the same reason it is its own
+     * button in the browser.
+     *
+     * @return array<string,mixed>
+     */
+    private static function addAiAccount(Actor $actor, Args $args): array
+    {
+        ['owner' => $owner, 'row' => $row] = self::resolveProfile($actor, $args);
+        $data = $row['data'];
+
+        ['kind' => $kind, 'preset' => $preset, 'catalogue' => $catalogue] = self::chosenProvider($args, 'kind');
+        if (self::needsKey($catalogue) && $args->str('api_key') === '') {
+            throw HttpException::unprocessable(
+                'A "' . (string)($catalogue['label'] ?? $kind) . '" account needs an API key, so api_key is required.'
+            );
+        }
+
+        $accounts = self::entries($data, 'ai');
+        $accounts[] = self::accountExtras($args, [
+            'id' => self::newId(),
+            'name' => $args->has('name') ? $args->requiredStr('name') : (string)($catalogue['label'] ?? $kind),
+            'kind' => $kind,
+            'preset_key' => $preset,
+            'base_url' => self::normaliseUrl($args->has('base_url') ? $args->str('base_url') : self::defaultUrl($catalogue)),
+            'api_key' => $args->str('api_key'),
+            'organization' => '',
+            'cli_path' => '',
+            'site_url' => '',
+            'site_name' => '',
+        ]);
+        $data['ai'] = $accounts;
+
+        $updated = Profiles::update($owner, (int)$row['id'], (string)$row['name'], $data);
+        Audit::record($actor->username, 'profile.update', (string)$row['name'], 'ai_account_added, via MCP', 'mcp');
+
+        $stored = self::entries((array)Profiles::redact($updated)['data'], 'ai');
+        $added = $stored[count($stored) - 1] ?? [];
+
+        return [
+            'added' => true,
+            'profile_id' => (int)$updated['id'],
+            'ai_id' => (string)($added['id'] ?? ''),
+            'ai_accounts' => array_map(
+                static fn(array $account): array => self::accountBrief($account),
+                $stored
+            ),
+            'next_step' => 'check_profile with this ai_id proves the credentials work, list_models says what it can '
+                . 'run, and set_model_slot points a slot at it - nothing uses a new account until one does.',
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function deleteAiAccount(Actor $actor, Args $args): array
+    {
+        ['owner' => $owner, 'row' => $row] = self::resolveProfile($actor, $args);
+        $data = $row['data'];
+
+        $accounts = self::entries($data, 'ai');
+        if (count($accounts) <= 1) {
+            throw HttpException::unprocessable(
+                'This profile holds only this one AI account, and a profile with none cannot generate anything. '
+                . 'Add another with add_ai_account first, or delete the whole profile with delete_profile.'
+            );
+        }
+
+        $index = self::accountIndex($accounts, $args);
+        $removed = $accounts[$index];
+        $removedId = (string)($removed['id'] ?? '');
+        array_splice($accounts, $index, 1);
+        $data['ai'] = $accounts;
+
+        // A slot left pointing at an account that is gone does not generate,
+        // and says so nowhere until somebody presses Generate. Naming the slots
+        // here is the only warning there is going to be.
+        $orphaned = [];
+        foreach (array_keys(self::SLOTS) as $slot) {
+            if ((string)($data['models'][$slot]['ai_id'] ?? '') === $removedId) {
+                $data['models'][$slot]['ai_id'] = '';
+                $orphaned[] = self::SLOTS[$slot];
+            }
+        }
+
+        $updated = Profiles::update($owner, (int)$row['id'], (string)$row['name'], $data);
+        Audit::record(
+            $actor->username,
+            'profile.update',
+            (string)$row['name'],
+            'ai_account_removed ' . (string)($removed['name'] ?? $removedId) . ', via MCP',
+            'mcp'
+        );
+
+        return [
+            'removed' => true,
+            'profile_id' => (int)$updated['id'],
+            'ai_id' => $removedId,
+            'name' => (string)($removed['name'] ?? ''),
+            'slots_left_unset' => $orphaned,
+            'ai_accounts' => array_map(
+                static fn(array $account): array => self::accountBrief($account),
+                self::entries((array)Profiles::redact($updated)['data'], 'ai')
+            ),
+            'next_step' => $orphaned === []
+                ? 'Nothing pointed at it, so nothing else has to change.'
+                : 'set_model_slot has to point the ' . implode(' and ', $orphaned)
+                    . ' slot at another account before this profile generates again.',
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function addInstance(Actor $actor, Args $args): array
+    {
+        ['owner' => $owner, 'row' => $row] = self::resolveProfile($actor, $args);
+        $data = $row['data'];
+
+        $url = self::normaliseUrl($args->requiredStr('url'));
+        if ($url === '') {
+            throw HttpException::unprocessable('url must be the BookStack base URL, such as https://docs.example.com.');
+        }
+
+        $instances = self::entries($data, 'bookstack');
+        $instances[] = [
+            'id' => self::newId(),
+            'name' => $args->has('name') ? $args->requiredStr('name') : 'BookStack',
+            'base_url' => $url,
+            'token_id' => $args->requiredStr('token_id'),
+            'token_secret' => $args->requiredStr('token_secret'),
+        ];
+        $data['bookstack'] = $instances;
+
+        $updated = Profiles::update($owner, (int)$row['id'], (string)$row['name'], $data);
+        Audit::record($actor->username, 'profile.update', (string)$row['name'], 'bookstack_added ' . $url . ', via MCP', 'mcp');
+
+        $stored = self::entries((array)Profiles::redact($updated)['data'], 'bookstack');
+        $added = $stored[count($stored) - 1] ?? [];
+
+        return [
+            'added' => true,
+            'profile_id' => (int)$updated['id'],
+            'bookstack_id' => (string)($added['id'] ?? ''),
+            'instances' => array_map(
+                static fn(array $instance): array => self::instanceBrief($instance),
+                $stored
+            ),
+            'next_step' => 'list_bookstack_shelves with this bookstack_id proves the token works, and '
+                . 'set_publish_targets adds it as a destination of a course.',
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function deleteInstance(Actor $actor, Args $args): array
+    {
+        ['owner' => $owner, 'row' => $row] = self::resolveProfile($actor, $args);
+        $data = $row['data'];
+
+        $instances = self::entries($data, 'bookstack');
+        $index = self::instanceIndex($instances, $args);
+        $removed = $instances[$index];
+        $removedId = (string)($removed['id'] ?? '');
+
+        // A destination is the record of the book a course made in that wiki.
+        // Losing it does not delete the book; it loses the knowledge that the
+        // book is ours, so the next publish makes a second one beside it.
+        $publishing = [];
+        foreach (self::coursesUsing($owner, (int)$row['id']) as $course) {
+            if (Targets::byInstance($course['course_id'], $removedId) !== null) {
+                $publishing[] = $course;
+            }
+        }
+        if ($publishing !== [] && !$args->bool('confirm')) {
+            throw HttpException::unprocessable(
+                'These courses publish to "' . (string)($removed['name'] ?? $removedId) . '": '
+                . implode(', ', array_map(
+                    static fn(array $course): string => $course['name'] . ' (#' . $course['course_id'] . ')',
+                    $publishing
+                ))
+                . '. Removing the instance forgets the book each of them made there, so a later publish to the same '
+                . 'wiki would create a second book beside the first. Send confirm to go through with it.'
+            );
+        }
+
+        array_splice($instances, $index, 1);
+        $data['bookstack'] = $instances;
+
+        $updated = Profiles::update($owner, (int)$row['id'], (string)$row['name'], $data);
+        Audit::record(
+            $actor->username,
+            'profile.update',
+            (string)$row['name'],
+            'bookstack_removed ' . (string)($removed['name'] ?? $removedId) . ', via MCP',
+            'mcp'
+        );
+
+        return [
+            'removed' => true,
+            'profile_id' => (int)$updated['id'],
+            'bookstack_id' => $removedId,
+            'name' => (string)($removed['name'] ?? ''),
+            'courses_affected' => $publishing,
+            'instances' => array_map(
+                static fn(array $instance): array => self::instanceBrief($instance),
+                self::entries((array)Profiles::redact($updated)['data'], 'bookstack')
+            ),
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function setModelSlot(Actor $actor, Args $args): array
+    {
+        ['owner' => $owner, 'row' => $row] = self::resolveProfile($actor, $args);
+        $data = $row['data'];
+
+        $label = $args->enum('slot', ['outline', 'page'], 'page');
+        $slot = array_search($label, self::SLOTS, true);
+        if (!is_string($slot)) {
+            throw HttpException::unprocessable('slot must be "outline" or "page".');
+        }
+
+        $config = (array)($data['models'][$slot] ?? []);
+        $changed = [];
+
+        if ($args->has('ai_id')) {
+            // accountId() reports an unknown id by name and refuses an empty
+            // one on a profile holding several, which is the whole check.
+            $config['ai_id'] = self::accountId($data, $args);
+            $changed[] = 'ai_id';
+        }
+        if ($args->has('model')) {
+            $config['model'] = $args->str('model');
+            $changed[] = 'model';
+            // A model with no account behind it never runs. A profile with one
+            // account has only one possible answer, so it is filled in rather
+            // than left as a failure three calls later.
+            if ((string)($config['ai_id'] ?? '') === '') {
+                $accounts = self::entries($data, 'ai');
+                if (count($accounts) === 1) {
+                    $config['ai_id'] = (string)($accounts[0]['id'] ?? '');
+                }
+            }
+        }
+        if ($args->has('temperature')) {
+            $config['temperature'] = self::temperature($args, 0.7);
+            $changed[] = 'temperature';
+        }
+        if ($args->has('max_tokens')) {
+            $config['max_tokens'] = max(0, $args->int('max_tokens', 0));
+            $changed[] = 'max_tokens';
+        }
+
+        if ($changed === []) {
+            throw HttpException::unprocessable(
+                'Nothing to change. Give at least one of model, ai_id, temperature or max_tokens.'
+            );
+        }
+
+        $data['models'][$slot] = $config;
+        $updated = Profiles::update($owner, (int)$row['id'], (string)$row['name'], $data);
+        Audit::record(
+            $actor->username,
+            'profile.update',
+            (string)$row['name'],
+            $label . ' slot: ' . implode(', ', $changed) . ', via MCP',
+            'mcp'
+        );
+
+        $models = self::modelSummary((array)$updated['data']);
+
+        return [
+            'profile_id' => (int)$updated['id'],
+            'slot' => $label,
+            'changed' => $changed,
+            'models' => $models,
+            'next_step' => ($models[$label]['configured'] ?? false)
+                ? 'This slot is ready. check_profile proves the account behind it still works.'
+                : 'This slot has a model or an account but not both, so it will not generate yet.',
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function listPromptSlots(Args $args): array
+    {
+        $wanted = strtolower(trim($args->str('group')));
+        $withText = $args->bool('include_text');
+
+        $slots = [];
+        $groups = [];
+        foreach (Config::promptSlots() as $key => $slot) {
+            $group = (string)($slot['group'] ?? 'global');
+            $groups[$group] = true;
+            if ($wanted !== '' && $group !== $wanted) {
+                continue;
+            }
+
+            $row = [
+                'key' => (string)$key,
+                'group' => $group,
+                'label' => (string)($slot['label'] ?? $key),
+                'description' => (string)($slot['description'] ?? ''),
+                'placeholders' => $slot['placeholders'] ?? [],
+            ];
+            if ($withText) {
+                $row['text'] = (string)($slot['value'] ?? '');
+            }
+            $slots[] = $row;
+        }
+
+        $names = array_keys($groups);
+        if ($wanted !== '' && !in_array($wanted, $names, true)) {
+            throw HttpException::unprocessable(
+                'There is no prompt group called "' . $wanted . '". The groups are: ' . implode(', ', $names) . '.'
+            );
+        }
+
+        return [
+            'slots' => $slots,
+            'groups' => $names,
+            'count' => count($slots),
+            'note' => 'The wording here is the installation\'s. set_profile_prompts replaces it for one profile '
+                . 'only; get_profile with include_prompt_text shows which slots a profile has replaced.',
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function setProfilePrompts(Actor $actor, Args $args): array
+    {
+        ['owner' => $owner, 'row' => $row] = self::resolveProfile($actor, $args);
+        $data = $row['data'];
+
+        $known = array_keys(Config::promptSlots());
+        $prompts = (array)($data['prompts'] ?? []);
+        $set = [];
+        $cleared = [];
+
+        foreach ($args->object('prompts') as $slot => $text) {
+            $slot = (string)$slot;
+            if (!in_array($slot, $known, true)) {
+                throw HttpException::unprocessable(
+                    'There is no prompt slot called "' . $slot . '". Call get_prompts for the slots this '
+                    . 'installation has.'
+                );
+            }
+            if (!is_string($text)) {
+                throw HttpException::unprocessable('The override for "' . $slot . '" must be a string.');
+            }
+            $prompts[$slot] = $text;
+            $set[] = $slot;
+        }
+
+        foreach ($args->strings('reset') as $slot) {
+            if (!in_array($slot, $known, true)) {
+                throw HttpException::unprocessable(
+                    'There is no prompt slot called "' . $slot . '". Call get_prompts for the slots this '
+                    . 'installation has.'
+                );
+            }
+            if (array_key_exists($slot, $prompts)) {
+                unset($prompts[$slot]);
+                $cleared[] = $slot;
+            }
+        }
+
+        if ($set === [] && $cleared === []) {
+            throw HttpException::unprocessable(
+                'Nothing to change. Give prompts with at least one slot in it, or reset naming a slot this profile '
+                . 'currently overrides.'
+            );
+        }
+
+        $data['prompts'] = $prompts;
+        $updated = Profiles::update($owner, (int)$row['id'], (string)$row['name'], $data);
+        Audit::record(
+            $actor->username,
+            'profile.update',
+            (string)$row['name'],
+            'prompts set=' . implode(' ', $set) . ' reset=' . implode(' ', $cleared) . ', via MCP',
+            'mcp'
+        );
+
+        // normalise() hands back an empty override map as an object rather than
+        // an array, so that it survives a JSON round trip as `{}` and not `[]`.
+        $after = (array)$updated['data'];
+
+        return [
+            'profile_id' => (int)$updated['id'],
+            'set' => $set,
+            'reset' => $cleared,
+            'overridden' => array_keys((array)($after['prompts'] ?? [])),
+            'next_step' => 'get_profile with include_prompt_text reads back what this profile now overrides.',
+        ];
+    }
+
+    /**
+     * One BookStack instance, with the token secret reported as set or not.
+     *
+     * @param array<string,mixed> $instance
+     * @return array<string,mixed>
+     */
+    private static function instanceBrief(array $instance): array
+    {
+        $entry = self::withoutSecrets($instance);
+
+        return [
+            'id' => (string)($instance['id'] ?? ''),
+            'name' => (string)($instance['name'] ?? ''),
+            'base_url' => (string)($instance['base_url'] ?? ''),
+            'token_id' => (string)($instance['token_id'] ?? ''),
+            'token_secret_set' => (bool)($entry['token_secret_set'] ?? false),
         ];
     }
 
@@ -1000,14 +1687,105 @@ final class ProfileTools
         return $out;
     }
 
-    /** The account kind, checked against whatever the catalogue offers today. */
-    private static function requireKind(Args $args): string
+
+    /**
+     * The provider a call is asking for, whether it named a driver or a preset.
+     *
+     * The browser offers a picker of two dozen rows - Groq, Together,
+     * Fireworks, DeepSeek, a local llama.cpp - and all but a handful of them
+     * are the same OpenAI-compatible driver pointed at a different endpoint,
+     * told apart by `preset_key`. A tool that took only `ai_kind` could reach
+     * the six drivers and none of the rows, which meant an installation could
+     * be set up from a conversation for Anthropic and not for Groq. Naming a
+     * preset settles the kind, the default endpoint and the label together.
+     *
+     * @param string $fallbackKind the kind to keep when neither argument is given
+     * @return array{kind:string,preset:string,catalogue:array<string,mixed>|null}
+     */
+    private static function chosenProvider(Args $args, string $kindKey, string $fallbackKind = ''): array
     {
-        $kind = strtolower($args->requiredStr('ai_kind'));
+        $preset = strtolower(trim($args->str('preset_key')));
+        if ($preset !== '') {
+            $entry = self::catalogueForPreset($preset);
+            if ($entry === null) {
+                throw HttpException::unprocessable(
+                    'There is no provider preset called "' . $preset . '". Call list_providers: every row it '
+                    . 'returns carries the preset_key to send here.'
+                );
+            }
+            return ['kind' => (string)$entry['kind'], 'preset' => $preset, 'catalogue' => $entry];
+        }
+
+        if (!$args->has($kindKey) && $fallbackKind !== '') {
+            return ['kind' => $fallbackKind, 'preset' => '', 'catalogue' => self::catalogueEntry($fallbackKind)];
+        }
+        if (!$args->has($kindKey)) {
+            throw HttpException::unprocessable(
+                'Give either ' . $kindKey . ' for one of the driver kinds, or preset_key for one of the catalogue '
+                . 'rows list_providers returns.'
+            );
+        }
+
+        $kind = self::requireKind($args, $kindKey);
+        return ['kind' => $kind, 'preset' => '', 'catalogue' => self::catalogueEntry($kind)];
+    }
+
+    /**
+     * The catalogue row a preset key names.
+     *
+     * @return array<string,mixed>|null
+     */
+    private static function catalogueForPreset(string $preset): ?array
+    {
+        foreach (Providers::catalogue() as $entry) {
+            if (is_array($entry) && (string)($entry['preset_key'] ?? '') === $preset) {
+                return $entry;
+            }
+        }
+        return null;
+    }
+
+    /** The per-kind fields an account may carry beside its key and its endpoint. */
+    private const ACCOUNT_EXTRAS = ['organization', 'cli_path', 'site_url', 'site_name'];
+
+    private static function hasExtras(Args $args): bool
+    {
+        foreach (self::ACCOUNT_EXTRAS as $extra) {
+            if ($args->has($extra)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The fields only some kinds use, written only when they were given.
+     *
+     * An omitted one keeps what is stored rather than blanking it, which is
+     * what every other field on this tool does and what stops a call that only
+     * meant to change the key from clearing the OpenAI organization beside it.
+     *
+     * @param array<string,mixed> $account
+     * @return array<string,mixed>
+     */
+    private static function accountExtras(Args $args, array $account): array
+    {
+        foreach (self::ACCOUNT_EXTRAS as $extra) {
+            if ($args->has($extra)) {
+                $account[$extra] = $args->str($extra);
+            }
+        }
+        return $account;
+    }
+
+    /** The account kind, checked against whatever the catalogue offers today. */
+    private static function requireKind(Args $args, string $key = 'ai_kind'): string
+    {
+        $kind = strtolower($args->requiredStr($key));
         $known = Providers::kinds();
         if (!in_array($kind, $known, true)) {
             throw HttpException::unprocessable(
-                'ai_kind must be one of: ' . implode(', ', $known) . '. Call list_providers to see what each one is.'
+                $key . ' must be one of: ' . implode(', ', $known) . '. Call list_providers to see what each one is.'
             );
         }
         return $kind;

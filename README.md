@@ -57,7 +57,80 @@ models, language), create a **Course**, generate the **Structure**, write the
 Full documentation, including the nginx configuration and the technical
 background, is in [docs.md](docs.md).
 
-## What is new in 4.8
+## What is new in 4.9
+
+### Two page counts disagreed, and the wrong one was believed
+
+`list_pages` reported seven finished pages of a course as 194, 283 and 954 words
+long. They were 3,893, 4,677 and more. Nothing was lost — the count was wrong,
+and it was wrong in the direction that gets work destroyed: a model reading that
+list sees pages that look like failed generations and rewrites them, spending
+money to replace text that was already there.
+
+The count ran the Markdown through `strip_tags` first. Markdown is not HTML:
+`List<String>`, `Map<String, Object>` and a written-out `<div class="card">` are
+prose *about* code, and `strip_tags` removes each of them along with everything
+up to the next `>`. Worse, a single `a<b` with no later `>` anywhere on the page
+is an unterminated tag, so the rest of the document is discarded — a 2,408-word
+page came back as two words.
+
+It now counts the page as it is stored, which is what `get_page` and the browser
+have always counted. Three surfaces answering "how long is this page" differently
+is worse than any one of them being wrong, because the difference reads as
+information.
+
+### Everything the browser can do, a connected client can do
+
+That was the claim. It was audited screen by screen against the tool registry,
+and it was untrue in eighteen places, so this release closes them. Thirteen new
+tools, and arguments added to five that existed.
+
+The one that prompted it: a profile could be given its **first** BookStack
+instance and never a second, because `update_profile` names *the* instance of a
+profile that has one. 4.7 made publishing a course into several wikis at once a
+headline feature, and a client setting an installation up over MCP could
+configure exactly one of them. `add_bookstack_instance`,
+`delete_bookstack_instance`, `add_ai_account` and `delete_ai_account` are the
+Add and Remove buttons the browser has always had beside those two lists.
+
+Also new:
+
+- **`preset_key`** on `create_profile`, `add_ai_account` and `update_profile`.
+  The browser's provider picker offers two dozen rows — Groq, Together,
+  Fireworks, DeepSeek, a local llama.cpp — and most are the same
+  OpenAI-compatible driver at a different endpoint. The tools took only the six
+  raw driver kinds underneath them. So did `organization`, `cli_path`,
+  `site_url` and `site_name`, the fields only some kinds use.
+- **`set_model_slot`**, which sets one slot alone — its account, its model, its
+  temperature, its token ceiling. `update_profile` writes both together, which
+  is right for a profile with one account and wrong the moment it has two.
+- **`set_profile_prompts`** and **`list_prompt_slots`**: a profile's prompt
+  overrides were readable and not writable, and the library naming them needed
+  an administrator to read. Overriding a slot for one profile is not the same
+  power as rewriting it for everybody.
+- **`revoke_invite`**, because an invite could be issued and not withdrawn.
+- **`get_cron_url`**, because the scheduler URL could only be read by rotating
+  the secret in it first — which stops every scheduler already using it.
+- **`list_detail_overrides`**, which answers "what does this course override,
+  anywhere" in one call instead of one call per page.
+- **`publish_course` with `part: "book"`**, for a renamed course that needs its
+  book updated and not its five hundred pages.
+- **`generate_page` with `extra_context`**, which the browser writes in the same
+  click that generates.
+- **`create_my_connection`**, **`rename_my_connection`** and **`list_scopes`**.
+  A connection may not issue a wider one than itself: the request is checked
+  against the groups the calling connection holds, an omitted scope list means
+  "the same as mine" rather than "everything the account allows", and asking for
+  a group this connection lacks is refused by name rather than quietly narrowed.
+  A token can copy itself or make something smaller, never something larger.
+  `update_profile` also finally takes `typography`, `ai_name` and
+  `bookstack_name`.
+
+Three things the browser does have no MCP equal and never will: signing in,
+redeeming an invite and first-run setup all create or resume the very credential
+a tool call needs before it can happen.
+
+## What was new in 4.8
 
 ### The punctuation pass reads a quotation mark the way a reader does
 

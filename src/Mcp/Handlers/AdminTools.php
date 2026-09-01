@@ -232,6 +232,38 @@ final class AdminTools
             ),
 
             new Tool(
+                name: 'revoke_invite',
+                scope: Scopes::ADMIN,
+                title: 'Revoke the open invite code',
+                description: 'Cancels the invite code that is currently open, so the link stops working and nobody '
+                    . 'else can redeem it. Only one invite is ever open at a time, so this is the one issue_invite '
+                    . 'last handed out. Accounts already created from it keep working - revoking closes the door, it '
+                    . 'does not undo who came through. Refused when there is no open invite. Costs nothing.',
+                properties: [],
+                required: [],
+                handler: static fn(Actor $actor, array $args): array => self::revokeInvite($actor),
+                admin: true,
+                destructive: true,
+            ),
+
+            new Tool(
+                name: 'get_cron_url',
+                scope: Scopes::ADMIN,
+                title: 'Show the scheduler URL',
+                description: 'The finished URL a scheduler calls to run background and batch work, built from the '
+                    . 'cron token this installation already has. generate_cron_token returns the same URL but makes a '
+                    . 'new token first, which stops every scheduler still calling the old one - so this is the tool '
+                    . 'for "what should I paste into cron", and that one is for "the secret has leaked". Refused when '
+                    . 'no token has been generated yet. Costs nothing.',
+                properties: [],
+                required: [],
+                handler: static fn(Actor $actor, array $args): array => self::cronUrl($actor),
+                admin: true,
+                readOnly: true,
+                idempotent: true,
+            ),
+
+            new Tool(
                 name: 'list_settings',
                 scope: Scopes::ADMIN,
                 title: 'List settings',
@@ -825,7 +857,69 @@ final class AdminTools
         ];
     }
 
+    /** @return array<string,mixed> */
+    private static function revokeInvite(Actor $actor): array
+    {
+        $actor->requireAdmin();
+
+        $revoked = Invite::revoke();
+        if ($revoked === null) {
+            throw HttpException::notFound(
+                'There is no open invite to revoke. issue_invite opens one; only ever one at a time.'
+            );
+        }
+
+        $uses = (int)$revoked['uses'];
+        $maxUses = (int)$revoked['max_uses'];
+
+        Audit::record(
+            $actor->username,
+            'invite.revoke',
+            (string)$revoked['role'],
+            'issued by ' . (string)$revoked['issued_by'] . ', ' . $uses . ' of ' . $maxUses
+                . ' place(s) had been used, via MCP',
+            'mcp'
+        );
+
+        return [
+            'revoked' => true,
+            'role' => (string)$revoked['role'],
+            'issued_by' => (string)$revoked['issued_by'],
+            'used' => $uses,
+            'max_uses' => $maxUses,
+            'note' => $uses > 0
+                ? $uses . ' account(s) had already been created from it, and they are unaffected: revoking closes '
+                    . 'the door rather than undoing who came through it.'
+                : 'Nobody had redeemed it.',
+        ];
+    }
+
     /* ---------------------------------------------------------- settings */
+
+    /** @return array<string,mixed> */
+    private static function cronUrl(Actor $actor): array
+    {
+        $actor->requireAdmin();
+
+        $token = Config::str('app.cron_token', '');
+        if ($token === '') {
+            throw HttpException::unprocessable(
+                'There is no cron token yet, so there is no URL. Call generate_cron_token to make one.'
+            );
+        }
+
+        // Recorded because reading it is how the secret leaves the server, and
+        // the audit line is the only trace that it did.
+        Audit::record($actor->username, 'settings.cron_url', '', 'revealed via MCP', 'mcp');
+
+        return [
+            'url' => Cron::publicUrl($token),
+            'cli' => 'php ' . CF_ROOT . '/tools/cron.php --quiet',
+            'scheduler' => RunManager::cronStatus(),
+            'note' => 'The URL carries the secret. generate_cron_token replaces it, which stops every scheduler '
+                . 'still calling the old one.',
+        ];
+    }
 
     /** @return array<string,mixed> */
     private static function listSettings(Actor $actor, Args $args): array

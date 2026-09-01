@@ -105,9 +105,11 @@ final class PublishTools
                     'course_id' => Schema::courseId(),
                     'part' => Schema::enum(
                         'How much of the course to publish. "all" is the whole course and is the usual answer; '
-                        . '"chapter" is one chapter with its pages; "page" is a single page. Both of the last two '
-                        . 'need target_id.',
-                        ['all', 'chapter', 'page']
+                        . '"book" creates or updates the book itself and its shelf without touching a single chapter '
+                        . 'or page, which is how a renamed course or a moved shelf is pushed without rewriting five '
+                        . 'hundred pages; "chapter" is one chapter with its pages; "page" is a single page. The last '
+                        . 'two need target_id.',
+                        ['all', 'book', 'chapter', 'page']
                     ),
                     'target_id' => Schema::int(
                         'The chapter id or page id to publish, required when part is "chapter" or "page" and not '
@@ -567,7 +569,7 @@ final class PublishTools
     private static function part(Args $args): string
     {
         $key = !$args->has('part') && $args->has('scope') ? 'scope' : 'part';
-        return $args->enum($key, ['all', 'chapter', 'page'], 'all');
+        return $args->enum($key, ['all', 'book', 'chapter', 'page'], 'all');
     }
 
     /**
@@ -788,10 +790,10 @@ final class PublishTools
      */
     private static function resolveTarget(array $project, string $part, ?int $targetId): ?string
     {
-        if ($part === 'all') {
+        if ($part === 'all' || $part === 'book') {
             if ($targetId !== null) {
                 throw HttpException::unprocessable(
-                    'target_id only applies when part is "chapter" or "page". Leave it out to publish everything.'
+                    'target_id only applies when part is "chapter" or "page". Leave it out for "all" and "book".'
                 );
             }
             return null;

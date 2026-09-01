@@ -165,6 +165,12 @@ final class PageTools
                     'course_id' => Schema::courseId(),
                     'page_id' => Schema::int('The page to write. Omit for the next unwritten one.'),
                     'feedback' => Schema::text('Revision instructions, when rewriting a page that already has text.'),
+                    'extra_context' => Schema::text(
+                        'Notes to store on the page and add to its brief before writing it - things this page in '
+                        . 'particular must cover, or must not. Saved with the page, so a later rewrite carries them '
+                        . 'too. Omit to leave whatever the page already holds; update_page sets it without spending '
+                        . 'anything.'
+                    ),
                 ],
                 required: ['course_id'],
                 handler: static fn(Actor $actor, array $args): array => self::generatePage($actor, Args::of($args)),
@@ -334,7 +340,19 @@ final class PageTools
                 // one reports roughly double, because it splits on the bytes of
                 // every accented letter. This is the count a model reads to decide
                 // whether a page has been written.
-                'words' => $written ? Text::words(strip_tags((string)$page['content'])) : 0,
+                //
+                // Over the content as it is stored, and NOT through strip_tags.
+                // Markdown is not HTML: `List<String>`, `Map<String, Object>` and
+                // a written-out `<div class="card">` are prose about code, and
+                // strip_tags removes each of them along with everything up to the
+                // next `>`. Worse, a single `a<b` with no later `>` anywhere on
+                // the page is an unterminated tag, so strip_tags discards the rest
+                // of the document: a 2,400-word page reported two words. A count
+                // that says a finished page is empty is worse than no count at
+                // all - it is an instruction to rewrite work that was never lost.
+                // This is also the count get_page and the browser report, and
+                // three answers to "how long is this page" have to be one answer.
+                'words' => Text::words((string)$page['content']),
                 'published' => $published,
                 'error' => (string)$page['error'],
             ];
@@ -510,6 +528,15 @@ final class PageTools
                 'done' => true,
                 'message' => 'Every page of this course has been written. Nothing is pending.',
             ];
+        }
+
+        // Stored before the model is called, exactly as the browser does it:
+        // the brief is built from the page as it is in the database, so notes
+        // that arrived with this call have to be in it before the call goes
+        // out - and they stay on the page afterwards, for the next rewrite.
+        if ($args->has('extra_context')) {
+            Pages::update((int)$page['id'], ['extra_context' => $args->raw('extra_context')]);
+            $page = Resolve::page($project, (int)$page['id']);
         }
 
         // This call is going to sit on a provider for minutes. Releasing the

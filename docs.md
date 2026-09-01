@@ -1432,9 +1432,62 @@ Claude Code can reach a `127.0.0.1` address. The Claude desktop app cannot — i
 custom connectors must be reachable over the public internet, so a self-hosted
 CourseForge needs a real hostname or a tunnel for that client.
 
+### Everything the browser can do
+
+The claim this surface makes is that a connected client can do anything the
+browser can. In 4.8 that was audited screen by screen against the tool
+registry, and it was not true in eighteen places — so 4.9 closed them. The ones
+worth knowing about:
+
+- A profile could be given its *first* BookStack instance and never a second,
+  and the same for AI accounts, because `update_profile` names *the* instance of
+  a profile that has one. `add_bookstack_instance`, `delete_bookstack_instance`,
+  `add_ai_account` and `delete_ai_account` are the Add and Remove buttons the
+  browser has always had beside those two lists. This mattered more than it
+  reads: 4.7 made publishing to several wikis at once a headline feature, and a
+  client configuring an installation could set up exactly one of them.
+- The provider picker offers two dozen rows — Groq, Together, Fireworks,
+  DeepSeek, a local llama.cpp — and most of them are the same OpenAI-compatible
+  driver at a different endpoint, told apart by a preset key. The tools took
+  only the six raw driver kinds. `preset_key` on `create_profile`,
+  `add_ai_account` and `update_profile` picks a row instead, and
+  `list_providers` has always returned the key to send.
+- Both model slots were written together, so a profile with two accounts could
+  not send the outline through one and the pages through the other.
+  `set_model_slot` sets one slot: its account, its model, its temperature and
+  its token ceiling.
+- A profile's prompt overrides were readable and not writable.
+  `set_profile_prompts` writes them, and `list_prompt_slots` reads the library
+  they name without needing an administrator — overriding a slot for one
+  profile is not the same power as rewriting it for everybody.
+- An invite could be issued and not revoked: `revoke_invite`.
+- The scheduler URL could only be read by replacing the secret in it first.
+  `get_cron_url` reads it; `generate_cron_token` is still the one that rotates.
+- `publish_course` can push `part: "book"` — the book and its shelf without the
+  five hundred pages under it, which is what a renamed course needs.
+- `generate_page` takes `extra_context`, which the browser writes in the same
+  click that generates.
+- `list_detail_overrides` answers "which chapters and pages override anything"
+  in one call, where `get_details` answers for one level and says nothing about
+  the rest.
+- A connection can issue another with `create_my_connection`, and rename one
+  with `rename_my_connection`. **A connection may not issue a wider one than
+  itself**: the request is checked against the groups the calling connection
+  holds, an omitted scope list means "the same as mine" rather than "everything
+  the account allows", and asking for a group this connection lacks is refused
+  by name rather than quietly narrowed. So a token can copy itself or make
+  something smaller, never something larger. The browser has no such limit,
+  because a person signed in with a password *is* the account rather than a
+  delegation of it. `list_scopes` reports the ceiling.
+
+Three things the browser does have no MCP equal, and never will: signing in,
+redeeming an invite and first-run setup all create or resume the very credential
+a tool call needs before it can happen at all. `revoke_my_connection` is the
+nearest thing to signing out, and it is permanent rather than resumable.
+
 ### The eleven tool groups
 
-There are eighty-three tools. They are not listed here, because `tools/list`
+There are ninety-seven tools. They are not listed here, because `tools/list`
 lists them and every one carries its own description, its arguments and an
 annotation saying whether it reads, writes, destroys or spends money. What is
 worth knowing is the shape.
@@ -1474,7 +1527,8 @@ The ten or so that matter:
 | `poll_run` | Asks the provider *now* whether a batch has finished and writes home everything that has, instead of waiting for the next scheduler tick. Safe to call as often as you like. |
 | `fix_typography` | Sets the punctuation of a course, a chapter or one page that is already written — quotation marks, apostrophes, ellipses, dashes and spacing, the way the course language does. Costs nothing, changes nothing the second time, and `preview` says what it would do without doing it. |
 | `publish_course` | Pushes the course into BookStack: creates the book, puts it on the shelf, creates or updates every chapter and page with its effective tags, skips what has not changed, and resolves cross references afterwards. |
-| the admin ones | `list_settings` / `set_settings` / `reset_setting`, `generate_cron_token`, `list_users` / `create_user` / `update_user` / `delete_user`, `issue_invite`, `transfer_course`, `get_diagnostics`, `get_audit_log`, `list_connections` / `revoke_connection`, `get_prompts` / `set_prompts`, and `check_for_update` / `install_update` / `rollback_update`. |
+| `list_pages` | Every page in reading order with its status and its word count — the count `get_page` and the browser report, over the Markdown as it is stored. |
+| the admin ones | `list_settings` / `set_settings` / `reset_setting`, `generate_cron_token` / `get_cron_url`, `list_users` / `create_user` / `update_user` / `delete_user`, `issue_invite` / `revoke_invite`, `transfer_course`, `get_diagnostics`, `get_audit_log`, `list_connections` / `revoke_connection`, `get_prompts` / `set_prompts`, and `check_for_update` / `install_update` / `rollback_update`. |
 
 ### The two ways to write a course, and what each costs
 

@@ -97,6 +97,25 @@ final class DetailTools
             ),
 
             new Tool(
+                name: 'list_detail_overrides',
+                scope: Scopes::DETAILS,
+                title: 'List every content detail a course overrides',
+                description: 'Every chapter and page of one course that stores a detail of its own, and what it '
+                    . 'stores - the whole of what the Details tab calls "overrides below the course", in one call. '
+                    . 'get_details answers for one level and says nothing about the rest, so finding the three pages '
+                    . 'in a fifty-page course that were given exercises meant fifty calls. Levels that inherit '
+                    . 'everything are left out, because inheriting is the ordinary case and listing it would bury '
+                    . 'the answer. Costs nothing.',
+                properties: [
+                    'course_id' => Schema::courseId(),
+                ],
+                required: ['course_id'],
+                handler: static fn(Actor $actor, array $args): array => self::listOverrides($actor, Args::of($args)),
+                readOnly: true,
+                idempotent: true,
+            ),
+
+            new Tool(
                 name: 'set_details',
                 scope: Scopes::DETAILS,
                 title: 'Set content details at one level',
@@ -224,6 +243,101 @@ final class DetailTools
             ],
             'next_step' => 'set_details changes this level; get_detail_catalogue explains what each key does.',
         ];
+    }
+
+    /**
+     * Every level below the course that stores something of its own.
+     *
+     * Read straight off the stored settings rather than through view(): the
+     * question is "what does this level override", which is the `own` half
+     * alone, and resolving the inheritance for fifty pages to answer it would
+     * be fifty times the work for something nobody asked about.
+     *
+     * @return array<string,mixed>
+     */
+    private static function listOverrides(Actor $actor, Args $args): array
+    {
+        ['project' => $project, 'owner' => $owner] = Resolve::course($actor, $args->id());
+        $projectId = (int)$project['id'];
+
+        $overrides = [];
+
+        $courseOwn = Details::decode((string)($project['settings'] ?? '{}'));
+        if (self::stores($courseOwn)) {
+            $overrides[] = [
+                'level' => 'course',
+                'chapter_id' => null,
+                'page_id' => null,
+                'title' => (string)$project['name'],
+                'features' => $courseOwn['features'],
+                'values' => $courseOwn['params'],
+            ];
+        }
+
+        $chapters = [];
+        foreach (Chapters::ordered($projectId) as $chapter) {
+            $chapters[(int)$chapter['id']] = (string)$chapter['title'];
+            $own = Chapters::settings($chapter);
+            if (self::stores($own)) {
+                $overrides[] = [
+                    'level' => 'chapter',
+                    'chapter_id' => (int)$chapter['id'],
+                    'page_id' => null,
+                    'title' => (string)$chapter['title'],
+                    'features' => $own['features'],
+                    'values' => $own['params'],
+                ];
+            }
+        }
+
+        foreach (Pages::ordered($projectId) as $page) {
+            $own = Pages::settings($page);
+            if (!self::stores($own)) {
+                continue;
+            }
+            $overrides[] = [
+                'level' => 'page',
+                'chapter_id' => (int)$page['chapter_id'],
+                'chapter_title' => $chapters[(int)$page['chapter_id']] ?? '',
+                'page_id' => (int)$page['id'],
+                'title' => (string)$page['title'],
+                'features' => $own['features'],
+                'values' => $own['params'],
+            ];
+        }
+
+        return [
+            'course_id' => $projectId,
+            'owner' => $owner,
+            'count' => count($overrides),
+            'overrides' => $overrides,
+            'how_to_read' => [
+                'features: 1 forces the feature on at this level, -1 forces it off. A key that is absent, or 0, is '
+                    . 'no override at all and takes whatever the level above says.',
+                'values: what this level stores. A key that is absent is inherited.',
+            ],
+            'next_step' => $overrides === []
+                ? 'Nothing below the course overrides anything, so every page takes the course\'s own details.'
+                : 'get_details on one of these levels shows what actually applies there, and reset_details clears it.',
+        ];
+    }
+
+    /**
+     * Whether a level stores anything of its own.
+     *
+     * A feature at 0 is stored as "inherit", which is not an override; a level
+     * holding nothing but zeroes is a level that has been reset.
+     *
+     * @param array{features:array<string,int>,params:array<string,int|string>} $own
+     */
+    private static function stores(array $own): bool
+    {
+        foreach ($own['features'] as $state) {
+            if ((int)$state !== Details::INHERIT) {
+                return true;
+            }
+        }
+        return $own['params'] !== [];
     }
 
     /** @return array<string,mixed> */

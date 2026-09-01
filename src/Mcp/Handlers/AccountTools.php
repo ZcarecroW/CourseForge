@@ -42,12 +42,21 @@ use CourseForge\Support\HttpException;
  * connections. Exempting the group would have handed both to a token that was
  * given neither.
  *
- * One thing is deliberately absent: there is no tool that CREATES a connection.
- * A token able to mint another token could mint one carrying scopes wider than
- * its own, and every narrowing on the Connect screen would become a formality -
- * the way past it would be one tool call. Issuing a connection stays in the
- * browser, where a person is present to decide what it may do and to take the
- * token, which is shown exactly once.
+ * Issuing a connection lives here too, and the rule that makes that safe is
+ * worth stating rather than assuming. A token able to mint another token could
+ * mint one carrying scopes wider than its own, and every narrowing on the
+ * Connect screen would become a formality - the way past it would be one tool
+ * call. So a connection issued through `create_my_connection` may hold nothing
+ * the connection asking for it does not already hold: the request is checked
+ * against `Scopes::currently()`, an empty request means "the same as mine"
+ * rather than "everything the account allows", and a request naming a group
+ * this connection lacks is refused by name rather than quietly narrowed. A
+ * token can therefore make a copy of itself or something smaller, and never
+ * something larger, which is the property the Connect screen was protecting.
+ *
+ * The browser has no such limit, because a person signed in with a password is
+ * the account rather than a delegation of it. That difference is why the check
+ * is here and not in `McpClients::create()`.
  */
 final class AccountTools
 {
@@ -168,10 +177,195 @@ final class AccountTools
                 handler: static fn(Actor $actor, array $args): array => self::revokeMyConnection($actor, Args::of($args)),
                 destructive: true,
             ),
+
+            new Tool(
+                name: 'list_scopes',
+                scope: Scopes::ACCOUNT,
+                title: 'List the tool groups a connection can be limited to',
+                description: 'Every tool group this installation has: its key, what it covers, whether it needs an '
+                    . 'administrator and whether anything in it spends money on the AI account. It also says which '
+                    . 'groups this account may hold at all, and which the connection you are talking through holds '
+                    . 'right now - which is the ceiling on what create_my_connection will issue. Costs nothing.',
+                properties: [],
+                required: [],
+                handler: static fn(Actor $actor, array $args): array => self::listScopes($actor),
+                readOnly: true,
+                idempotent: true,
+            ),
+
+            new Tool(
+                name: 'create_my_connection',
+                scope: Scopes::ACCOUNT,
+                title: 'Issue a new MCP connection for this account',
+                description: 'Mints a token for another Claude client to connect with, in this account\'s name - the '
+                    . 'same thing the Connect screen does, for setting a second machine up without opening a browser. '
+                    . 'The token is returned exactly once and is never recoverable: the database keeps only a hash. '
+                    . 'A new connection may hold no tool group that the connection asking for it does not already '
+                    . 'hold, so a narrowed token can copy itself or make something smaller and never something '
+                    . 'larger; naming a group this connection lacks is refused rather than quietly dropped. Leaving '
+                    . 'scopes out means the same groups this connection has. Call list_scopes for the keys. '
+                    . 'Costs nothing.',
+                properties: [
+                    'name' => Schema::string('What to call the connection, so it is recognisable in the list.', 'Laptop'),
+                    'scopes' => Schema::strings(
+                        'Tool groups the new connection may use, by key. Omit for the same groups this connection '
+                        . 'holds.'
+                    ),
+                    'ttl_days' => Schema::int(
+                        'Days until it expires by itself. 0 means it never does, which is what the browser offers '
+                        . 'by default.',
+                        0,
+                        365
+                    ),
+                    'note' => Schema::string('A line about which machine it is for, shown beside it in the list.'),
+                ],
+                required: ['name'],
+                handler: static fn(Actor $actor, array $args): array => self::createMyConnection($actor, Args::of($args)),
+            ),
+
+            new Tool(
+                name: 'rename_my_connection',
+                scope: Scopes::ACCOUNT,
+                title: 'Rename one of my connections',
+                description: 'Changes the name or the note on a connection belonging to this account. Only those '
+                    . 'two: the tool groups and the expiry are what the token was issued to do, and widening them '
+                    . 'afterwards would make the record of what was issued a lie - to change either, revoke it and '
+                    . 'issue another. An omitted field keeps what is stored. Costs nothing.',
+                properties: [
+                    'connection_id' => Schema::int('The connection to rename, as returned by list_my_connections.'),
+                    'name' => Schema::string('A new name.'),
+                    'note' => Schema::string('A new note.'),
+                ],
+                required: ['connection_id'],
+                handler: static fn(Actor $actor, array $args): array => self::renameMyConnection($actor, Args::of($args)),
+                idempotent: true,
+            ),
         ];
     }
 
     /* ------------------------------------------------------------- handlers */
+
+    /** @return array<string,mixed> */
+    private static function listScopes(Actor $actor): array
+    {
+        $allowed = Scopes::forActor($actor);
+        $held = Scopes::currently();
+
+        $groups = [];
+        foreach (Scopes::catalogue() as $entry) {
+            $key = (string)($entry['key'] ?? '');
+            $groups[] = $entry + [
+                'allowed_for_this_account' => in_array($key, $allowed, true),
+                // Null outside a tool call, which is the honest answer rather
+                // than a claim that everything is held.
+                'held_by_this_connection' => $held === null ? null : in_array($key, $held, true),
+            ];
+        }
+
+        return [
+            'scopes' => $groups,
+            'allowed_for_this_account' => $allowed,
+            'held_by_this_connection' => $held,
+            'note' => $held === null
+                ? 'This call did not come through a connection, so there is no ceiling to report.'
+                : 'create_my_connection will not issue a group that is not in held_by_this_connection.',
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function createMyConnection(Actor $actor, Args $args): array
+    {
+        $ceiling = Scopes::currently() ?? Scopes::forActor($actor);
+        $requested = $args->strings('scopes');
+
+        // An empty request means "everything the account allows" by the time
+        // McpClients stores it, so it has to be filled in here rather than
+        // passed on - or a narrowed connection would issue an unnarrowed one
+        // by saying nothing at all.
+        if ($requested === []) {
+            $scopes = $ceiling;
+        } else {
+            $beyond = array_values(array_diff($requested, $ceiling));
+            if ($beyond !== []) {
+                throw HttpException::forbidden(
+                    'This connection does not hold ' . implode(', ', $beyond) . ', so it cannot issue a connection '
+                    . 'that does. It holds: ' . (implode(', ', $ceiling) ?: 'nothing')
+                    . '. A wider connection has to be made from the Connect screen in the browser, where a person '
+                    . 'decides.'
+                );
+            }
+            $scopes = array_values(array_intersect($ceiling, $requested));
+        }
+
+        $ttlDays = max(0, min(365, $args->int('ttl_days', 0)));
+        $created = McpClients::create(
+            $actor->username,
+            $args->requiredStr('name'),
+            $scopes,
+            $ttlDays,
+            $args->str('note')
+        );
+
+        Audit::record(
+            $actor->username,
+            'connect.create',
+            (string)$created['client']['name'],
+            'scopes=' . (implode(' ', $scopes) ?: 'all') . '; ttl_days=' . $ttlDays . ', via MCP',
+            'mcp'
+        );
+
+        return [
+            'created' => true,
+            'connection_id' => (int)$created['client']['id'],
+            'name' => (string)$created['client']['name'],
+            'scopes' => $scopes,
+            'expires_at' => (int)$created['client']['expires_at'],
+            // Returned once, and the only time it is ever readable.
+            'token' => $created['token'],
+            'note' => 'The token is shown here and nowhere else, ever - the database keeps only a hash of it. Hand '
+                . 'it to the client that needs it now; a lost one is replaced rather than recovered.',
+            'next_step' => 'The client connects to this installation\'s /api/mcp.php with the token as its bearer. '
+                . 'list_my_connections will show it being used.',
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function renameMyConnection(Actor $actor, Args $args): array
+    {
+        $id = $args->id('connection_id');
+
+        // Scoped to this account by the lookup itself, not by a check after
+        // it: there is no argument here that could name somebody else's row.
+        $client = McpClients::require($actor->username, $id);
+
+        $name = $args->has('name') ? $args->requiredStr('name') : (string)$client['name'];
+        $note = $args->has('note') ? $args->str('note') : (string)$client['note'];
+
+        if ($name === (string)$client['name'] && $note === (string)$client['note']) {
+            throw HttpException::unprocessable('Nothing to change. Give a name or a note that differs.');
+        }
+
+        $updated = McpClients::rename($actor->username, $id, $name, $note);
+
+        // Recorded even though nothing is granted, because the name is what a
+        // person reads the list by: renaming "old laptop, revoke me" into "CI
+        // server" is how a connection nobody trusts comes to look like one
+        // everybody does, and the old name is the only trace of it.
+        Audit::record(
+            $actor->username,
+            'connect.rename',
+            (string)$updated['name'],
+            'was=' . (string)$client['name'] . ', via MCP',
+            'mcp'
+        );
+
+        return [
+            'renamed' => true,
+            'connection_id' => $id,
+            'name' => (string)$updated['name'],
+            'note' => (string)$updated['note'],
+        ];
+    }
 
     /** @return array<string,mixed> */
     private static function whoami(Actor $actor): array
