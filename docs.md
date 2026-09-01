@@ -532,6 +532,7 @@ with it — including the new defaults an update brings with it.
 | Emojis | on | A handful, in headings and do/don't markers |
 | Anki cloze cards | off | An importable `## Anki Cards` section |
 | Auto links | off | Cross references to other pages — [section 5](#5-auto-links) |
+| Web research | off | Asks for the page to be written against what the web says today, with a `## Sources` list — and, at course level, turns on the research flow in [section 3.1](#31-research-establishing-what-is-true-today) |
 
 Switching an element **off** is not the same as leaving it out: CourseForge sends
 an explicit instruction not to produce it, because models default to their own
@@ -548,13 +549,14 @@ habits when a topic is simply unmentioned.
 | Anki cards per page | 8 | `{{anki_cards}}` | Anki cloze cards |
 | Auto links per page | 5 | `{{link_count}}` | Auto links |
 | Audience | — | `{{audience}}` | the audience instruction |
+| Searches per page | 5 | `{{research_max_searches}}` | Web research |
 
 A value box shows your own number, or nothing plus the inherited number as a
 greyed placeholder; the ✕ next to it goes back to inheriting. A value whose
 element is currently off is dimmed, because it changes nothing.
 
 The catalogue itself lives in `config/defaults.json` under `details`, as
-`features` and `params`. Adding a fourteenth element means adding one entry
+`features` and `params`. Adding a fifteenth element means adding one entry
 there plus its two prompt slots — no code change, no migration. Because it
 ships with the release, an update may add elements to it, and anything a course
 had already decided survives that, since only deviations are stored.
@@ -564,6 +566,78 @@ application settings and nothing else, and the detail defaults are a data
 structure rather than a field. To change one for the whole installation, put it
 in `data/config.json` under `details` — never in `config/defaults.json`, which
 the next update replaces wholesale.
+
+### 3.1 Research: establishing what is true today
+
+**Web research** is the one element that means something different at course
+level than it does at page level, and the difference is worth spelling out.
+
+At page level it means what it always meant: whoever writes this page should
+look the subject up first and cite what they read. That is right for "is this
+example still the recommended one", and it is the wrong unit for "which version
+of WordPress is this course about". The second is one fact, every page needs the
+same answer, and asking two hundred pages to find it separately gets two hundred
+answers and pays for the search two hundred times.
+
+So a course carries a **research briefing**: findings established once, stored
+with the date they were established, and read from then on by the outline and by
+every page. Four things can write it, and nothing downstream can tell them
+apart:
+
+| Who | How |
+|---|---|
+| An MCP client — Claude Code most usefully | `get_research_brief` → it searches with its own tools → `store_research` |
+| The Claude Code CLI provider | Runs on your own subscription, with `WebSearch` and `WebFetch` handed to the child process |
+| A provider with a server-side search tool | Anthropic, Gemini, OpenRouter, and the OpenAI models that have one |
+| A person | Course → **Details** → **Research** |
+
+The client path is the one worth reaching for: the searching happens inside a
+subscription you are already paying for, and the server never spends anything.
+
+```
+create_course(web_research: true)
+        ↓
+get_next_step         →  state "needs_research", because the outline is
+                         designed from the findings and a chapter list built
+                         around a version that no longer exists cannot be
+                         repaired by researching the pages under it
+        ↓
+get_research_brief    →  the assignment: current stable version and its release
+                         date, what changed recently enough that a model would
+                         get it wrong, what was deprecated and what replaced it,
+                         where the documentation now lives, what practitioners
+                         actually recommend now
+        ↓  the client searches the web
+store_research        →  stored, stamped with today's date
+        ↓
+get_structure_brief   →  the findings are in `stored_research` *and* in the
+                         system instructions, so the client and CourseForge's
+                         own model are asked for the same thing
+get_page_brief        →  every page carries them, as `{{research_block}}`
+```
+
+**Nothing ever expires by itself.** Every answer says how old the findings are —
+`stored today`, `stored 12 days ago`, `stored 3 month(s) ago - worth
+refreshing` — because a six-month-old note about WordPress still beats the
+model's recollection, and deciding it has gone too stale is a judgement about
+how fast the subject moves. `get_research` is what a client reads to make that
+call; `store_research` replaces what is there.
+
+The briefing is capped at **12,000 characters**, cut at a line boundary, and the
+cap is the reason: this text rides in the context of every page, so it is paid
+for once per page. Twelve thousand characters is about three thousand tokens; a
+five-hundred-page course pays that five hundred times.
+
+The prompt slot that carries it is `research_block`, in the **Structure** group
+of the prompt library, and it renders `{{research_block}}` — the findings with
+their date already wrapped around them — or `{{research_findings}}` for a
+wording of your own. When a course has no findings the slot contributes nothing
+at all, rather than a heading over an empty section.
+
+Two application settings sit behind this, both under **General**:
+`app.research_default_searches` (8) is the budget quoted for researching a whole
+course when the course names no number of its own, and is separate from
+**Searches per page**.
 
 ---
 
@@ -2037,7 +2111,7 @@ question of what refuses `data/` stops arising.
    authentication and must not be swallowed by the front controller;
 3. deny all access to `data/`, `src/` and `tools/` — and `config/`, `data/`,
    `src/` and `tools/` each carry a second `.htaccess` of their own;
-4. deny `*.sqlite`, `*.sqlite3`, `*.db`, `*.db-wal`, `*.db-shm`, `*.json`,
+4. deny `*.sqlite`, `*.sqlite3`, `*.sqlite-wal`, `*.sqlite-shm`, `*.sqlite-journal`, `*.db`, `*.db-wal`, `*.db-shm`, `*.json`,
    `*.md`, `*.log`, `*.ini`, `*.txt`, `*.zip`, `*.tar`, `*.gz`, `*.bak`,
    `*.sql` and `*.sh` everywhere — which is the belt-and-braces layer that works
    even without `mod_rewrite` and on hosts that silently ignore a subdirectory
@@ -2072,7 +2146,7 @@ location ^~ /tools/  { deny all; return 403; }
 location ^~ /tests/  { deny all; return 403; }
 
 # Block sensitive file types anywhere. .txt is here for INVITE-CODE.txt.
-location ~* \.(sqlite|sqlite3|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh)$ {
+location ~* \.(sqlite|sqlite3|sqlite-wal|sqlite-shm|sqlite-journal|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh)$ {
     deny all; return 403;
 }
 
@@ -2101,7 +2175,7 @@ courseforge.example.com {
     @privateDirs path /data/* /config/* /src/* /tools/* /tests/*
     respond @privateDirs 403
 
-    @privateFiles path *.sqlite *.sqlite3 *.db *.db-wal *.db-shm *.json *.md *.log *.ini *.txt *.zip *.tar *.gz *.bak *.sql *.sh
+    @privateFiles path *.sqlite *.sqlite3 *.sqlite-wal *.sqlite-shm *.sqlite-journal *.db *.db-wal *.db-shm *.json *.md *.log *.ini *.txt *.zip *.tar *.gz *.bak *.sql *.sh
     respond @privateFiles 403
 
     rewrite /mcp /api/mcp.php

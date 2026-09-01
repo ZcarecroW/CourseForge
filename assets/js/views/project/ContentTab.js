@@ -131,17 +131,37 @@ export const ContentTab = {
     };
 
     /* -- loading a page ------------------------------------------------- */
+
+    /**
+     * Two clicks in the outline start two requests, and the network decides
+     * which answers first. Without the guard below, page A arriving after
+     * page B has been selected wrote A's title and text into the editor while
+     * the tree still highlighted B — and a save from that state sent A's text
+     * to B. The larger page is the slower one, so this got likelier the more
+     * there was to lose.
+     *
+     * The check is the one generateOne() already makes for the same reason:
+     * before writing anything, ask whether this answer is still the one being
+     * waited for. mergePage stays outside it, because fresher data about a page
+     * is worth keeping in the tree whichever page is now open.
+     */
     async function loadPage(pageId) {
       loadingPage.value = true;
       try {
         const data = await get(`projects/${project.value.id}/pages/${pageId}`);
+        mergePage(data.page);
+
+        if (selection.type !== 'page' || selection.id !== pageId) return;
+
         loaded.value = data.page;
         draft.title = data.page.title;
         draft.content = data.page.content ?? '';
         draft.extra_context = data.page.extra_context ?? '';
-        mergePage(data.page);
       } finally {
-        loadingPage.value = false;
+        // Only the request still being waited for owns the spinner: an
+        // overtaken one turning it off would clear it while its replacement
+        // is still in flight.
+        if (selection.type === 'page' && selection.id === pageId) loadingPage.value = false;
       }
     }
 

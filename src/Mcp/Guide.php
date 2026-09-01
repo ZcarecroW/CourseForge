@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace CourseForge\Mcp;
 
+use CourseForge\Domain\Details;
 use CourseForge\Domain\Projects;
+use CourseForge\Domain\Research;
 use CourseForge\Mcp\Handlers\PublishTools;
 use CourseForge\Security\Access;
 use CourseForge\Security\Actor;
@@ -48,6 +50,18 @@ final class Guide
     public const STATE_CHOOSE_COURSE = 'choose_course';
 
     /** The course exists but has no chapters or pages yet. */
+    /**
+     * The course asks for web research and has none, and nothing is written yet.
+     *
+     * Before the outline rather than after it, because the outline is the
+     * decision every page inherits: a chapter list designed around a version of
+     * the subject that no longer exists cannot be repaired by researching the
+     * pages underneath it. Only while the course is still empty - once pages
+     * have text on them, stopping to research is not the next step, and the
+     * research tools are there to be called directly.
+     */
+    public const STATE_NEEDS_RESEARCH = 'needs_research';
+
     public const STATE_NEEDS_OUTLINE = 'needs_outline';
 
     /** The outline is applied and some pages have no text. */
@@ -156,6 +170,31 @@ final class Guide
             'remaining' => $remaining,
         ];
         $course = ['course_id' => $courseId, 'name' => $name];
+
+        /* ------------------------------------------------------- no research */
+
+        if ($pages === 0
+            && !Research::has($project)
+            && (Details::resolve(Projects::settings($project))['features']['web_research'] ?? false)
+        ) {
+            return self::step(
+                self::STATE_NEEDS_RESEARCH,
+                '"' . $name . '" asks for web research and has none stored. The outline is designed from it, so '
+                    . 'this comes first.',
+                'get_research_brief',
+                Scopes::RESEARCH,
+                ['course_id' => $courseId],
+                'get_research_brief hands you the assignment for the whole subject: the current stable version and '
+                    . 'when it shipped, what changed recently enough that a model would get it wrong, what has been '
+                    . 'deprecated and what replaced it, and where the documentation now lives. Search the web for '
+                    . 'it with your own tools - which costs nothing here, because you are the one searching - and '
+                    . 'send what you find to store_research. It is established once and then read by the outline '
+                    . 'and by every single page.',
+                $progress,
+                $course,
+                'Then store_research with what you found, and call get_next_step again.'
+            );
+        }
 
         /* ------------------------------------------------------- no outline */
 

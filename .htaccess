@@ -8,7 +8,7 @@ DirectoryIndex index.html
 # CourseForge serves is a zip. `.php` deliberately is NOT here - the application
 # is made of PHP files - which is why an update backup is a single archive
 # rather than a live tree of executable files.
-<FilesMatch "\.(sqlite|sqlite3|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh)$">
+<FilesMatch "\.(sqlite|sqlite3|sqlite-wal|sqlite-shm|sqlite-journal|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

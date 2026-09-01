@@ -28,11 +28,11 @@ is exactly what an import map is for.
 
 | Specifier                     | File                    | Version |
 |-------------------------------|-------------------------|---------|
-| `@codemirror/state`           | `state.js`              | 6.7.1   |
-| `@codemirror/view`            | `view.js`               | 6.43.9  |
+| `@codemirror/state`           | `state.js`              | 6.7.2   |
+| `@codemirror/view`            | `view.js`               | 6.43.10 |
 | `@codemirror/language`        | `language.js`           | 6.12.4  |
 | `@codemirror/commands`        | `commands.js`           | 6.11.0  |
-| `@codemirror/search`          | `search.js`             | 6.7.1   |
+| `@codemirror/search`          | `search.js`             | 6.7.2   |
 | `@codemirror/autocomplete`    | `autocomplete.js`       | 6.20.3  |
 | `@codemirror/lang-markdown`   | `lang-markdown.js`      | 6.5.2   |
 | `@codemirror/lang-html`       | `lang-html.js`          | 6.4.12  |
@@ -46,7 +46,7 @@ is exactly what an import map is for.
 | `@lezer/html`                 | `lezer-html.js`         | 1.3.13  |
 | `@lezer/css`                  | `lezer-css.js`          | 1.3.6   |
 | `@lezer/javascript`           | `lezer-javascript.js`   | 1.5.4   |
-| `@lezer/php`                  | `lezer-php.js`          | 1.0.5   |
+| `@lezer/php`                  | `lezer-php.js`          | 1.0.6   |
 | `@marijn/find-cluster-break`  | `find-cluster-break.js` | 1.0.4   |
 | `style-mod`                   | `style-mod.js`          | 4.1.3   |
 | `w3c-keyname`                 | `w3c-keyname.js`        | 2.2.8   |

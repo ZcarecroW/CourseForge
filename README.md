@@ -57,6 +57,86 @@ language), create a **Course**, generate the **Structure**, write the
 Full documentation, including the nginx configuration and the technical
 background, is in [docs.md](docs.md).
 
+## What is new in 4.5
+
+### Research the subject once, before the course is designed
+
+A course about WordPress, a framework, an API or a standard is out of date the
+moment the model's training data is. CourseForge could already tell whoever was
+writing a page to look things up first — but that is *per page*, so a
+two-hundred-page course researched that way searches the same handful of facts
+two hundred times and gets two hundred slightly different answers to "which
+version are we teaching".
+
+4.5 moves the question up a level. The facts are established **once**, stored on
+the course with the date they were established, and read from then on by the
+outline and by every single page.
+
+The client does the searching, which is the point: connect **Claude Code** and
+it costs nothing.
+
+```
+get_research_brief   →  the assignment: current stable version and when it
+                        shipped, what changed recently enough that a model
+                        would get it wrong, what was deprecated and what
+                        replaced it, where the documentation now lives
+        ↓  Claude Code searches the web with its own tools
+store_research       →  the findings, stamped with today's date
+        ↓
+get_structure_brief  →  designs the outline *against those findings*
+get_page_brief       →  every page carries them too
+```
+
+`get_next_step` knows about it: a course that asks for research and has none is
+sent to find it **before** the outline, because the outline is the decision every
+page inherits — a chapter list built around a version that no longer exists
+cannot be repaired by researching the pages underneath it.
+
+- **`create_course` takes `web_research`**, so one call sets up a course whose
+  every later brief asks for current facts.
+- **Findings never expire on their own.** Everything that reports them says how
+  old they are — "stored today", "stored 95 days ago – worth refreshing" — and
+  deciding a briefing is too old is a person's call, not a timer's.
+- **A new `research` connection scope**, so a token that researches cannot also
+  delete a course.
+- **The browser has the same door.** Course → Details → Research shows what a
+  connected client found, and you can edit it or write your own.
+- **Outline generation honours web research too.** It reached only pages before,
+  which meant a course could be told to stay current and then have its chapter
+  list designed entirely from memory.
+- **The Claude Code CLI provider can search.** Running CourseForge on your own
+  machine against your own subscription, `web_research` now hands the child
+  process `WebSearch` and `WebFetch` and a turn budget to use them. It was the
+  one provider that could genuinely go and look, and the one that had been told
+  it had no tools.
+
+### Descriptions worth reading
+
+Book and chapter descriptions are now roughly **600 words** rather than a few
+hundred characters — the course's own prospectus: what the reader will be able
+to do, which ideas arrive in which order, what is assumed, what is commonly got
+wrong.
+
+That length breaks assumptions the outline format was built on, so the parser
+was rebuilt around it. A description can now run to several paragraphs and keep
+them; a paragraph that begins "3. Install the plugin" is escaped on the way out
+and read back as prose rather than becoming a page nobody asked for; and a list
+item too long to be a title is treated as the prose it is.
+
+> **BookStack caps a description at 2000 characters of HTML** and answers 422 for
+> anything longer. The full text stays whole in CourseForge — it is what the
+> pages are written from — and the cover page gets as many whole paragraphs as
+> fit, with the publish log saying how many were left off. Raise
+> `app.bookstack_description_max` if your BookStack raised its own limit.
+
+### Libraries
+
+`@codemirror/state` 6.7.2, `@codemirror/view` 6.43.10, `@codemirror/search`
+6.7.2 and `@lezer/php` 1.0.6. Everything else vendored was already current, and
+MathJax stays deliberately at 3.2.2 — version 4 fetches font ranges from a CDN
+at runtime, which an offline install cannot do. See
+[assets/vendor/VENDOR.md](assets/vendor/VENDOR.md).
+
 ## What is new in 4
 
 ### The whole application, over MCP
@@ -89,11 +169,12 @@ use, so neither of these has to be typed from memory.
 > *"Create a Vue 3 course in CourseForge, design the outline, then queue the
 > whole thing to Anthropic's batch queue and tell me what it will cost."*
 
-Create courses, design outlines with the profile's own model, edit pages and
-chapters, set content details at any level, manage tags, start and watch
-generation runs, publish to BookStack, resolve cross references — and, for an
-administrator, manage accounts, change any setting, rotate the cron token, read
-the diagnostics and install an update. Seventy-odd tools in ten groups.
+Create courses, research the subject against what the web says today, design
+outlines with the profile's own model, edit pages and chapters, set content
+details at any level, manage tags, start and watch generation runs, publish to
+BookStack, resolve cross references — and, for an administrator, manage
+accounts, change any setting, rotate the cron token, read the diagnostics and
+install an update. Eighty-odd tools in eleven groups.
 
 A connection can be **narrowed to some of those groups**, so a token that only
 writes pages cannot delete a course or read your settings. It inherits the role

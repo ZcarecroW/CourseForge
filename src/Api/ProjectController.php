@@ -8,6 +8,7 @@ use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Pages;
 use CourseForge\Domain\Profiles;
 use CourseForge\Domain\Projects;
+use CourseForge\Domain\Research;
 use CourseForge\Domain\Tags;
 use CourseForge\Domain\Transfers;
 use CourseForge\Security\Access;
@@ -260,6 +261,34 @@ final class ProjectController
 
         Projects::touch($id);
         return ['project' => Projects::tree($owner, $id)];
+    }
+
+    /* ------------------------------------------------------------- research */
+
+    /**
+     * Stores what was found out about the subject, or clears it.
+     *
+     * The browser's door to the same column `store_research` writes over MCP.
+     * A person pastes in what they already know, or edits what a client found;
+     * either way it lands in one place, is stamped with today's date, and is
+     * read by the outline and by every page from then on.
+     *
+     * Recorded as coming from a person rather than from a client, because that
+     * is the only difference worth keeping: nothing downstream behaves
+     * differently, but "who said this" is the first question about a fact that
+     * turns out to be wrong.
+     */
+    public static function updateResearch(Request $request, ?Actor $actor): array
+    {
+        $me = $actor ?? throw HttpException::unauthorized();
+        $id = $request->id('id');
+        $owner = (string)Access::project($me, $id)['username'];
+
+        // raw(), not str(): findings are Markdown and the line breaks are what
+        // makes them readable.
+        $result = Research::store($owner, $id, $request->raw('research'), Research::SOURCE_MANUAL);
+
+        return ['project' => Projects::tree($owner, $id)] + $result;
     }
 
     /* ----------------------------------------------------------------- tags */

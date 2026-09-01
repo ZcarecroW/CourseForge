@@ -5,6 +5,7 @@ namespace CourseForge\Ai;
 
 use CourseForge\Domain\Details;
 use CourseForge\Domain\Projects;
+use CourseForge\Domain\Research;
 use CourseForge\Support\Config;
 use CourseForge\Support\Text;
 
@@ -50,6 +51,12 @@ final class StructureGenerator
             ($vars['audience'] ?? '') !== '' ? Prompt::slot($library, 'audience_block', $vars) : '',
             Prompt::slot($library, $systemSlot, $vars),
             $autoTags ? Prompt::slot($library, 'structure_tags_rules', $vars) : '',
+            // An outline designed against last year's facts puts last year's
+            // chapters in it, and every page written afterwards inherits that
+            // - which is the one thing researching a page cannot fix later.
+            Research::has($project)
+                ? Prompt::slotOrDefault($library, 'research_block', $vars, '{{research_block}}')
+                : '',
             Prompt::slotOrDefault($library, 'language_instruction', $vars, 'Write every title and description in {{language}}.')
         );
 
@@ -62,7 +69,19 @@ final class StructureGenerator
                 "Design a complete course for the following request:\n\n{{topic}}\n\n"
                 . 'Build a didactically sound outline in the exact required Markdown format. Language: {{language}}.');
 
-        return Completion::run($profile, 'overview', $system, $user);
+        // Web research reaches the outline the same way it reaches a page: as
+        // a fact beside the prompt that each provider turns into its own search
+        // tool. It used to reach only pages, which meant a course could be told
+        // to stay current and then have its chapter list designed entirely from
+        // memory - the one decision every page afterwards is bound by.
+        return Completion::run(
+            $profile,
+            'overview',
+            $system,
+            $user,
+            (bool)($details['features']['web_research'] ?? false),
+            max(0, (int)($details['params']['research_max_searches'] ?? 0)),
+        );
     }
 
     /**
@@ -81,6 +100,8 @@ final class StructureGenerator
             'topic' => (string)$project['topic'],
             'book_title' => Projects::bookTitle($project),
             'book_description' => (string)$project['book_desc'],
+            'research_findings' => Research::of($project),
+            'research_block' => Research::block($project),
             'extra_context' => '',
         ];
     }

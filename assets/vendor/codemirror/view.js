@@ -6640,9 +6640,8 @@ class ViewState {
             scaleBlock(this.heightMap.lineAt(this.scaler.fromDOM(height), QueryType.ByHeight, this.heightOracle, 0, 0), this.scaler);
     }
     getScrollOffset() {
-        let base = this.scrollParent == this.view.scrollDOM ? this.scrollParent.scrollTop
+        return this.scrollParent == this.view.scrollDOM ? this.scrollParent.scrollTop * this.scaleY
             : (this.scrollParent ? this.scrollParent.getBoundingClientRect().top : 0) - this.view.contentDOM.getBoundingClientRect().top;
-        return base * this.scaleY;
     }
     scrollAnchorAt(scrollOffset) {
         let block = this.lineBlockAtHeight(scrollOffset + 8);
@@ -7034,8 +7033,9 @@ const baseTheme$1 = /*@__PURE__*/buildTheme("." + baseThemeID, {
         userSelect: "none"
     },
     ".cm-highlightSpace": {
-        backgroundImage: "radial-gradient(circle at 50% 55%, #aaa 20%, transparent 5%)",
-        backgroundPosition: "center",
+        background: "radial-gradient(circle at 50% 55%, #aaa 20%, transparent 0) no-repeat",
+        backgroundSize: ".4em",
+        backgroundPosition: "calc(min(50%, 0px)) center"
     },
     ".cm-highlightTab": {
         backgroundImage: `url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="20"><path stroke="%23888" stroke-width="1" fill="none" d="M1 10H196L190 5M190 15L196 10M197 4L197 16"/></svg>')`,
@@ -8146,7 +8146,7 @@ class EditorView {
             this.observer.forceFlush();
         let updated = null;
         let scroll = this.viewState.scrollParent, scrollOffset = this.viewState.getScrollOffset();
-        let { scrollAnchorPos, scrollAnchorHeight } = this.viewState;
+        let { scrollAnchorPos, scrollAnchorHeight, scaleY: scrollScale } = this.viewState;
         if (Math.abs(scrollOffset - this.viewState.scrollOffset) > 1)
             scrollAnchorHeight = -1;
         this.viewState.scrollAnchorHeight = -1;
@@ -8155,13 +8155,14 @@ class EditorView {
                 if (scrollAnchorHeight < 0) {
                     if (isScrolledToBottom(scroll || this.win)) {
                         scrollAnchorPos = -1;
-                        scrollAnchorHeight = this.viewState.heightMap.height;
+                        scrollAnchorHeight = this.viewState.heightMap.height / this.viewState.scaleY;
                     }
                     else {
                         let block = this.viewState.scrollAnchorAt(scrollOffset);
                         scrollAnchorPos = block.from;
                         scrollAnchorHeight = block.top;
                     }
+                    scrollScale = this.viewState.scaleY;
                 }
                 this.updateState = 1 /* UpdateState.Measuring */;
                 let changed = this.viewState.measure();
@@ -8225,7 +8226,7 @@ class EditorView {
                         else {
                             let newAnchorHeight = scrollAnchorPos < 0 ? this.viewState.heightMap.height :
                                 this.viewState.lineBlockAt(scrollAnchorPos).top;
-                            let diff = (newAnchorHeight - scrollAnchorHeight) / this.scaleY;
+                            let diff = (newAnchorHeight / this.viewState.scaleY) - (scrollAnchorHeight / scrollScale);
                             if ((diff > 1 || diff < -1) &&
                                 !(browser.ios && this.inputState.lastIOSMomentumScroll > Date.now() - 100) &&
                                 (scroll == this.scrollDOM || this.hasFocus ||

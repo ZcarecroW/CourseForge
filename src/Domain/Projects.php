@@ -15,6 +15,7 @@ final class Projects
         'name', 'topic', 'profile_id', 'structure_md', 'book_title', 'book_desc', 'settings',
         'bs_instance_id', 'shelf_id', 'shelf_name', 'book_id', 'book_slug', 'book_url', 'pushed_hash',
         'auto_tags', 'tag_pool', 'tag_pool_strict',
+        'research_md', 'research_at', 'research_source',
     ];
 
     /* -------------------------------------------------------------- basics */
@@ -594,6 +595,14 @@ final class Projects
             'auto_tags' => (int)$project['auto_tags'] === 1,
             'tag_pool' => (string)$project['tag_pool'],
             'tag_pool_strict' => (int)$project['tag_pool_strict'] === 1,
+            'research' => [
+                'text' => Research::of($project),
+                'at' => Research::at($project),
+                'age_days' => Research::ageInDays($project),
+                'freshness' => Research::freshness($project),
+                'source' => (string)($project['research_source'] ?? ''),
+                'max_characters' => Research::MAX_CHARS,
+            ],
             'created_at' => (int)$project['created_at'],
             'updated_at' => (int)$project['updated_at'],
             'dirty' => $bookId !== null && (string)$project['pushed_hash'] !== self::pushHash(

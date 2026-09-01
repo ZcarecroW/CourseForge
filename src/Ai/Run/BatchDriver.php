@@ -220,7 +220,27 @@ final class BatchDriver
                 $provider->cancelBatch($handle);
             }
         } catch (Throwable $e) {
+            // Nothing below this point is reversible: it settles every pending
+            // item as canceled and closes the run for good. Doing that after a
+            // failure to *reach* the provider would be closing a batch that is
+            // very likely still running - and still being billed - on the
+            // strength of a DNS blip. The run is then terminal here and alive
+            // there, with no way left to collect the pages it produces.
+            //
+            // So a failure to reach the provider leaves the run open, exactly
+            // as poll() does. The error is recorded, the person sees why, and
+            // pressing Cancel again once the network is back does the real
+            // thing. This is the same rule settle() states for downloading
+            // results: an error talking to a provider is never evidence about
+            // what the provider did.
             Runs::update($runId, ['error' => mb_substr($e->getMessage(), 0, 500)]);
+            Projects::touch((int)$run['project_id']);
+
+            return Runs::summary(Runs::require($username, $runId)) + [
+                'canceled' => false,
+                'error' => 'The provider could not be reached, so the batch was left as it is rather than '
+                    . 'closed here while it may still be running there. Try again in a moment.',
+            ];
         }
 
         foreach (Runs::pendingItems($runId) as $item) {

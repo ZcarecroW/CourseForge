@@ -411,6 +411,14 @@ final class Db
         self::ensureColumn($pdo, 'projects', 'auto_tags', 'INTEGER NOT NULL DEFAULT 0');
         self::ensureColumn($pdo, 'projects', 'tag_pool', "TEXT NOT NULL DEFAULT ''");
         self::ensureColumn($pdo, 'projects', 'tag_pool_strict', 'INTEGER NOT NULL DEFAULT 0');
+        // What a client found when it went and looked the topic up, and when.
+        // Stored on the course rather than on a page because it is the course
+        // that is about WordPress: every page wants the same set of facts, and
+        // researching them once is the difference between one search pass and
+        // one per page.
+        self::ensureColumn($pdo, 'projects', 'research_md', "TEXT NOT NULL DEFAULT ''");
+        self::ensureColumn($pdo, 'projects', 'research_at', 'INTEGER NOT NULL DEFAULT 0');
+        self::ensureColumn($pdo, 'projects', 'research_source', "TEXT NOT NULL DEFAULT ''");
         self::ensureColumn($pdo, 'chapters', 'settings', "TEXT NOT NULL DEFAULT '{}'");
         self::ensureColumn($pdo, 'chapters', 'bs_slug', "TEXT NOT NULL DEFAULT ''");
         self::ensureColumn($pdo, 'chapters', 'bs_url', "TEXT NOT NULL DEFAULT ''");

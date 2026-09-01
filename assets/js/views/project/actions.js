@@ -122,6 +122,22 @@ export function inheritedTags(entity) {
   return (entity.effective_tags ?? []).filter((t) => !own.has(t.id));
 }
 
+/* ----------------------------------------------------------------- research */
+
+/**
+ * Stores what was found out about the subject, or clears it.
+ *
+ * The same column an MCP client writes through `store_research`, so a briefing
+ * a connected Claude Code researched can be read and edited here, and one typed
+ * here reaches every brief that client is handed afterwards. The server stamps
+ * the date; nothing is sent for it.
+ */
+export const saveResearch = (research) => run(async () => {
+  const result = applyProject(await put(`projects/${projectId()}/research`, { research }));
+  toast.success(research.trim() ? 'Research saved.' : 'Research cleared.');
+  return result;
+}, 'Save research');
+
 /* ----------------------------------------------------------------- settings */
 
 export const saveSettings = (fields, { silent = false } = {}) => run(async () => {

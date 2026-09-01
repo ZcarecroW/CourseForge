@@ -30,6 +30,7 @@ use CourseForge\Security\Actor;
 final class Scopes
 {
     public const COURSES = 'courses';
+    public const RESEARCH = 'research';
     public const STRUCTURE = 'structure';
     public const PAGES = 'pages';
     public const DETAILS = 'details';
@@ -50,6 +51,14 @@ final class Scopes
                 'key' => self::COURSES,
                 'label' => 'Courses',
                 'description' => 'List, read, create, rename and delete courses.',
+                'admin' => false,
+                'spends' => false,
+            ],
+            [
+                'key' => self::RESEARCH,
+                'label' => 'Research',
+                'description' => 'Take the research assignment for a course, and store what searching the web '
+                    . 'found. The client does the searching, so nothing here spends anything.',
                 'admin' => false,
                 'spends' => false,
             ],

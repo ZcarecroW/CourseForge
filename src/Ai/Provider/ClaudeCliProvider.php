@@ -42,6 +42,18 @@ use Throwable;
  */
 final class ClaudeCliProvider implements Provider
 {
+    /** Searches to allow when research is on and the course names no number. */
+    private const DEFAULT_SEARCHES = 5;
+
+    /**
+     * A ceiling on the turn budget, whatever the course asks for.
+     *
+     * `research_max_searches` tops out at 20 in the catalogue, so this is only
+     * reached by a configuration that has been edited by hand - and a run that
+     * has taken twenty-odd turns is not researching any more, it is stuck.
+     */
+    private const MAX_TURNS = 24;
+
     /** Environment variables that would redirect the CLI away from the subscription. */
     private const HIJACKERS = [
         'ANTHROPIC_API_KEY',
@@ -172,10 +184,7 @@ final class ClaudeCliProvider implements Provider
                 '-p',
                 '--output-format', 'json',
                 '--model', $model,
-                '--max-turns', '1',
-                // Isolation: no built-in tools, no MCP servers from the user's
-                // own config, no skills. CourseForge wants text, nothing else.
-                '--tools', '',
+                ...$this->toolArgs($request),
                 '--strict-mcp-config',
                 '--disable-slash-commands',
                 '--system-prompt-file', $promptFile,
@@ -185,6 +194,54 @@ final class ClaudeCliProvider implements Provider
         }
 
         return $this->readResult($result);
+    }
+
+    /**
+     * What the child is allowed to do, which is either nothing or searching.
+     *
+     * The default is still total isolation - no built-in tools, no MCP servers
+     * from the user's own config, no skills - because CourseForge wants text
+     * and every tool that is not text is a way for the run to do something
+     * nobody asked for.
+     *
+     * Web research is the one exception, and it is the reason this provider is
+     * worth having for a course about something that moves. Claude Code is
+     * already a research tool: told to look, it will read today's WordPress
+     * release notes rather than recall last year's. Turning `web_research` on
+     * for a course used to reach every provider except this one, which
+     * silently wrote from memory - the toggle was on, the prompt asked for
+     * current facts and cited sources, and the one provider that could
+     * genuinely go and get them was the one that had been told it had no tools.
+     *
+     * Two flags, because they answer different questions. `--tools` says which
+     * built-in tools exist at all; `--allowedTools` says which may run without
+     * asking a human, which matters because `-p` has nobody to ask and an
+     * unapproved tool call would simply stall. Both are narrowed to the two
+     * read-only ones: WebSearch and WebFetch can look things up and can do
+     * nothing else.
+     *
+     * The turn budget grows with the search budget. One turn is exactly enough
+     * to answer and not enough to search first, so a research request capped at
+     * one turn is a research request that cannot research; each search costs a
+     * turn, and two more are left for reading the results and writing the page.
+     *
+     * @return string[]
+     */
+    private function toolArgs(AiRequest $request): array
+    {
+        if (!$request->research) {
+            return ['--max-turns', '1', '--tools', ''];
+        }
+
+        // 0 means "leave it to the provider", which here has to become a real
+        // number: the CLI needs a turn limit and there is no unlimited.
+        $searches = $request->maxSearches > 0 ? $request->maxSearches : self::DEFAULT_SEARCHES;
+
+        return [
+            '--max-turns', (string)min(self::MAX_TURNS, $searches + 2),
+            '--tools', 'WebSearch,WebFetch',
+            '--allowedTools', 'WebSearch', 'WebFetch',
+        ];
     }
 
     /**
@@ -538,6 +595,25 @@ final class ClaudeCliProvider implements Provider
                 'Claude Code returned an empty result (stop reason: ' . (string)($payload['stop_reason'] ?? 'unknown') . ').'
             );
         }
+
+        // The ceiling is checked whether or not there is text, which is the
+        // whole point: a page cut off at the output limit comes back looking
+        // like a finished one, with several thousand perfectly good words and
+        // no last paragraph. Every other provider in this file's neighbourhood
+        // treats that as a failure rather than storing it, because a course
+        // page that stops mid-sentence is worse than one that has to be
+        // written again - the first is published and read, the second is
+        // retried. This provider was the exception only because it read the
+        // stop reason inside the empty-result branch.
+        $stop = strtolower(trim((string)($payload['stop_reason'] ?? '')));
+        if ($stop === 'max_tokens') {
+            throw HttpException::badRequest(
+                'Claude Code hit its output ceiling part way through, so the page it returned stops mid-answer '
+                . '(' . Text::words($content) . ' words). It has not been stored. Lower the maximum length for '
+                . 'this course, or split the page in two.'
+            );
+        }
+
         return $content;
     }
 

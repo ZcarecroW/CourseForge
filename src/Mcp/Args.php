@@ -174,7 +174,12 @@ final class Args
         }
         $out = [];
         foreach ($value as $item) {
-            if (!is_numeric($item) || !is_finite((float)$item) || (int)$item <= 0) {
+            // isWhole, not is_numeric: 12.3 is numeric, and casting it gave 12
+            // - a different page id, accepted in silence. This is the argument
+            // start_run takes to say which pages to write, so the cost of that
+            // rounding is the wrong page regenerated over the top of text
+            // somebody already had.
+            if (!self::isWhole($item) || (int)$item <= 0) {
                 throw HttpException::unprocessable($key . ' must hold positive whole numbers only.');
             }
             $out[] = (int)$item;

@@ -1,6 +1,6 @@
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { state, openCourse, featureByKey, paramByKey } from '@/core/store.js';
-import { busy, patchDetails } from '@/views/project/actions.js';
+import { busy, patchDetails, saveResearch } from '@/views/project/actions.js';
 import { plural } from '@/core/format.js';
 
 import AppIcon from '@/components/AppIcon.js';
@@ -58,7 +58,34 @@ export const DetailsTab = {
     const autoLinksOn = computed(() => project.value.details.effective.features.auto_links === true);
     const linkStats = computed(() => project.value.stats.links ?? { markers: 0, resolved: 0, pending: 0 });
 
-    return { state, project, busy, onChange, overrides, clearOverride, showInherited, autoLinksOn, linkStats, plural };
+    /* ------------------------------------------------------------ research */
+
+    const researchOn = computed(() => project.value.details.effective.features.web_research === true);
+    const research = computed(() => project.value.research ?? { text: '', freshness: 'none stored', source: '' });
+
+    // A local copy, because the textarea is edited over several keystrokes and
+    // the stored value is only replaced when Save is pressed. Re-seeded when the
+    // server sends a different text - which is what happens when a connected
+    // client researches the course while this tab is open.
+    const draft = ref(research.value.text ?? '');
+    watch(() => research.value.text, (stored) => { draft.value = stored ?? ''; });
+
+    const dirty = computed(() => draft.value !== (research.value.text ?? ''));
+    const tooLong = computed(() => draft.value.length > (research.value.max_characters ?? 12000));
+
+    const sourceLabel = computed(() => ({
+      client: 'researched by a connected client',
+      model: 'researched by the AI account',
+      manual: 'entered here',
+    }[research.value.source] ?? ''));
+
+    const save = () => saveResearch(draft.value);
+    const revert = () => { draft.value = research.value.text ?? ''; };
+
+    return {
+      state, project, busy, onChange, overrides, clearOverride, showInherited, autoLinksOn, linkStats, plural,
+      researchOn, research, draft, dirty, tooLong, sourceLabel, save, revert,
+    };
   },
   template: `
     <div class="view-scroll">
@@ -112,6 +139,54 @@ export const DetailsTab = {
             <p class="hint">
               A marker whose target does not exist is published as plain text, so a hallucinated title never
               becomes a broken link. Resolve them from the <strong>Publish</strong> tab.
+            </p>
+          </div>
+        </section>
+
+        <section class="card" :class="researchOn ? '' : 'card--flat'">
+          <div class="card__head">
+            <app-icon name="search" :size="17" :class="researchOn ? 'c-accent' : 'dim'"/>
+            <span class="card__title grow">Research</span>
+            <span class="badge" :class="research.text ? 'badge--success' : ''">{{ research.freshness }}</span>
+          </div>
+          <div class="card__body col gap-3">
+            <p class="t-sm muted">
+              What is actually true about this subject today — the current stable version, what changed
+              recently, what has been deprecated, where the documentation now lives. It is established
+              <strong>once</strong> and then read by the outline and by every single page, so a course about
+              something that moves stays current without researching the same facts once per page.
+            </p>
+            <p class="t-sm muted">
+              An MCP client does this best and for nothing: connect Claude Code, call
+              <code>get_research_brief</code>, let it search the web with its own tools, and it posts the
+              findings back through <code>store_research</code> — they appear here. You can also just write
+              them yourself, or edit what it found.
+            </p>
+
+            <textarea class="mono" rows="12" spellcheck="false" v-model="draft" :disabled="busy"
+                      placeholder="## Versions&#10;- ...&#10;&#10;## Recently changed&#10;- ...&#10;&#10;## Sources&#10;- ..."></textarea>
+
+            <div class="row between wrap gap-2">
+              <p class="hint">
+                {{ draft.length.toLocaleString() }} / {{ (research.max_characters ?? 12000).toLocaleString() }}
+                characters<span v-if="sourceLabel">, {{ sourceLabel }}</span>.
+                This text travels with every page, so it is paid for once per page.
+              </p>
+              <div class="row gap-2">
+                <button class="btn btn--ghost btn--sm" :disabled="busy || !dirty" @click="revert">Revert</button>
+                <button class="btn btn--primary btn--sm" :disabled="busy || !dirty || tooLong" @click="save">
+                  {{ draft.trim() ? 'Save research' : 'Clear research' }}
+                </button>
+              </div>
+            </div>
+
+            <p v-if="tooLong" class="t-sm c-danger">
+              That is longer than the server stores. Shorten it, or it will be cut at a line boundary on save.
+            </p>
+            <p v-if="!researchOn" class="hint">
+              Web research is switched off for this course, so nothing asks for these facts to be found or
+              refreshed — but anything stored here is still sent with every page. Turn on
+              <strong>Web research</strong> above to have the briefs ask for it.
             </p>
           </div>
         </section>

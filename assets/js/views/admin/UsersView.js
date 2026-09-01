@@ -23,7 +23,7 @@
  * the browser would be the one that drifted. So the client asks, and shows
  * whatever the server says back.
  */
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
 import { state, loadUsers, minPassword } from '@/core/store.js';
 import { post, put, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
@@ -321,6 +321,13 @@ export const UsersView = {
      */
     const copied = ref('');
     let copiedTimer = 0;
+
+    // Cleared on unmount as well as on the next copy: leaving the screen
+    // inside the two seconds otherwise left a timer running against a ref
+    // belonging to a component that no longer exists. Harmless in Vue, and
+    // still the one timer in this codebase that was not paired with its
+    // own cleanup.
+    onBeforeUnmount(() => clearTimeout(copiedTimer));
 
     const copy = async (text, what) => {
       try {

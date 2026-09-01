@@ -11,6 +11,7 @@ use CourseForge\Mcp\Handlers\GuideTools;
 use CourseForge\Mcp\Handlers\PageTools;
 use CourseForge\Mcp\Handlers\ProfileTools;
 use CourseForge\Mcp\Handlers\PublishTools;
+use CourseForge\Mcp\Handlers\ResearchTools;
 use CourseForge\Mcp\Handlers\RunTools;
 use CourseForge\Mcp\Handlers\StructureTools;
 use CourseForge\Mcp\Handlers\TagTools;
@@ -67,6 +68,7 @@ final class Tools
             ...AccountTools::tools(),
             ...GuideTools::tools(),
             ...CourseTools::tools(),
+            ...ResearchTools::tools(),
             ...StructureTools::tools(),
             ...PageTools::tools(),
             ...DetailTools::tools(),

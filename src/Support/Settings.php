@@ -156,6 +156,25 @@ final class Settings
                 'default' => 16000, 'min' => 1000, 'max' => 200000,
             ],
 
+            /* ----------------------------------------------------- research */
+            [
+                'key' => 'app.research_default_searches', 'group' => 'general', 'type' => 'int',
+                'label' => 'Searches for a course briefing', 'unit' => 'max',
+                'description' => 'How many searches to ask for when researching a whole course and the course '
+                    . 'itself names no number. This is the one-off briefing that get_research_brief asks for, '
+                    . 'not the per-page budget under Content details.',
+                'default' => 8, 'min' => 0, 'max' => 50,
+            ],
+            [
+                'key' => 'app.bookstack_description_max', 'group' => 'general', 'type' => 'int',
+                'label' => 'Description length BookStack accepts', 'unit' => 'characters',
+                'description' => 'BookStack validates description_html at 2000 characters and refuses anything '
+                    . 'longer, so a description past that is shortened for the cover page - never in CourseForge, '
+                    . 'where it stays whole and is what the pages are written from. Raise it only if your '
+                    . 'BookStack raised it too; 0 turns the shortening off entirely.',
+                'default' => 2000, 'min' => 0, 'max' => 100000, 'advanced' => true,
+            ],
+
             /* ------------------------------------------- claude subscription */
             [
                 'key' => 'app.claude_cli_path', 'group' => 'claude_cli', 'type' => 'string',

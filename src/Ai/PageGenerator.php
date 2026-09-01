@@ -7,6 +7,7 @@ use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Details;
 use CourseForge\Domain\Pages;
 use CourseForge\Domain\Projects;
+use CourseForge\Domain\Research;
 use CourseForge\Domain\Tags;
 use CourseForge\Support\Config;
 use CourseForge\Support\HttpException;
@@ -118,6 +119,14 @@ final class PageGenerator
         $user = Prompt::join(
             Prompt::slotOrDefault($library, 'page_context_block', $vars,
                 "Course: {{book_title}}\n{{book_description}}\n\nFull course structure:\n\n{{course_structure}}"),
+            // Only when somebody actually researched the course. Placed after
+            // the course context and before the page brief so that what was
+            // established about the subject is read before the instruction to
+            // write about it, and by every page rather than by the one that
+            // happened to run a search.
+            Research::has($project)
+                ? Prompt::slotOrDefault($library, 'research_block', $vars, '{{research_block}}')
+                : '',
             Prompt::slotOrDefault($library, 'page_user', $vars,
                 "Write page {{page_number_global}} of {{total_pages}}.\n"
                 . "Chapter {{chapter_index}}: {{chapter_title}} – {{chapter_description}}\n"
@@ -238,6 +247,11 @@ final class PageGenerator
             'book_title' => Projects::bookTitle($project),
             'book_description' => (string)$project['book_desc'],
             'course_structure' => (string)$project['structure_md'],
+            // Empty unless somebody researched the course, which is what makes
+            // the research_block slot disappear rather than render a heading
+            // over nothing.
+            'research_findings' => Research::of($project),
+            'research_block' => Research::block($project),
             'chapter_index' => (int)$page['chapter_idx'] + 1,
             'chapter_title' => (string)$page['chapter_title'],
             'chapter_description' => (string)$page['chapter_description'],

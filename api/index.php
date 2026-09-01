@@ -104,6 +104,7 @@ $router->add('DELETE', 'projects/{id}', [ProjectController::class, 'delete']);
 $router->add('POST', 'projects/{id}/structure', [ProjectController::class, 'generateStructure']);
 $router->add('PUT', 'projects/{id}/structure', [ProjectController::class, 'applyStructure']);
 $router->add('PUT', 'projects/{id}/details', [ProjectController::class, 'updateDetails']);
+$router->add('PUT', 'projects/{id}/research', [ProjectController::class, 'updateResearch']);
 $router->add('POST', 'projects/{id}/transfer', [ProjectController::class, 'transfer'], admin: true);
 
 $router->add('POST', 'projects/{id}/tags', [ProjectController::class, 'attachTag']);

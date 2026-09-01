@@ -10,6 +10,7 @@ use CourseForge\Domain\Pages;
 use CourseForge\Domain\Profiles;
 use CourseForge\Domain\Projects;
 use CourseForge\Domain\Tags;
+use CourseForge\Support\Config;
 use CourseForge\Support\Db;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Markdown;
@@ -123,6 +124,115 @@ final class Publisher
 
     /* --------------------------------------------------------------- steps */
 
+    /**
+     * A description rendered for BookStack, cut down to what BookStack accepts.
+     *
+     * BookStack validates `description_html` at 2000 characters, for books and
+     * for chapters alike, and answers 422 for anything longer. CourseForge
+     * descriptions are roughly six hundred words, which is comfortably past
+     * that – so without this, turning on the long descriptions would turn every
+     * publish into a validation error.
+     *
+     * What is shortened is only the copy on the BookStack cover page. The full
+     * text stays whole in the database, which is where it matters: it is what
+     * `{{book_description}}` carries into the context of every single page, and
+     * what the outline itself is written from.
+     *
+     * Whole paragraphs are dropped from the end rather than the text being cut
+     * at 2000 characters, because half a sentence on a cover page reads as a
+     * bug rather than as a limit, and because cutting rendered HTML mid-tag
+     * produces markup BookStack would have to repair. If even the first
+     * paragraph does not fit, that one paragraph is cut at a sentence.
+     *
+     * The limit is a setting for the reason it exists: it is BookStack's
+     * number, not CourseForge's, and BookStack may raise it. An installation
+     * that has raised it should not be held to the old one.
+     */
+    private function describe(string $markdown, string $what): string
+    {
+        $limit = max(0, Config::int('app.bookstack_description_max', 2000));
+        $html = Markdown::toHtml($markdown);
+        if ($limit === 0 || mb_strlen($html) <= $limit) {
+            return $html;
+        }
+
+        $paragraphs = array_values(array_filter(
+            array_map('trim', preg_split('/\n{2,}/', trim($markdown)) ?: []),
+            static fn(string $p): bool => $p !== ''
+        ));
+
+        $kept = [];
+        foreach ($paragraphs as $paragraph) {
+            $candidate = Markdown::toHtml(implode("\n\n", [...$kept, $paragraph]));
+            if (mb_strlen($candidate) > $limit) {
+                break;
+            }
+            $kept[] = $paragraph;
+        }
+
+        if ($kept === []) {
+            // One paragraph longer than the whole allowance. Take sentences off
+            // it until the rendered result fits.
+            $sentences = preg_split('/(?<=[.!?])\s+/u', $paragraphs[0] ?? '') ?: [];
+            while ($sentences !== []) {
+                array_pop($sentences);
+                if ($sentences !== [] && mb_strlen(Markdown::toHtml(implode(' ', $sentences))) <= $limit) {
+                    break;
+                }
+            }
+
+            // A paragraph can have no sentence boundary to cut at - one long
+            // run-on joined by commas, or a single sentence with its only full
+            // stop at the very end - and then the loop above empties the list
+            // and the cover page would get nothing at all. An excerpt that
+            // stops mid-thought is a poor description; no description is a
+            // worse one, and it also loses the only clue that there is more
+            // text in CourseForge. So fall back to trimming words off the end.
+            $kept = $sentences !== [] ? [implode(' ', $sentences)] : [self::clampWords($paragraphs[0] ?? '', $limit)];
+        }
+
+        $short = Markdown::toHtml(implode("\n\n", $kept));
+        $this->log[] = 'The description of ' . $what . ' is longer than the ' . $limit
+            . ' characters BookStack accepts, so ' . (count($paragraphs) - count($kept))
+            . ' of its ' . count($paragraphs) . ' paragraphs were left off the cover page. '
+            . 'The full text is unchanged in CourseForge and is still what the pages are written from.';
+
+        return $short;
+    }
+
+    /**
+     * The longest prefix of whole words whose rendered HTML fits the limit.
+     *
+     * The last resort under describe(), for a paragraph with no sentence
+     * boundary in it. Words rather than characters so the excerpt never ends
+     * mid-word, and an ellipsis so it reads as "there is more of this" rather
+     * than as a description somebody forgot to finish.
+     *
+     * Measured on the rendered HTML at every step rather than on the Markdown,
+     * because the wrapper tags count against BookStack's limit too and a
+     * paragraph full of `**bold**` renders far longer than it reads.
+     */
+    private static function clampWords(string $paragraph, int $limit): string
+    {
+        $words = preg_split('/\s+/u', trim($paragraph), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $kept = '';
+        foreach ($words as $word) {
+            $candidate = $kept === '' ? $word : $kept . ' ' . $word;
+            if (mb_strlen(Markdown::toHtml($candidate . '…')) > $limit) {
+                break;
+            }
+            $kept = $candidate;
+        }
+
+        // A limit too small for one word plus its markup leaves nothing, and
+        // an empty description is what this whole path exists to avoid - but
+        // an installation that set the limit that low asked for it, and
+        // sending something longer would be sending something BookStack
+        // refuses. Empty is then the honest answer.
+        return $kept === '' ? '' : $kept . '…';
+    }
+
     /** @param array<int,array<string,mixed>> $tags */
     private function ensureBook(array $tags, bool $force): int
     {
@@ -140,7 +250,7 @@ final class Publisher
         }
 
         if ($bookId === null) {
-            $result = $this->client->createBook($title, Markdown::toHtml($description), $payloadTags);
+            $result = $this->client->createBook($title, $this->describe($description, 'the book'), $payloadTags);
 
             // An answer with no id is not a book. Casting it gave 0, which was
             // then stored on the course as the book it lives in - so the course
@@ -159,7 +269,7 @@ final class Publisher
             $bookId = (int)$result['id'];
             $this->log[] = 'Created book "' . $title . '" (#' . $bookId . ').';
         } elseif ($force || (string)$this->project['pushed_hash'] !== $hash) {
-            $result = $this->client->updateBook($bookId, $title, Markdown::toHtml($description), $payloadTags);
+            $result = $this->client->updateBook($bookId, $title, $this->describe($description, 'the book'), $payloadTags);
             $this->log[] = 'Updated book "' . $title . '"'
                 . ($payloadTags !== [] ? ' (' . count($payloadTags) . ' tag(s)).' : '.');
         } else {
@@ -202,11 +312,11 @@ final class Publisher
         }
 
         if ($bsId === null) {
-            $result = $this->client->createChapter($bookId, $title, Markdown::toHtml($description), $priority, $payloadTags);
+            $result = $this->client->createChapter($bookId, $title, $this->describe($description, 'chapter "' . $title . '"'), $priority, $payloadTags);
             $bsId = (int)$result['id'];
             $this->log[] = 'Created chapter "' . $title . '".';
         } elseif ($force || (string)$chapter['pushed_hash'] !== $hash) {
-            $result = $this->client->updateChapter($bsId, $title, Markdown::toHtml($description), $priority, $payloadTags);
+            $result = $this->client->updateChapter($bsId, $title, $this->describe($description, 'chapter "' . $title . '"'), $priority, $payloadTags);
             $this->log[] = 'Updated chapter "' . $title . '".';
         } else {
             $result = $existing ?? [];

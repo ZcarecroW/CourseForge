@@ -23,7 +23,7 @@
  * request, so a half-applied set of settings is not a state this screen can
  * leave the installation in.
  */
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
 import { state, loadSettings, applySettings, declareUnsaved } from '@/core/store.js';
 import { get, put, post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
@@ -440,6 +440,13 @@ export const SettingsView = {
      */
     const copied = ref('');
     let copiedTimer = 0;
+
+    // Cleared on unmount as well as on the next copy: leaving the screen
+    // inside the two seconds otherwise left a timer running against a ref
+    // belonging to a component that no longer exists. Harmless in Vue, and
+    // still the one timer in this codebase that was not paired with its
+    // own cleanup.
+    onBeforeUnmount(() => clearTimeout(copiedTimer));
 
     const copy = async (text, what, id = what) => {
       try {

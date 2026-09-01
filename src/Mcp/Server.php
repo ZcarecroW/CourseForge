@@ -145,6 +145,16 @@ final class Server
         self::$modern = self::isModern($rpc, $meta);
         self::$canElicit = self::$modern && self::declaresElicitation($meta);
 
+        // A notification carries no id and expects no answer at all - which is
+        // why this stands in front of the two checks below that answer with an
+        // error. Behind them, a stale routing header or an unsupported version
+        // string on a fire-and-forget notification produced a JSON-RPC error
+        // object in reply to a message the protocol says never gets one.
+        if ($id === null && str_starts_with($rpc, 'notifications/')) {
+            http_response_code(202);
+            exit;
+        }
+
         // Only checked when the header is actually present. The rule exists so
         // that a proxy routing on the header and a server acting on the body
         // cannot be made to disagree; a client that sends no header creates no
@@ -171,12 +181,6 @@ final class Server
                     ],
                 ],
             ], 400);
-        }
-
-        // A notification carries no id and expects no answer at all.
-        if ($id === null && str_starts_with($rpc, 'notifications/')) {
-            http_response_code(202);
-            exit;
         }
 
         try {
@@ -577,7 +581,12 @@ final class Server
             return;
         }
         $name = self::routingHeader($id, 'MCP_NAME', 'Mcp-Name');
-        $actual = (string)($params['name'] ?? $params['uri'] ?? '');
+        // text(), not a (string) cast, for the reason set out at the top of
+        // this class: a body whose `name` is an array or an object would make
+        // the cast emit "Array to string conversion" into the server log and
+        // then compare against the literal word "Array". This method was added
+        // after that rule and did not inherit it.
+        $actual = self::text($params['name'] ?? $params['uri'] ?? null);
         if ($name !== null && $name !== $actual) {
             self::send(self::error($id, -32020, 'The Mcp-Name header does not match the request body.'), 400);
         }
@@ -767,7 +776,22 @@ final class Server
         $self = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
         $self = (string)preg_replace('/:\d+$/', '', $self);
 
-        $allowed = array_map('strtolower', Config::strings('mcp.allowed_origins'));
+        // Each configured entry is normalised the same way the incoming Origin
+        // is, because the field is labelled "origins" and an origin is what an
+        // administrator types into it - "https://mytool.example.com", which is
+        // literally the header a browser sends. Comparing that against a bare
+        // hostname never matched, so the setting silently did nothing and the
+        // only way to find the working spelling was to read this method.
+        $allowed = [];
+        foreach (Config::strings('mcp.allowed_origins') as $entry) {
+            $entry = strtolower(trim($entry));
+            if ($entry === '') {
+                continue;
+            }
+            $parsed = str_contains($entry, '//') ? (string)parse_url($entry, PHP_URL_HOST) : '';
+            $allowed[] = $parsed !== '' ? $parsed : (string)preg_replace('/:\d+$/', '', $entry);
+        }
+
         return $host === $self || in_array($host, $allowed, true);
     }
 

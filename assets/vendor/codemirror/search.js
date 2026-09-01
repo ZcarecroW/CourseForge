@@ -1,4 +1,4 @@
-import { showDialog, EditorView, Decoration, ViewPlugin, showPanel, runScopeHandlers, getPanel } from '@codemirror/view';
+import { getDialog, showDialog, EditorView, Decoration, ViewPlugin, showPanel, runScopeHandlers, getPanel } from '@codemirror/view';
 import { codePointAt, fromCodePoint, codePointSize, EditorSelection, Facet, combineConfig, CharCategory, StateEffect, StateField, RangeSetBuilder, Prec, EditorState, findClusterBreak } from '@codemirror/state';
 import elt from 'crelt';
 
@@ -324,9 +324,17 @@ column position by adding `:` and a second number after the line
 number.
 */
 const gotoLine = view => {
+    let open = getDialog(view, "cm-goto-line");
+    if (open) {
+        let field = open.dom.querySelector("input[type=text]");
+        if (field)
+            field.select();
+        return true;
+    }
     let { state } = view;
     let line = String(state.doc.lineAt(view.state.selection.main.head).number);
     let { close, result } = showDialog(view, {
+        class: "cm-goto-line",
         label: state.phrase("Go to line"),
         input: { type: "text", name: "line", value: line },
         focus: true,

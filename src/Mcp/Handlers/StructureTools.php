@@ -10,6 +10,7 @@ use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Details;
 use CourseForge\Domain\Pages;
 use CourseForge\Domain\Projects;
+use CourseForge\Domain\Research;
 use CourseForge\Domain\Structure;
 use CourseForge\Mcp\Args;
 use CourseForge\Mcp\Ask;
@@ -71,14 +72,20 @@ final class StructureTools
     private const FORMAT = <<<'MD'
         # Book Title
 
-        A description of the book, roughly 200-400 characters, as plain prose.
+        A description of the book: roughly 600 words of plain prose, three to five
+        paragraphs, blank line between them, no list markers and no headings.
+
+        Second paragraph of the book description, and so on.
 
         1. Chapter Title
-           Chapter description, roughly 300 characters, indented by three spaces and without a list marker.
+           A description of the chapter: roughly 600 words, three to five paragraphs,
+           every line of it indented by three spaces, no list markers.
+
+           Second paragraph of the chapter description, indented the same way.
            1. Page Title
            2. Another Page Title
         2. Next Chapter Title
-           Chapter description again
+           Chapter description again, same length, same indentation
            1. First page of the second chapter
         MD;
 
@@ -221,8 +228,20 @@ final class StructureTools
         $brief = self::brief($profile, $project, $feedback);
         $autoTags = (int)$project['auto_tags'] === 1;
 
+        // The same inversion `get_page_brief` does, moved one level up. A page
+        // researched after the outline is written can correct a sentence; it
+        // cannot correct a chapter list that was designed around a version of
+        // the subject that no longer exists. So the client is told to look
+        // before it designs, and told what is already known so it does not go
+        // and find it a second time.
+        $details = Details::resolve(Projects::settings($project));
+        $research = (bool)($details['features']['web_research'] ?? false);
+        $searches = Research::searchBudget($details['params']);
+        $stored = Research::of($project);
+        $courseId = (int)$project['id'];
+
         return [
-            'course_id' => (int)$project['id'],
+            'course_id' => $courseId,
             'course_name' => (string)$project['name'],
             'mode' => $brief['mode'],
             'topic' => (string)$project['topic'],
@@ -234,10 +253,45 @@ final class StructureTools
             'required_format' => self::FORMAT,
             'format_rules' => self::formatRules($autoTags),
             'auto_tagging' => $autoTags,
-            'next_step' => 'Write the complete outline in the required format, then call apply_structure with '
-                . 'course_id ' . (int)$project['id'] . '. preview_structure checks the Markdown first without '
-                . 'changing anything.',
+            'web_research' => $research,
+            'max_searches' => $research ? $searches : 0,
+            'stored_research' => $stored,
+            'research_freshness' => Research::freshness($project),
+            'research_brief' => $research && $stored === '' ? Research::assignment($project, $searches) : '',
+            'next_step' => self::nextStep($courseId, $research, $stored !== '', $project),
         ];
+    }
+
+    /**
+     * What to do after reading the brief, which depends on what is known.
+     *
+     * Three states, and they are genuinely different pieces of advice: research
+     * is off and the outline can be designed now; research is on and nothing
+     * has been found yet, so go and look first; research is on and a briefing
+     * already exists, so use it and only refresh it if it has gone stale.
+     *
+     * @param array<string,mixed> $project
+     */
+    private static function nextStep(int $courseId, bool $research, bool $hasResearch, array $project): string
+    {
+        $design = 'Write the complete outline in the required format, then call apply_structure with course_id '
+            . $courseId . '. preview_structure checks the Markdown first without changing anything.';
+
+        if (!$research) {
+            return $design;
+        }
+
+        if (!$hasResearch) {
+            return 'This course asks for web research, and none is stored yet. Search the web from research_brief '
+                . 'above with your own tools first - the current stable version, what changed recently, what has '
+                . 'been deprecated, where the documentation now lives - and send what you find to store_research, '
+                . 'so the outline is designed against what is true today rather than against what the model '
+                . 'remembers. Then ' . lcfirst($design);
+        }
+
+        return 'This course asks for web research and already has findings, ' . Research::freshness($project)
+            . '. They are in stored_research above: design the outline against them. If the subject has moved '
+            . 'since then, research again and call store_research before designing. Then ' . lcfirst($design);
     }
 
     /** @return array<string,mixed> */
@@ -621,6 +675,15 @@ final class StructureTools
             ((string)($vars['audience'] ?? '')) !== '' ? Prompt::slot($library, 'audience_block', $vars) : '',
             Prompt::slot($library, $systemSlot, $vars),
             (int)$project['auto_tags'] === 1 ? Prompt::slot($library, 'structure_tags_rules', $vars) : '',
+            // The same block StructureGenerator puts in front of CourseForge's
+            // own model. Both halves of this file exist so that a client and
+            // the server are asked for the same thing in the same words; a
+            // brief that left the researched facts out would be asking the
+            // client to design from memory while the server designed from
+            // what was found.
+            Research::has($project)
+                ? Prompt::slotOrDefault($library, 'research_block', $vars, '{{research_block}}')
+                : '',
             Prompt::slotOrDefault(
                 $library,
                 'language_instruction',
@@ -665,6 +728,8 @@ final class StructureTools
             'topic' => (string)$project['topic'],
             'book_title' => Projects::bookTitle($project),
             'book_description' => (string)$project['book_desc'],
+            'research_findings' => Research::of($project),
+            'research_block' => Research::block($project),
             'extra_context' => '',
             'tag_pool' => $pool === []
                 ? '(no predefined pool – choose consistent keywords yourself)'
@@ -682,10 +747,17 @@ final class StructureTools
     {
         $rules = [
             'Exactly one level-1 heading: "# " followed by the book title. No other headings anywhere.',
-            'The plain paragraph directly below the title is the book description, 200-400 characters.',
+            'The prose directly below the title is the book description: roughly 600 words, three to five paragraphs, '
+                . 'a blank line between them.',
             'Chapters are a top-level ordered list at indentation 0, written as "1. Chapter Title".',
-            'A chapter description sits directly below its chapter title, indented three spaces, as plain prose with '
-                . 'no list marker.',
+            'A chapter description sits directly below its chapter title: roughly 600 words of plain prose, three to '
+                . 'five paragraphs, every line indented three spaces, a blank line between paragraphs, no list marker.',
+            'No paragraph of a description may begin with a digit and "." or ")", with "-", "*" or "+", or with "#". '
+                . 'Indented three spaces, a line that starts that way is exactly the shape of a page entry and will '
+                . 'be read as one. Escape it with a backslash ("\\3. Install ...") or reword it to begin with a word.',
+            'Descriptions at that length are the course prospectus, not a restatement of the titles under them: what '
+                . 'the reader will be able to do, which ideas arrive in which order, what is assumed, what is '
+                . 'commonly got wrong, and how it joins to the chapters either side.',
             'Pages are a nested ordered list indented three spaces, written as "   1. Page Title".',
             'A page entry holds the title and nothing else - no description, no colon, no dash, no prose.',
             'Titles are unique across the whole course. Chapters and pages are matched by title, so a duplicate '
