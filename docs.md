@@ -49,8 +49,10 @@ collapses into a drawer behind the ☰ button.
 Open **Profiles** and create one. A profile has three tabs.
 
 **Accounts.** Add one or more *BookStack instances* (base URL, API token id and
-secret) and one or more *AI accounts*. Every AI account has a **type**, and the
-fields change with it:
+secret) and one or more *AI accounts*. More than one BookStack instance is worth
+adding even for a single course: a course chooses which of them it publishes
+into, and it may choose several. Every AI account has a **type**, and the fields
+change with it:
 
 | Type | What it needs |
 |------|---------------|
@@ -231,18 +233,48 @@ with a one-click way to make it follow the course again.
 
 #### Publish
 
-Pick the BookStack instance and, optionally, a shelf, then push **everything** or
-just the **book metadata**; single chapters and pages can be pushed from the
-Content tab. Existing books, chapters and pages are updated in place — nothing is
-ever duplicated. Pages without content are skipped. **Force overwrite** re-sends
-even unchanged items. A live log shows what was created, updated and skipped.
+**Destinations** is the list of BookStack instances this course is published
+into. A course may have several — a staging wiki and a live one, the wikis of two
+departments — and each entry has its own shelf and holds its own book. Add one
+with **Add destination**, fetch that instance's shelves beside it, and **Save**.
+Each destination has a switch: off keeps everything already published there on
+record and simply leaves it out of the next push. **Remove** is the other thing,
+and the dialog says so: CourseForge forgets the book it made there, so publishing
+to that instance again later would create a second book beside the first.
+Pointing a destination at a *different* instance costs the same thing and asks
+the same question — to publish to both, add a second destination instead.
+
+The course **Settings** tab and `update_course`'s `bookstack_instance` still take
+a single instance, because for most courses "where does this publish" has one
+answer. What they set is the **first** destination, and naming a different
+instance replaces it: saying the course now publishes to B is saying it no longer
+publishes to A, which is what that field meant when it was the only one there
+was. Anything behind the first destination is left alone, and adding a second one
+is the list here.
+
+Then push **everything** or just the **book metadata**; single chapters and pages
+can be pushed from the Content tab, and each destination has its own **Publish to
+this one only** button. Existing books, chapters and pages are updated in place —
+nothing is ever duplicated. Pages without content are skipped. **Force overwrite**
+re-sends even unchanged items. A live log shows what was created, updated and
+skipped, with the name of the wiki in front of each line when there is more than
+one. A wiki that cannot be reached does not stop the others: its failure is in
+the log and the rest still go out.
+
+The counts above the button are folded across the destinations that are switched
+on, which is what makes them worth reading: **published** means published in
+every one of them, and **out of sync** means at least one of them would be
+written to. Adding a second destination to a finished course therefore lights up
+immediately, which is exactly the state it is in.
 
 This tab also holds **Resolve auto links** — see [section 5](#5-auto-links).
 
 #### Settings
 
-Rename the course, change its profile and BookStack instance, switch on **AI
-tagging**, manage the course tags, and delete the course.
+Rename the course, change its profile, switch on **AI tagging**, manage the
+course tags, and delete the course. Where the course publishes is shown here and
+edited on the **Publish** tab, because a course can have several destinations and
+one box cannot say which of three wikis two are.
 
 ### Tags
 
@@ -1326,9 +1358,9 @@ Claude Code can reach a `127.0.0.1` address. The Claude desktop app cannot — i
 custom connectors must be reachable over the public internet, so a self-hosted
 CourseForge needs a real hostname or a tunnel for that client.
 
-### The ten tool groups
+### The eleven tool groups
 
-There are seventy-nine tools. They are not listed here, because `tools/list`
+There are eighty-three tools. They are not listed here, because `tools/list`
 lists them and every one carries its own description, its arguments and an
 annotation saying whether it reads, writes, destroys or spends money. What is
 worth knowing is the shape.
@@ -1342,13 +1374,14 @@ to be told it twice.
 |---|---|---|---|
 | **account** | 6 | Who you are connected as, your own display name and password, your own connections. Never anybody else's. | no |
 | **courses** | 6 | List, read, create, rename and delete courses, and `get_next_step`, which says what to do next | no |
+| **research** | 3 | The briefing for the subject: what to look up, and where to store what was found | no |
 | **structure** | 5 | The outline: read the brief, write one, preview it, or have CourseForge design it | yes |
 | **pages** | 7 | Read a writing brief, store a finished page, edit a page or a chapter, or have CourseForge write one | yes |
 | **details** | 4 | The thirteen switchable elements and seven values, at course, chapter or page level | no |
 | **tags** | 8 | The tag library and what is tagged with what | no |
 | **runs** | 8 | Start, estimate, watch and cancel background and batch runs. **This is the group that spends money at scale.** | yes |
 | **profiles** | 9 | AI accounts, models and BookStack instances. Keys are never readable, but they can be replaced. | no |
-| **publish** | 4 | Push into BookStack and resolve cross references | no |
+| **publish** | 5 | Say which BookStack instances a course goes into, push into them, and resolve cross references | no |
 | **admin** | 22 | Accounts, settings, the cron token, prompts, diagnostics, the audit log, every connection, updates, and `set_up_php`. Administrators only. | no |
 
 The ten or so that matter:
@@ -2102,6 +2135,22 @@ every page is stored the moment it is finished rather than at the end.
 `php tools/diagnose.php` tells you whether it is actually running, and so does
 the Scheduler section of the Diagnostics screen.
 
+### Upgrading from CourseForge 4.6
+
+Nothing to do, and nothing is republished. Version 8 of the schema moves each
+course's single destination into the list it now has: one `publish_targets` row
+carrying the same instance, the same shelf, the same book and the same
+fingerprint, and one `publish_items` row per chapter and page that had been
+published, carrying the id, slug, URL and fingerprint it had. A course that never
+chose an instance gains nothing. The migration is guarded on the schema version
+and is written to be safe to run twice.
+
+The columns all of that used to live in are still there and still written, as a
+copy of whichever destination is first — so a rollback to 4.6 finds its book,
+its shelf and its fingerprints exactly where it left them. What a rollback loses
+is the second destination and what was published into it, which 4.6 has nowhere
+to put.
+
 ### Upgrading from CourseForge 3.x
 
 Copy your `data/` directory across, or point the new installation at the old one.
@@ -2726,24 +2775,59 @@ each step — [section 7](#7-updates) is the compressed version of them.
 - **McpClients** — one row per connection: the token digest, the scopes, an
   optional expiry, and the resolution that turns a presented token into an actor
   with the account's *current* role.
+- **Targets** — where a course publishes. The list, the reconciliation that
+  writes it in one go so a destination that survives an edit keeps the book it
+  made, the per-wiki record of what each chapter and page became, and the mirror
+  onto the columns those used to live in. Nothing else writes those columns.
 - **Transfers** — handing one course to another account, and the four things
   that break quietly if only the course moves.
 
 ### Publishing
 
-`Publisher` is idempotent by construction. Every item is created once and updated
-afterwards; an item whose hash matches what was last pushed is skipped; an item
-that vanished in BookStack is recreated. What gets hashed is exactly what gets
-sent — resolved links included — so the badges in the UI never drift from
-reality. `BookStackClient` treats only a genuine `404` as "gone": any other error
-aborts the push rather than risking a duplicate course.
+`TargetPublisher` is idempotent by construction. Every item is created once and
+updated afterwards; an item whose hash matches what was last pushed **to that
+wiki** is skipped; an item that vanished in BookStack is recreated. What gets
+hashed is exactly what gets sent — resolved links included — so the badges in the
+UI never drift from reality. `BookStackClient` treats only a genuine `404` as
+"gone": any other error aborts that wiki's push rather than risking a duplicate
+course.
+
+`Publisher` above it is the fan-out. A course publishes to a list of BookStack
+instances, one `TargetPublisher` runs per instance, and the logs and counts are
+folded back into the single answer every caller has always been handed. Two rules
+are worth naming. The first is that a wiki that fails does not stop the others —
+its failure is recorded and named, the push carries on, and only when *every*
+destination fails is the error raised, which is precisely what a course with one
+destination has always done. The second is how the counts fold: `resolved` and
+`pending` describe the text, so the largest is reported rather than the sum — two
+wikis holding the whole course resolve the same references, and adding them up
+would claim twice the cross references the course has — while `updated` counts
+writes, and a page rewritten in three wikis really was written three times.
+
+Everything a push creates belongs to the destination, not to the course:
+`publish_targets` holds the book, and `publish_items` holds the id, slug, URL and
+fingerprint of every chapter and page **per wiki**. They have to be per wiki for
+a reason beyond the ids: a page's cross references point inside the wiki it is
+in, so `LinkIndex::forTarget()` builds one index per destination and the same
+page is not even the same text in two of them.
+
+The columns those used to live in — `projects.bs_instance_id`, `book_id`,
+`book_slug`, `book_url`, `pushed_hash`, `shelf_id`, `shelf_name`, and `bs_id`,
+`bs_slug`, `bs_url`, `pushed_hash` on chapters and pages — are still there and
+still written, as a one-way **mirror** of whichever destination is first.
+`Targets::mirror()` is the only thing that writes them. That is what keeps the
+course list, the sync badges, the editor's link preview and everything else that
+predates destinations answering correctly without each of them having to learn to
+pick one, and it is what lets an installation roll back to 4.6 with its first
+book intact.
 
 ### Data
 
 Everything lives in `data/app.sqlite` (WAL mode, foreign keys on, 15 s busy
 timeout): users, invites, profiles, projects, chapters, pages, tags, tag links,
-login attempts, the run tables, the leases, the connected MCP clients, the audit
-log, the update history, and a `meta` table holding the schema version and the
+the publishing destinations and what each of them holds, login attempts, the run
+tables, the leases, the connected MCP clients, the audit log, the update history,
+and a `meta` table holding the schema version and the
 handful of facts that belong to the installation rather than to anybody — when
 cron last ran, when GitHub was last asked, which calendar day the unattended
 update slot was spent on.
@@ -2755,6 +2839,14 @@ kept their original names when live runs were added to them; renaming a table
 with data in it buys nothing. Content details are a JSON `settings` column per
 level rather than a column per feature, which is why the catalogue can grow
 without a migration.
+
+`publish_items` names its chapter and its page in two real foreign keys rather
+than in an `entity_type` column with an id beside it. One of the two is always
+null, which is what the two partial unique indexes say — and the point of the
+arrangement is that `ON DELETE CASCADE` then does the tidying. A chapter or a
+page that is deleted takes every record of where it was published with it, in
+every wiki, without a pruning pass that somebody has to remember to call from the
+four places rows are removed.
 
 Three kinds of secret are stored, and none of them is recoverable: passwords as
 `password_hash()` digests, invite codes as SHA-256, and connection tokens as

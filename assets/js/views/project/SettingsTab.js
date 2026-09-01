@@ -1,5 +1,5 @@
 import { reactive, computed, watch, ref } from 'vue';
-import { state, openCourse, bookstackInstances, loadProjects } from '@/core/store.js';
+import { state, openCourse, loadProjects } from '@/core/store.js';
 import { del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { formatDateTime } from '@/core/format.js';
@@ -17,7 +17,7 @@ export const SettingsTab = {
     const confirmDelete = ref(false);
 
     const form = reactive({
-      name: '', topic: '', profile_id: null, bs_instance_id: '',
+      name: '', topic: '', profile_id: null,
       auto_tags: false, tag_pool: '', tag_pool_strict: false,
     });
 
@@ -27,7 +27,6 @@ export const SettingsTab = {
       form.name = p.name;
       form.topic = p.topic;
       form.profile_id = p.profile_id;
-      form.bs_instance_id = p.bs_instance_id;
       form.auto_tags = p.auto_tags;
       form.tag_pool = p.tag_pool;
       form.tag_pool_strict = p.tag_pool_strict;
@@ -56,9 +55,15 @@ export const SettingsTab = {
       const p = project.value;
       if (!p) return false;
       return form.name !== p.name || form.topic !== p.topic || form.profile_id !== p.profile_id
-        || form.bs_instance_id !== p.bs_instance_id || form.auto_tags !== p.auto_tags
+        || form.auto_tags !== p.auto_tags
         || form.tag_pool !== p.tag_pool || form.tag_pool_strict !== p.tag_pool_strict;
     });
+
+    /* Where the course publishes is edited on the Publish tab and only reported
+       here. It used to be a second select for the BookStack instance, which was
+       fine while a course had exactly one destination and is a lie now that it
+       can have several - a single box cannot say "two of these three wikis". */
+    const destinations = computed(() => project.value?.targets ?? []);
 
     const save = async () => { await saveSettings({ ...form }); sync(); };
 
@@ -76,8 +81,8 @@ export const SettingsTab = {
     const tagMarker = '{' + '{Vue, Reactivity}' + '}';
 
     return {
-      state, project, form, changed, save, busy, confirmDelete, remove,
-      bookstackInstances, tagAdd, tagRemove, tagInherit, tagToggle, tagMarker, formatDateTime,
+      state, project, form, changed, save, busy, confirmDelete, remove, destinations,
+      tagAdd, tagRemove, tagInherit, tagToggle, tagMarker, formatDateTime,
     };
   },
   template: `
@@ -112,14 +117,20 @@ export const SettingsTab = {
                 <p class="hint">Supplies the AI account, the models, the language and the prompt overrides.</p>
               </div>
               <div class="form-row">
-                <label>BookStack instance</label>
-                <select v-model="form.bs_instance_id">
-                  <option value="">— none —</option>
-                  <option v-for="instance in bookstackInstances" :key="instance.id" :value="instance.id">
-                    {{ instance.name }}
-                  </option>
-                </select>
-                <p class="hint">Where this course gets published.</p>
+                <label>Publishes to</label>
+                <div class="row wrap gap-2" style="min-height:32px;align-items:center">
+                  <span v-for="target in destinations" :key="target.id" class="badge"
+                        :class="target.enabled ? '' : 'badge--outline'">
+                    {{ target.instance_name || target.instance_id }}<template v-if="!target.enabled"> (off)</template>
+                  </span>
+                  <span v-if="!destinations.length" class="dim t-sm">— nowhere yet —</span>
+                </div>
+                <p class="hint">
+                  A course can publish into several BookStack instances at once.
+                  <button class="btn btn--ghost btn--sm" style="padding:0 4px"
+                          @click="state.projectTab = 'publish'">Publish tab</button>
+                  is where that list is edited.
+                </p>
               </div>
             </div>
           </div>
@@ -195,7 +206,8 @@ export const SettingsTab = {
             <div class="row between"><span class="dim">Pages</span><span class="nums">{{ project.stats.pages }}</span></div>
             <div class="row between"><span class="dim">Book</span>
               <span class="nums">{{ project.book_id ? '#' + project.book_id : 'not created yet' }}</span></div>
-            <div class="row between"><span class="dim">Shelf</span><span>{{ project.shelf_name || '—' }}</span></div>
+            <div class="row between"><span class="dim">Destinations</span>
+              <span class="nums">{{ destinations.length }}</span></div>
             <div class="row between"><span class="dim">Created</span><span>{{ formatDateTime(project.created_at) }}</span></div>
             <div class="row between"><span class="dim">Updated</span><span>{{ formatDateTime(project.updated_at) }}</span></div>
           </div>

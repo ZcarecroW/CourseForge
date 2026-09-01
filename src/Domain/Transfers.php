@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace CourseForge\Domain;
 
+use CourseForge\Publish\Targets;
 use CourseForge\Security\Users;
 use CourseForge\Support\Db;
 use CourseForge\Support\HttpException;
@@ -25,7 +26,8 @@ use CourseForge\Support\HttpException;
  *     created there, and the links are re-pointed.
  *   - **the published book** is untouched, because it lives in BookStack and
  *     CourseForge does not own it. Publishing again needs a profile with a
- *     BookStack instance of the same name.
+ *     BookStack instance of the same name - and a course that publishes to
+ *     several needs one defining all of them.
  *
  * This exists as its own class because two front doors do it - the HTTP route
  * and the MCP tool - and a transfer that is complete on one and partial on the
@@ -132,9 +134,14 @@ final class Transfers
                 . 'say on this course has changed and the pages carrying them are now out of sync with BookStack: '
                 . implode('; ', $moved['value_changes']) . '.';
         }
-        if ((string)$project['bs_instance_id'] !== '') {
-            $notes[] = 'Publishing needs a profile with a BookStack instance called "'
-                . (string)$project['bs_instance_id'] . '"; the book itself is untouched.';
+        $instances = array_map(
+            static fn(array $row): string => (string)$row['instance_id'],
+            Targets::all($projectId)
+        );
+        if ($instances !== []) {
+            $notes[] = 'Publishing needs a profile defining ' . (count($instances) === 1 ? 'a BookStack instance' : 'BookStack instances')
+                . ' called "' . implode('", "', $instances) . '"; the '
+                . (count($instances) === 1 ? 'book itself is' : 'books themselves are') . ' untouched.';
         }
 
         return [

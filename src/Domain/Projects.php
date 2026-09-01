@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace CourseForge\Domain;
 
+use CourseForge\Publish\Targets;
 use CourseForge\Support\Config;
 use CourseForge\Support\Db;
 use CourseForge\Support\HttpException;
@@ -11,9 +12,18 @@ use CourseForge\Support\Text;
 /** Courses: persistence, structure application and the tree the UI renders. */
 final class Projects
 {
+    /**
+     * Fields this class will write.
+     *
+     * `bs_instance_id`, `shelf_id`, `shelf_name`, `book_id`, `book_slug`,
+     * `book_url` and `pushed_hash` are deliberately not among them any more.
+     * They are still on the row and still read everywhere they always were, but
+     * they are now a copy of the course's first publishing destination and
+     * `Publish\Targets::mirror()` is the one thing that writes them. A second
+     * writer would be a course reporting a book that no destination holds.
+     */
     private const WRITABLE = [
         'name', 'topic', 'profile_id', 'structure_md', 'book_title', 'book_desc', 'settings',
-        'bs_instance_id', 'shelf_id', 'shelf_name', 'book_id', 'book_slug', 'book_url', 'pushed_hash',
         'auto_tags', 'tag_pool', 'tag_pool_strict',
         'research_md', 'research_at', 'research_source',
     ];
@@ -41,6 +51,7 @@ final class Projects
                     (SELECT COUNT(*) FROM pages    WHERE project_id = p.id) AS page_count,
                     (SELECT COUNT(*) FROM pages    WHERE project_id = p.id AND TRIM(content) <> '') AS generated_count,
                     (SELECT COUNT(*) FROM pages    WHERE project_id = p.id AND bs_id IS NOT NULL) AS pushed_count,
+                    (SELECT COUNT(*) FROM publish_targets WHERE project_id = p.id) AS target_count,
                     (SELECT COUNT(*) FROM batch_jobs b
                       WHERE b.project_id = p.id
                         AND b.status NOT IN ('completed', 'failed', 'canceled')) AS open_runs
@@ -63,6 +74,11 @@ final class Projects
                 'page_count' => (int)$row['page_count'],
                 'generated_count' => (int)$row['generated_count'],
                 'pushed_count' => (int)$row['pushed_count'],
+                // How many wikis this course publishes to. The counts above are
+                // about the first of them, which is what the columns they read
+                // mirror; this is the only hint in the listing that there may
+                // be more, and the course itself has the detail.
+                'target_count' => (int)$row['target_count'],
                 'open_runs' => (int)$row['open_runs'],
                 'auto_links' => (bool)($effective['features']['auto_links'] ?? false),
                 'created_at' => (int)$row['created_at'],
@@ -512,6 +528,37 @@ final class Projects
         $index = LinkIndex::forProject($id);
         $projectSettings = self::settings($project);
 
+        /* Where this course publishes.
+         *
+         * Every count below is asked of each switched-on target and then
+         * folded into one answer, because that is the question the screen is
+         * really asking: "is there anything left to push?". So an item counts
+         * as published when every target has it, and as out of sync when at
+         * least one target would be written to - which is what a second wiki
+         * added to a finished course should say, and what a single-destination
+         * course has always said, unchanged.
+         *
+         * A course with nothing switched on falls back to the columns on the
+         * rows themselves, which mirror whichever target is first. */
+        $targetRows = Targets::all($id);
+        $instances = Targets::instancesOf($username, $project['profile_id'] === null ? null : (int)$project['profile_id']);
+        $enabledTargets = array_values(array_filter($targetRows, static fn(array $t): bool => (int)$t['enabled'] === 1));
+        $manyTargets = count($targetRows) > 1;
+
+        // Every target, not only the switched-on ones: a destination that is
+        // paused has still been published to, and a row saying "0 pages" about
+        // a wiki holding the whole course is the kind of wrong that makes
+        // somebody publish it again.
+        $targetIndex = [];
+        $targetItems = [];
+        $targetStats = [];
+        foreach ($targetRows as $target) {
+            $targetId = (int)$target['id'];
+            $targetIndex[$targetId] = LinkIndex::forTarget($id, $targetId);
+            $targetItems[$targetId] = Targets::items($targetId);
+            $targetStats[$targetId] = ['chapters' => 0, 'chapters_dirty' => 0, 'pages' => 0, 'pages_dirty' => 0];
+        }
+
         $pagesByChapter = [];
         $links = ['markers' => 0, 'resolved' => 0, 'pending' => 0, 'dropped' => 0];
         $counts = ['pages' => 0, 'generated' => 0, 'pushed' => 0, 'dirty' => 0, 'errors' => 0];
@@ -525,9 +572,11 @@ final class Projects
         foreach (Db::rows('SELECT * FROM pages WHERE project_id = ? ORDER BY chapter_id, idx', [$id]) as $page) {
             $pageId = (int)$page['id'];
             $chapterId = (int)$page['chapter_id'];
+            $content = (string)$page['content'];
+            $effectiveTags = $tags['effective']['page'][$pageId] ?? [];
 
-            $applied = AutoLinker::apply((string)$page['content'], $index, $pageId);
-            $links['markers'] += AutoLinker::countMarkers((string)$page['content']);
+            $applied = AutoLinker::apply($content, $index, $pageId);
+            $links['markers'] += AutoLinker::countMarkers($content);
             $links['resolved'] += $applied['resolved'];
             $links['pending'] += $applied['pending'];
             $links['dropped'] += $applied['dropped'];
@@ -535,11 +584,36 @@ final class Projects
             $summary = Pages::summary(
                 $page,
                 $tags['own']['page'][$pageId] ?? [],
-                $tags['effective']['page'][$pageId] ?? [],
+                $effectiveTags,
                 $projectSettings,
                 $chapterSettings[$chapterId] ?? ['features' => [], 'params' => []],
                 $applied['content'],
             );
+
+            if ($targetRows !== []) {
+                // A page with markers is different text in every wiki, because
+                // its links point inside the one it is in - so it is rendered
+                // and fingerprinted per target. A page without them is the same
+                // everywhere, and rendering it again per target would be work
+                // with a guaranteed answer.
+                $hasMarkers = AutoLinker::hasMarkers($content);
+                $perPage = [];
+                foreach ($targetRows as $target) {
+                    $targetId = (int)$target['id'];
+                    $rendered = $hasMarkers
+                        ? AutoLinker::apply($content, $targetIndex[$targetId], $pageId)['content']
+                        : $applied['content'];
+                    $state = self::itemState(
+                        $targetItems[$targetId]['page'][$pageId] ?? null,
+                        Pages::pushHash((string)$page['title'], $rendered, $effectiveTags),
+                        $summary['has_content'],
+                    );
+                    $perPage[] = ['target_id' => $targetId, 'enabled' => (int)$target['enabled'] === 1] + $state;
+                    $targetStats[$targetId]['pages'] += $state['pushed'] ? 1 : 0;
+                    $targetStats[$targetId]['pages_dirty'] += $state['dirty'] ? 1 : 0;
+                }
+                $summary = self::fold($summary, $perPage, $manyTargets);
+            }
 
             $counts['pages']++;
             $counts['generated'] += $summary['has_content'] ? 1 : 0;
@@ -555,8 +629,13 @@ final class Projects
             $chapterId = (int)$chapter['id'];
             $effectiveTags = $tags['effective']['chapter'][$chapterId] ?? [];
             $bsId = $chapter['bs_id'] !== null ? (int)$chapter['bs_id'] : null;
+            $chapterHash = self::pushHash(
+                (string)$chapter['title'],
+                (string)$chapter['description'],
+                $effectiveTags
+            );
 
-            $chapterList[] = [
+            $entry = [
                 'id' => $chapterId,
                 'idx' => (int)$chapter['idx'],
                 'title' => (string)$chapter['title'],
@@ -564,20 +643,50 @@ final class Projects
                 'bs_id' => $bsId,
                 'bs_url' => (string)$chapter['bs_url'],
                 'pushed' => $bsId !== null,
-                'dirty' => $bsId !== null && (string)$chapter['pushed_hash'] !== self::pushHash(
-                    (string)$chapter['title'],
-                    (string)$chapter['description'],
-                    $effectiveTags
-                ),
+                'dirty' => $bsId !== null && (string)$chapter['pushed_hash'] !== $chapterHash,
                 'tags' => $tags['own']['chapter'][$chapterId] ?? [],
                 'effective_tags' => $effectiveTags,
                 'details' => Details::describe($chapterSettings[$chapterId], $projectSettings),
                 'pages' => $pagesByChapter[$chapterId] ?? [],
             ];
+
+            if ($targetRows !== []) {
+                $perChapter = [];
+                foreach ($targetRows as $target) {
+                    $targetId = (int)$target['id'];
+                    $state = self::itemState($targetItems[$targetId]['chapter'][$chapterId] ?? null, $chapterHash, true);
+                    $perChapter[] = ['target_id' => $targetId, 'enabled' => (int)$target['enabled'] === 1] + $state;
+                    $targetStats[$targetId]['chapters'] += $state['pushed'] ? 1 : 0;
+                    $targetStats[$targetId]['chapters_dirty'] += $state['dirty'] ? 1 : 0;
+                }
+                $entry = self::fold($entry, $perChapter, $manyTargets);
+            }
+
+            $chapterList[] = $entry;
         }
 
         $effectiveTags = $tags['effective']['project'][$id] ?? [];
         $bookId = $project['book_id'] !== null ? (int)$project['book_id'] : null;
+        $bookHash = self::pushHash(self::bookTitle($project), (string)$project['book_desc'], $effectiveTags);
+
+        $targets = [];
+        foreach ($targetRows as $target) {
+            $targetId = (int)$target['id'];
+            $described = Targets::describe($target, $instances);
+            $described['dirty'] = $described['book_id'] !== null && $described['pushed_hash'] !== $bookHash;
+            $described['stats'] = $targetStats[$targetId] ?? ['chapters' => 0, 'chapters_dirty' => 0, 'pages' => 0, 'pages_dirty' => 0];
+            unset($described['pushed_hash']); // a fingerprint is server business
+            $targets[] = $described;
+        }
+
+        // The book counts as changed when any switched-on wiki would be written
+        // to. With one target that is exactly the old expression.
+        $bookDirty = $bookId !== null && (string)$project['pushed_hash'] !== $bookHash;
+        foreach ($enabledTargets as $target) {
+            if ($target['book_id'] !== null && (string)$target['pushed_hash'] !== $bookHash) {
+                $bookDirty = true;
+            }
+        }
 
         return [
             'id' => $id,
@@ -587,11 +696,14 @@ final class Projects
             'structure_md' => (string)$project['structure_md'],
             'book_title' => (string)$project['book_title'],
             'book_desc' => (string)$project['book_desc'],
+            // The first target, repeated where a single-destination course has
+            // always found it. `targets` below is the whole list.
             'bs_instance_id' => (string)$project['bs_instance_id'],
             'shelf_id' => $project['shelf_id'] !== null ? (int)$project['shelf_id'] : null,
             'shelf_name' => (string)$project['shelf_name'],
             'book_id' => $bookId,
             'book_url' => (string)$project['book_url'],
+            'targets' => $targets,
             'auto_tags' => (int)$project['auto_tags'] === 1,
             'tag_pool' => (string)$project['tag_pool'],
             'tag_pool_strict' => (int)$project['tag_pool_strict'] === 1,
@@ -605,11 +717,7 @@ final class Projects
             ],
             'created_at' => (int)$project['created_at'],
             'updated_at' => (int)$project['updated_at'],
-            'dirty' => $bookId !== null && (string)$project['pushed_hash'] !== self::pushHash(
-                self::bookTitle($project),
-                (string)$project['book_desc'],
-                $effectiveTags
-            ),
+            'dirty' => $bookDirty,
             'tags' => $tags['own']['project'][$id] ?? [],
             'effective_tags' => $effectiveTags,
             'details' => Details::describe($projectSettings),
@@ -624,5 +732,79 @@ final class Projects
             ],
             'chapters' => $chapterList,
         ];
+    }
+
+    /**
+     * What one wiki is holding of one chapter or one page.
+     *
+     * Three answers, because two of them are different questions. `dirty` is
+     * the one this course has always shown: it is there and it has changed
+     * since. `outstanding` is "a push would write this", which is also true of
+     * an item missing from a wiki its siblings are already in - work
+     * outstanding just as surely, and the reason a second wiki added to a
+     * finished course lights up. A page with nothing written on it is the
+     * exception: the publisher skips it, so its absence is not work.
+     *
+     * @param array<string,mixed>|null $stored the publish_items row, if any
+     * @return array{bs_id:int|null,bs_url:string,pushed:bool,dirty:bool,outstanding:bool}
+     */
+    private static function itemState(?array $stored, string $hash, bool $pushable): array
+    {
+        $bsId = ($stored['bs_id'] ?? null) !== null ? (int)$stored['bs_id'] : null;
+        $dirty = $bsId !== null && (string)($stored['pushed_hash'] ?? '') !== $hash;
+
+        return [
+            'bs_id' => $bsId,
+            'bs_url' => (string)($stored['bs_url'] ?? ''),
+            'pushed' => $bsId !== null,
+            'dirty' => $dirty,
+            'outstanding' => $bsId === null ? $pushable : $dirty,
+        ];
+    }
+
+    /**
+     * Folds what every wiki says about one item into the two flags the screens
+     * draw, and carries the detail alongside when there is more than one wiki
+     * to have an opinion.
+     *
+     * Published means published everywhere; out of sync means at least one wiki
+     * would be written to, and only once the item is somewhere - an item that
+     * has never been published anywhere is "not published", which is a
+     * different thing to say and a different badge.
+     *
+     * Only the switched-on wikis are folded, because the two flags are answers
+     * to "is there anything left to push?" and a paused destination is not
+     * going to be pushed to. All of them travel in `targets`, though: what a
+     * paused wiki is holding is still worth being able to see.
+     *
+     * @param array<string,mixed> $entry
+     * @param array<int,array<string,mixed>> $states
+     * @return array<string,mixed>
+     */
+    private static function fold(array $entry, array $states, bool $many): array
+    {
+        $live = array_values(array_filter($states, static fn(array $s): bool => $s['enabled']));
+
+        $anywhere = false;
+        $everywhere = $live !== [];
+        $outstanding = false;
+
+        foreach ($live as $state) {
+            $anywhere = $anywhere || $state['pushed'];
+            $everywhere = $everywhere && $state['pushed'];
+            $outstanding = $outstanding || $state['outstanding'];
+        }
+
+        // Nothing is switched on, so there is nothing to be in sync with. The
+        // columns the entry already carries mirror the first destination, and
+        // saying what that one holds is better than saying nothing at all.
+        if ($live !== []) {
+            $entry['pushed'] = $everywhere;
+            $entry['dirty'] = $anywhere && $outstanding;
+        }
+        if ($many) {
+            $entry['targets'] = $states;
+        }
+        return $entry;
     }
 }

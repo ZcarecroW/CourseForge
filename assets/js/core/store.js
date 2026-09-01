@@ -113,7 +113,7 @@ export const state = reactive({
  */
 export const EMPTY_PROJECT = Object.freeze({
   id: 0, name: '', topic: '', structure_md: '', book_title: '', book_desc: '',
-  profile_id: null, bs_instance_id: '', shelf_id: null, shelf_name: '',
+  profile_id: null, bs_instance_id: '', shelf_id: null, shelf_name: '', targets: [],
   book_id: null, book_url: '', auto_tags: false, tag_pool: '', tag_pool_strict: false,
   dirty: false, created_at: 0, updated_at: 0, tags: [], effective_tags: [],
   details: { own: { features: {}, params: {} }, inherited: { features: {}, params: {} }, effective: { features: {}, params: {} } },

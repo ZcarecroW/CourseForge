@@ -75,6 +75,22 @@ final class Schema
         return ['type' => 'object', 'description' => $description, 'additionalProperties' => true];
     }
 
+    /**
+     * A list of objects with a stated shape.
+     *
+     * @param array<string,mixed> $properties
+     * @param string[] $required
+     * @return array<string,mixed>
+     */
+    public static function objects(string $description, array $properties, array $required = []): array
+    {
+        $item = ['type' => 'object', 'properties' => $properties, 'additionalProperties' => false];
+        if ($required !== []) {
+            $item['required'] = array_values($required);
+        }
+        return ['type' => 'array', 'description' => $description, 'items' => $item];
+    }
+
     /** The course id, which more than half the tools take. @return array<string,mixed> */
     public static function courseId(): array
     {

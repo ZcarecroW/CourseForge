@@ -124,6 +124,7 @@ $router->add('POST', 'projects/{id}/runs/estimate', [RunController::class, 'esti
 $router->add('POST', 'projects/{id}/runs/cancel', [RunController::class, 'cancel']);
 $router->add('DELETE', 'projects/{id}/runs', [RunController::class, 'delete']);
 
+$router->add('PUT', 'projects/{id}/targets', [PublishController::class, 'saveTargets']);
 $router->add('POST', 'projects/{id}/push', [PublishController::class, 'push']);
 $router->add('POST', 'projects/{id}/links', [PublishController::class, 'resolveLinks']);
 

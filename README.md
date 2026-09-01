@@ -10,7 +10,7 @@ chapters, written pages, flashcards — and publishes it into a
         ├─ AI designs the outline        20 chapters, 140 pages
         ├─ AI writes each page           in the background, or at half price in a batch queue
         ├─ you steer what goes in        per course, chapter or page
-        └─ CourseForge publishes it      into BookStack, links and all
+        └─ CourseForge publishes it      into BookStack — one wiki or several, links and all
 ```
 
 You can do all of that in a browser, or you can do all of it from an AI client —
@@ -50,14 +50,53 @@ library — is set from inside the application.
 php tools/diagnose.php     # checks the installation, if you have a shell
 ```
 
-Then: create a **Profile** (an AI account, a BookStack instance, models,
-language), create a **Course**, generate the **Structure**, write the
-**Content**, and **Publish**.
+Then: create a **Profile** (an AI account, one or more BookStack instances,
+models, language), create a **Course**, generate the **Structure**, write the
+**Content**, and **Publish** — into one BookStack, or into several at once.
 
 Full documentation, including the nginx configuration and the technical
 background, is in [docs.md](docs.md).
 
-## What is new in 4.6
+## What is new in 4.7
+
+### A course can be published into more than one BookStack
+
+A course used to have one destination. Choosing a second one meant a second
+course: the same outline, the same brief, the same pages generated and paid for
+twice, and two things to keep in step by hand for the rest of their lives.
+
+**Course → Publish → Destinations** is now a list. Add as many BookStack
+instances as the course's profile defines — a staging wiki and a live one, the
+wikis of two departments, a customer's install and your own — each with its own
+shelf. **Publish everything** goes to all of them; each one also has a button of
+its own, for the wiki that was behind. A destination has a switch: off keeps
+everything already published there on record and leaves it out of the next push,
+which is the difference between pausing a destination and removing one.
+
+Each destination holds its own book, and that is not a detail: the books have
+different ids and different slugs, and a page's cross references point *inside*
+the wiki it is in, so the same page is written slightly differently into each. A
+push knows what it last sent to each wiki separately, so the wiki that was
+already current is skipped there and rewritten here, and nothing is ever
+duplicated anywhere. A wiki that is down does not stop the others — its failure
+is named in the log, the rest still go out, and only a push where every
+destination failed is an error.
+
+The counts fold across the destinations that are on, which is what makes them
+worth reading: **published** means published in every one of them, **out of sync**
+means at least one would be written to. Add a second destination to a finished
+course and the whole course lights up as work outstanding, because it is.
+
+Over MCP: `set_publish_targets` writes the list, `get_publish_status` reports
+every destination with the book it holds and how much of the course is in it, and
+`publish_course` takes an `instances` list to push to some of them.
+`update_course`'s `bookstack_instance` still works and still means what it meant
+in 4.6 — it *replaces* the course's first destination, so a client that switches
+from one wiki to another does not quietly end up publishing to both. Adding a
+second destination is `set_publish_targets`, which says out loud what leaving one
+off the list costs.
+
+## What was new in 4.6
 
 ### Punctuation set the way the language sets it
 
@@ -385,6 +424,13 @@ in the preview, and runs that survive a closed browser — are in
 [docs.md](docs.md). All of it is still here.
 
 ## Upgrading
+
+From **4.6**: nothing to do. The destination each course already has becomes the
+first entry of its list, carrying its book, its shelf and its fingerprints, so
+the first push after the upgrade sends exactly what it would have sent before —
+nothing is republished. The columns that destination used to live in are still
+written, as a copy of the first entry, so a rollback to 4.6 finds its book where
+it left it.
 
 From **3.x**: copy your `data/` directory across. The database gains its new
 tables on first start, `users.json` is imported once into the accounts table and

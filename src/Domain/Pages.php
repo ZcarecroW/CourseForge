@@ -12,7 +12,7 @@ final class Pages
 {
     private const WRITABLE = [
         'idx', 'chapter_id', 'title', 'content', 'extra_context', 'settings',
-        'status', 'error', 'bs_id', 'bs_slug', 'bs_url', 'pushed_hash',
+        'status', 'error',
     ];
 
     /** @return array<string,mixed>|null */

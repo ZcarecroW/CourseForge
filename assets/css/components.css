@@ -502,6 +502,15 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .log__line { overflow-wrap: anywhere; }
 .log__line--new { color: var(--success); }
 .log__line--warn { color: var(--warning); }
+.log__line--error { color: var(--danger); }
+
+/* One BookStack destination on the Publish tab. A course may have several, and
+   without a rule between them the two selects of one wiki read as belonging to
+   the wiki above. */
+.target-row + .target-row {
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--border-soft);
+}
 
 .kbd {
   padding: 1px 5px;

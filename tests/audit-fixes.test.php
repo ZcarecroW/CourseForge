@@ -99,11 +99,11 @@ test('ids still refuses the things it always refused', function () {
 /* ------------------------------------------- the description clamp ------- */
 
 test('a description with no sentence boundary is still published as something', function () {
-    // Publisher::describe() drops whole paragraphs, then whole sentences. A
+    // TargetPublisher::describe() drops whole paragraphs, then whole sentences. A
     // single run-on paragraph joined by commas has neither, so the sentence
     // loop emptied the list and BookStack was sent an empty description - and
     // with it, no clue that there was more text in CourseForge.
-    $method = new ReflectionMethod(CourseForge\Publish\Publisher::class, 'clampWords');
+    $method = new ReflectionMethod(CourseForge\Publish\TargetPublisher::class, 'clampWords');
     $method->setAccessible(true);
 
     $runOn = trim(str_repeat('this clause has no full stop in it at all, ', 200));
@@ -118,7 +118,7 @@ test('a description with no sentence boundary is still published as something', 
 });
 
 test('a clamp with room for nothing gives nothing rather than something too long', function () {
-    $method = new ReflectionMethod(CourseForge\Publish\Publisher::class, 'clampWords');
+    $method = new ReflectionMethod(CourseForge\Publish\TargetPublisher::class, 'clampWords');
     $method->setAccessible(true);
 
     same('', $method->invoke(null, 'anything at all', 3), 'an impossible limit is answered honestly');

@@ -146,6 +146,21 @@ export const saveSettings = (fields, { silent = false } = {}) => run(async () =>
   return result;
 }, 'Save settings');
 
+/**
+ * Writes the whole list of BookStack destinations at once.
+ *
+ * The list rather than one add or one removal, because the order is part of the
+ * meaning: the first entry is the one the course reports as its book and its
+ * shelf everywhere a single answer is wanted. A destination that stays on the
+ * list keeps the book it made; one taken off it is forgotten, book and all -
+ * which is why the caller confirms before removing.
+ */
+export const saveTargets = (targets, { silent = false } = {}) => run(async () => {
+  const result = applyProject(await put(`projects/${projectId()}/targets`, { targets }));
+  if (!silent) toast.success('Destinations saved.');
+  return result;
+}, 'Save destinations');
+
 /* ----------------------------------------------------------------- chapters */
 
 export const saveChapter = (chapterId, fields) => run(async () => {

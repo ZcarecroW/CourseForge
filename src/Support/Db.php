@@ -15,7 +15,7 @@ use RuntimeException;
  */
 final class Db
 {
-    public const SCHEMA_VERSION = 7;
+    public const SCHEMA_VERSION = 8;
 
     private static ?PDO $pdo = null;
 
@@ -226,6 +226,69 @@ final class Db
             );
             CREATE INDEX IF NOT EXISTS idx_pages_project ON pages(project_id);
             CREATE INDEX IF NOT EXISTS idx_pages_chapter ON pages(chapter_id, idx);
+
+            -- Where a course publishes. One row per BookStack instance it is
+            -- pushed to, so a course can live in several wikis at once.
+            --
+            -- The book belongs to the target rather than to the course,
+            -- because there is one book per wiki and they are different books:
+            -- different ids, different slugs, different URLs, and different
+            -- fingerprints, since a page carries links to its own wiki and so
+            -- is not byte-identical across two of them.
+            --
+            -- `instance_id` names an entry in the owner's profile, which is
+            -- where the credentials are. It is unique per course: a second row
+            -- for the same wiki would be a second book in it, which is a
+            -- duplicate rather than a destination.
+            CREATE TABLE IF NOT EXISTS publish_targets (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                instance_id TEXT NOT NULL,
+                idx         INTEGER NOT NULL DEFAULT 0,
+                enabled     INTEGER NOT NULL DEFAULT 1,
+                shelf_id    INTEGER,
+                shelf_name  TEXT NOT NULL DEFAULT '',
+                book_id     INTEGER,
+                book_slug   TEXT NOT NULL DEFAULT '',
+                book_url    TEXT NOT NULL DEFAULT '',
+                pushed_hash TEXT NOT NULL DEFAULT '',
+                created_at  INTEGER NOT NULL DEFAULT 0,
+                updated_at  INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_publish_targets_one ON publish_targets(project_id, instance_id);
+            CREATE INDEX IF NOT EXISTS idx_publish_targets_project ON publish_targets(project_id, idx);
+
+            -- What one chapter or one page became in one wiki. The columns are
+            -- the ones chapters and pages have carried since 2.x; they are here
+            -- once per target instead of once per item.
+            --
+            -- Real foreign keys rather than an entity_type column, so a deleted
+            -- chapter or page takes its published identities with it and no
+            -- pruning pass has to remember to run. Exactly one of the two is
+            -- ever set, which is what the two partial indexes below say.
+            CREATE TABLE IF NOT EXISTS publish_items (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                target_id   INTEGER NOT NULL REFERENCES publish_targets(id) ON DELETE CASCADE,
+                chapter_id  INTEGER REFERENCES chapters(id) ON DELETE CASCADE,
+                page_id     INTEGER REFERENCES pages(id) ON DELETE CASCADE,
+                bs_id       INTEGER,
+                bs_slug     TEXT NOT NULL DEFAULT '',
+                bs_url      TEXT NOT NULL DEFAULT '',
+                pushed_hash TEXT NOT NULL DEFAULT ''
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_publish_items_chapter
+                ON publish_items(target_id, chapter_id) WHERE chapter_id IS NOT NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_publish_items_page
+                ON publish_items(target_id, page_id) WHERE page_id IS NOT NULL;
+            -- The three cascades need an index each, led by the column being
+            -- followed. The two above are partial, and SQLite will not seek a
+            -- partial index for a foreign-key check - so without these, every
+            -- deleted chapter, page or destination scans this table for the
+            -- whole installation. On a course being rewritten, that is once per
+            -- row removed.
+            CREATE INDEX IF NOT EXISTS idx_publish_items_target ON publish_items(target_id);
+            CREATE INDEX IF NOT EXISTS idx_publish_items_by_chapter ON publish_items(chapter_id);
+            CREATE INDEX IF NOT EXISTS idx_publish_items_by_page ON publish_items(page_id);
 
             CREATE TABLE IF NOT EXISTS tags (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -519,8 +582,94 @@ final class Db
         }
         // Versions 4, 5, 6 and 7 only add tables and columns, which the
         // statements above have already made - there is no data to move.
+        if (self::schemaVersion($pdo) < 8) {
+            self::upgradeToV8($pdo);
+        }
         if (self::schemaVersion($pdo) < self::SCHEMA_VERSION) {
             self::setMeta($pdo, 'schema_version', (string)self::SCHEMA_VERSION);
+        }
+    }
+
+    /**
+     * CourseForge 4.6 and earlier published a course to exactly one BookStack
+     * instance, and kept that instance, its shelf and everything the push had
+     * created in columns on the course, on every chapter and on every page.
+     * Version 8 has a row per destination instead, so the one destination each
+     * course already has becomes its first target.
+     *
+     * The old columns are not dropped. They go on being written as a mirror of
+     * whichever target is first, which is what keeps every reader that has not
+     * been taught about targets - the course list, the page badges, the link
+     * index - answering correctly, and what lets an installation roll back to
+     * 4.6 without losing the book it had.
+     *
+     * Only a course that actually has an instance chosen gets a target: one
+     * that never picked a destination has nothing to carry across, and would
+     * otherwise gain a row pointing at "".
+     */
+    private static function upgradeToV8(PDO $pdo): void
+    {
+        $now = time();
+        $insertTarget = $pdo->prepare(
+            'INSERT OR IGNORE INTO publish_targets
+                 (project_id, instance_id, idx, enabled, shelf_id, shelf_name,
+                  book_id, book_slug, book_url, pushed_hash, created_at, updated_at)
+             VALUES (?,?,0,1,?,?,?,?,?,?,?,?)'
+        );
+        $insertItem = $pdo->prepare(
+            'INSERT OR IGNORE INTO publish_items (target_id, chapter_id, page_id, bs_id, bs_slug, bs_url, pushed_hash)
+             VALUES (?,?,?,?,?,?,?)'
+        );
+        $findTarget = $pdo->prepare('SELECT id FROM publish_targets WHERE project_id = ? AND instance_id = ?');
+        $findItems = [];
+        foreach (['chapters', 'pages'] as $table) {
+            $findItems[$table] = $pdo->prepare(
+                "SELECT id, bs_id, bs_slug, bs_url, pushed_hash FROM {$table}
+                  WHERE project_id = ? AND (bs_id IS NOT NULL OR pushed_hash <> '')"
+            );
+        }
+
+        $projects = $pdo->query("SELECT * FROM projects WHERE TRIM(bs_instance_id) <> ''")->fetchAll();
+        foreach ($projects as $project) {
+            $projectId = (int)$project['id'];
+            $insertTarget->execute([
+                $projectId,
+                (string)$project['bs_instance_id'],
+                $project['shelf_id'] === null ? null : (int)$project['shelf_id'],
+                (string)$project['shelf_name'],
+                $project['book_id'] === null ? null : (int)$project['book_id'],
+                (string)$project['book_slug'],
+                (string)$project['book_url'],
+                (string)$project['pushed_hash'],
+                $now,
+                $now,
+            ]);
+
+            $findTarget->execute([$projectId, (string)$project['bs_instance_id']]);
+            $targetId = (int)($findTarget->fetch()['id'] ?? 0);
+            if ($targetId <= 0) {
+                continue;
+            }
+
+            // A row is worth carrying across when the push left anything on it
+            // at all. bs_id alone is not the test: an item can hold a
+            // fingerprint from a push whose id was later cleared, and dropping
+            // the fingerprint would silently re-send it.
+            foreach (['chapters', 'pages'] as $table) {
+                $items = $findItems[$table];
+                $items->execute([$projectId]);
+                foreach ($items->fetchAll() as $item) {
+                    $insertItem->execute([
+                        $targetId,
+                        $table === 'chapters' ? (int)$item['id'] : null,
+                        $table === 'pages' ? (int)$item['id'] : null,
+                        $item['bs_id'] === null ? null : (int)$item['bs_id'],
+                        (string)$item['bs_slug'],
+                        (string)$item['bs_url'],
+                        (string)$item['pushed_hash'],
+                    ]);
+                }
+            }
         }
     }
 

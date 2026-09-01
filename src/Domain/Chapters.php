@@ -9,7 +9,12 @@ use CourseForge\Support\HttpException;
 /** Chapter rows – ownership is always checked through the owning project. */
 final class Chapters
 {
-    private const WRITABLE = ['idx', 'title', 'description', 'settings', 'bs_id', 'bs_slug', 'bs_url', 'pushed_hash'];
+    /**
+     * The published id, slug, URL and fingerprint are not here. They are a
+     * copy of what the course's first destination holds, and
+     * `Publish\Targets::mirror()` is the one thing that writes them.
+     */
+    private const WRITABLE = ['idx', 'title', 'description', 'settings'];
 
     /** @return array<string,mixed>|null */
     public static function find(int $projectId, int $id): ?array

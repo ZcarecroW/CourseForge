@@ -200,6 +200,33 @@ final class Args
         return $value;
     }
 
+    /**
+     * A list of objects, refused rather than coerced.
+     *
+     * An object where a list belongs, or a string where an object belongs, is a
+     * client that has misread the schema; taking the first reading that happens
+     * to work would write something nobody asked for. `set_publish_targets`
+     * rewrites where a course publishes, so it is worth saying no to.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function objects(string $key): array
+    {
+        $value = $this->args[$key] ?? [];
+        if ($value === null) {
+            return [];
+        }
+        if (!is_array($value) || !array_is_list($value)) {
+            throw HttpException::unprocessable($key . ' must be a list of objects.');
+        }
+        foreach ($value as $item) {
+            if (!is_array($item)) {
+                throw HttpException::unprocessable($key . ' must hold objects only.');
+            }
+        }
+        return array_values($value);
+    }
+
     /** @return array<int,string> */
     public function strings(string $key): array
     {

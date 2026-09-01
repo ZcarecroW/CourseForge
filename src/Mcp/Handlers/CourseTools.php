@@ -12,6 +12,7 @@ use CourseForge\Mcp\Resolve;
 use CourseForge\Mcp\Schema;
 use CourseForge\Mcp\Scopes;
 use CourseForge\Mcp\Tool;
+use CourseForge\Publish\Targets;
 use CourseForge\Security\Access;
 use CourseForge\Security\Actor;
 use CourseForge\Security\Users;
@@ -149,9 +150,16 @@ final class CourseTools
                     'book_description' => Schema::text('The description of the published book.'),
                     'bookstack_instance' => Schema::string(
                         "The id of the BookStack instance in the course's profile to publish into. "
-                        . 'list_profiles shows which a profile has.'
+                        . 'list_profiles shows which a profile has. A course may publish into several at once: this '
+                        . 'replaces the first of them - naming a different instance means the course stops '
+                        . 'publishing to the one it names now - and leaves any others it has behind that first one '
+                        . 'alone. set_publish_targets writes the whole list, which is what to use to add a second '
+                        . 'destination rather than change the one there is.'
                     ),
-                    'shelf_id' => Schema::int('The BookStack shelf the book belongs on. list_bookstack_shelves finds it.'),
+                    'shelf_id' => Schema::int(
+                        'The BookStack shelf the book belongs on in that first instance. list_bookstack_shelves '
+                        . 'finds it.'
+                    ),
                     'shelf_name' => Schema::string('The name of that shelf, for display.'),
                     'auto_tags' => Schema::bool(
                         'Whether the outline generator may invent tags for the course, written as {{Tag}} markers '
@@ -492,18 +500,17 @@ final class CourseTools
         if ($args->has('book_description')) {
             $fields['book_desc'] = $args->raw('book_description');
         }
-        // The publishing and auto-tagging fields. Without them a course created
-        // through MCP could never be published through MCP, because
-        // publish_course refuses a course with no BookStack instance and there
-        // was no tool that could set one.
-        if ($args->has('bookstack_instance')) {
-            $fields['bs_instance_id'] = $args->str('bookstack_instance');
-        }
-        if ($args->has('shelf_id')) {
-            $fields['shelf_id'] = $args->intOrNull('shelf_id');
-        }
-        if ($args->has('shelf_name')) {
-            $fields['shelf_name'] = $args->str('shelf_name');
+        // The publishing fields. Without them a course created through MCP
+        // could never be published through MCP, because publish_course refuses
+        // a course with no BookStack instance and there was no tool that could
+        // set one. They are not columns any more - a course publishes to a list
+        // of instances - so what they name is the first entry on that list, and
+        // set_publish_targets is what writes the whole of it.
+        $destination = [];
+        foreach (['bookstack_instance', 'shelf_id', 'shelf_name'] as $key) {
+            if ($args->has($key)) {
+                $destination[] = $key;
+            }
         }
         if ($args->has('auto_tags')) {
             $fields['auto_tags'] = $args->bool('auto_tags') ? 1 : 0;
@@ -527,11 +534,45 @@ final class CourseTools
             $fields['profile_id'] = $profileId;
         }
 
-        if ($fields === []) {
+        if ($fields === [] && $destination === []) {
             throw HttpException::unprocessable('Nothing to change. Give at least one field.');
         }
 
-        $updated = Projects::update($owner, (int)$project['id'], $fields);
+        $projectId = (int)$project['id'];
+        $updated = $fields === [] ? $project : Projects::update($owner, $projectId, $fields);
+
+        if ($destination !== []) {
+            $current = Targets::primary($projectId);
+
+            // A shelf belongs to a destination. Asked for one on a course that
+            // has none, and without naming an instance to make one, there is
+            // nothing to put it on - and the answer would otherwise report the
+            // shelf as changed while nothing had been written anywhere.
+            if (!$args->has('bookstack_instance') && $current === null) {
+                throw HttpException::unprocessable(
+                    'Course "' . (string)$project['name'] . '" has no BookStack instance yet, so there is nothing for '
+                    . 'a shelf to belong to. Pass bookstack_instance in the same call, or use set_publish_targets.'
+                );
+            }
+
+            $shelf = [];
+            if ($args->has('shelf_id')) {
+                $shelf['shelf_id'] = $args->intOrNull('shelf_id');
+            }
+            if ($args->has('shelf_name')) {
+                $shelf['shelf_name'] = $args->str('shelf_name');
+            }
+
+            Targets::setPrimary(
+                $owner,
+                $projectId,
+                $args->has('bookstack_instance')
+                    ? $args->str('bookstack_instance')
+                    : (string)($current['instance_id'] ?? ''),
+                $shelf,
+            );
+            $updated = Projects::require($owner, $projectId);
+        }
 
         return [
             'course_id' => (int)$updated['id'],
@@ -539,7 +580,7 @@ final class CourseTools
             'topic' => (string)$updated['topic'],
             'book_title' => (string)$updated['book_title'],
             'profile_id' => $updated['profile_id'] === null ? null : (int)$updated['profile_id'],
-            'changed' => array_keys($fields),
+            'changed' => [...array_keys($fields), ...$destination],
         ];
     }
 

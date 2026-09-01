@@ -11,6 +11,7 @@ use CourseForge\Domain\Projects;
 use CourseForge\Domain\Research;
 use CourseForge\Domain\Tags;
 use CourseForge\Domain\Transfers;
+use CourseForge\Publish\Targets;
 use CourseForge\Security\Access;
 use CourseForge\Security\Actor;
 use CourseForge\Support\Audit;
@@ -22,9 +23,22 @@ final class ProjectController
 {
     /** Fields a client may change, each with the cast that protects the column. */
     private const WRITABLE = [
-        'name', 'topic', 'profile_id', 'bs_instance_id', 'shelf_id', 'shelf_name',
+        'name', 'topic', 'profile_id',
         'auto_tags', 'tag_pool', 'tag_pool_strict',
     ];
+
+    /**
+     * The single-destination fields, which are now the first of a list.
+     *
+     * They are not written to the course any more - the course's copy of them
+     * is a mirror of its first publishing target - so a request naming any of
+     * them replaces that target, which is what the field meant when it was the
+     * only one there was. `PUT projects/{id}/targets` is the door to the whole
+     * list; this one stays because "where does this course publish" is still a
+     * sentence with one answer in it for most courses, and because clients
+     * written against 4.6 send it.
+     */
+    private const DESTINATION = ['bs_instance_id', 'shelf_id', 'shelf_name'];
 
     /**
      * The course list.
@@ -85,7 +99,7 @@ final class ProjectController
             }
             $fields[$key] = match ($key) {
                 'name' => $request->str($key) !== '' ? $request->str($key) : 'Untitled course',
-                'profile_id', 'shelf_id' => $request->intOrNull($key),
+                'profile_id' => $request->intOrNull($key),
                 'auto_tags', 'tag_pool_strict' => $request->bool($key) ? 1 : 0,
                 default => $request->str($key),
             };
@@ -98,6 +112,39 @@ final class ProjectController
         }
 
         Projects::update($owner, $id, $fields);
+
+        $named = array_filter(self::DESTINATION, static fn(string $key): bool => $request->has($key));
+        if ($named !== []) {
+            $current = Targets::primary($id);
+
+            // A shelf belongs to a destination. Asked for one on a course with
+            // none, and without an instance to make one, there is nothing to
+            // put it on - and saying so beats writing nothing and answering 200.
+            if (!$request->has('bs_instance_id') && $current === null) {
+                throw HttpException::unprocessable(
+                    'This course has no BookStack instance yet, so there is nothing for a shelf to belong to. '
+                    . 'Choose an instance first.'
+                );
+            }
+
+            $shelf = [];
+            if ($request->has('shelf_id')) {
+                $shelf['shelf_id'] = $request->intOrNull('shelf_id');
+            }
+            if ($request->has('shelf_name')) {
+                $shelf['shelf_name'] = $request->str('shelf_name');
+            }
+
+            Targets::setPrimary(
+                $owner,
+                $id,
+                $request->has('bs_instance_id')
+                    ? $request->str('bs_instance_id')
+                    : (string)($current['instance_id'] ?? ''),
+                $shelf,
+            );
+        }
+
         return ['project' => Projects::tree($owner, $id)];
     }
 

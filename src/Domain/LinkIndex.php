@@ -48,11 +48,41 @@ final class LinkIndex
 
     public static function forProject(int $projectId): self
     {
+        return self::build($projectId, null);
+    }
+
+    /**
+     * The same index, but with the URLs one particular wiki knows.
+     *
+     * A course published to two BookStack instances holds two books, and a link
+     * written into the copy on one of them has to point inside that one. So the
+     * URL a marker resolves to is a property of the target, not of the course,
+     * and the publisher builds one index per target it is pushing to.
+     */
+    public static function forTarget(int $projectId, int $targetId): self
+    {
+        return self::build($projectId, $targetId);
+    }
+
+    private static function build(int $projectId, ?int $targetId): self
+    {
+        // Either the mirrored columns on the rows themselves, or the row one
+        // target holds for each of them. The shape of the answer is identical;
+        // only where the URL is read from differs.
+        $select = static fn(string $table, string $column, string $order): string => $targetId === null
+            ? "SELECT r.id, r.title, r.bs_url FROM {$table} r WHERE r.project_id = ? ORDER BY {$order}"
+            : "SELECT r.id, r.title, COALESCE(i.bs_url, '') AS bs_url
+                 FROM {$table} r
+                 LEFT JOIN publish_items i ON i.{$column} = r.id AND i.target_id = ?
+                WHERE r.project_id = ? ORDER BY {$order}";
+
+        $args = static fn(): array => $targetId === null ? [$projectId] : [$targetId, $projectId];
+
         $entries = [];
 
         // Chapters first: when a chapter and a page normalise to the same key,
         // the page (added later) wins, which is what a reader expects.
-        foreach (Db::rows('SELECT id, title, bs_url FROM chapters WHERE project_id = ? ORDER BY idx', [$projectId]) as $row) {
+        foreach (Db::rows($select('chapters', 'chapter_id', 'r.idx'), $args()) as $row) {
             $entries[] = [
                 'type' => 'chapter',
                 'id' => (int)$row['id'],
@@ -61,7 +91,7 @@ final class LinkIndex
                 'key' => Text::key((string)$row['title']),
             ];
         }
-        foreach (Db::rows('SELECT id, title, bs_url FROM pages WHERE project_id = ? ORDER BY chapter_id, idx', [$projectId]) as $row) {
+        foreach (Db::rows($select('pages', 'page_id', 'r.chapter_id, r.idx'), $args()) as $row) {
             $entries[] = [
                 'type' => 'page',
                 'id' => (int)$row['id'],

@@ -7,7 +7,6 @@ use CourseForge\Domain\AutoLinker;
 use CourseForge\Domain\Chapters;
 use CourseForge\Domain\LinkIndex;
 use CourseForge\Domain\Pages;
-use CourseForge\Domain\Profiles;
 use CourseForge\Domain\Projects;
 use CourseForge\Mcp\Args;
 use CourseForge\Mcp\Resolve;
@@ -15,6 +14,7 @@ use CourseForge\Mcp\Schema;
 use CourseForge\Mcp\Scopes;
 use CourseForge\Mcp\Tool;
 use CourseForge\Publish\Publisher;
+use CourseForge\Publish\Targets;
 use CourseForge\Security\Actor;
 use CourseForge\Support\Audit;
 use CourseForge\Support\HttpException;
@@ -61,12 +61,15 @@ final class PublishTools
                 scope: Scopes::PUBLISH,
                 title: 'What has been published',
                 description: 'The publishing state of one course, worked out from CourseForge\'s own records without '
-                    . 'contacting BookStack: which instance and shelf the course points at, the book and its URL, '
-                    . 'how many chapters and pages are in sync, how many have changed since the last push, how many '
-                    . 'have never been pushed, how many pages have no text to push yet, and how many cross-reference '
-                    . 'markers would still fail to become links. Read this before publish_course to see what a push '
-                    . 'would do. It is counts and a summary rather than a list, so it stays small whatever the size '
-                    . 'of the course, and it changes nothing. Costs nothing.',
+                    . 'contacting BookStack: every BookStack instance the course publishes to with its shelf, its '
+                    . 'book and how much of the course is in each of them, how many chapters and pages are in sync, '
+                    . 'how many have changed since the last push, how many have never been pushed, how many pages '
+                    . 'have no text to push yet, and how many cross-reference markers would still fail to become '
+                    . 'links. A course may publish to several instances at once; the counts are folded across the '
+                    . 'ones that are switched on, so "in sync" means in sync everywhere and "changed" means at least '
+                    . 'one of them would be written to. Read this before publish_course to see what a push would do. '
+                    . 'It is counts and a summary rather than a list, so it stays small whatever the size of the '
+                    . 'course, and it changes nothing. Costs nothing.',
                 properties: [
                     'course_id' => Schema::courseId(),
                 ],
@@ -80,20 +83,24 @@ final class PublishTools
                 name: 'publish_course',
                 scope: Scopes::PUBLISH,
                 title: 'Publish to BookStack',
-                description: 'Pushes the course into the BookStack instance the course points at. It creates the book '
-                    . 'if it is not there yet, puts it on the chosen shelf, then creates or updates every chapter and '
-                    . 'every page, carrying the effective tags with them. Items that have not changed since the last '
-                    . 'push are skipped and an item that was deleted in BookStack is recreated, so re-publishing never '
-                    . 'duplicates anything. Pages with no text yet are skipped. This is a long sequence of API calls '
-                    . 'against somebody else\'s live wiki and can take several minutes on a large course; existing '
-                    . 'chapters and pages are overwritten in place, and none of it can be undone from CourseForge. '
-                    . 'part "all" publishes the whole course and resolves cross references afterwards; part '
-                    . '"chapter" or "page" publishes one item and needs target_id, creates the book and the parent '
-                    . 'chapter around it, and leaves cross references alone - call resolve_links after those. force '
-                    . 're-sends items whose fingerprint says they are unchanged, which also overwrites edits made in '
-                    . 'BookStack by hand. The course has to say where it publishes first: update_course sets that, '
-                    . 'as bookstack_instance, with shelf_id and shelf_name for the shelf. No model is called - this '
-                    . 'reaches the BookStack server but buys nothing.',
+                description: 'Pushes the course into every BookStack instance the course points at. For each of them '
+                    . 'it creates the book if it is not there yet, puts it on that instance\'s chosen shelf, then '
+                    . 'creates or updates every chapter and every page, carrying the effective tags with them. Items '
+                    . 'that have not changed since the last push to that instance are skipped and an item that was '
+                    . 'deleted there is recreated, so re-publishing never duplicates anything. Pages with no text yet '
+                    . 'are skipped. Each instance holds its own book with its own ids, and a page\'s cross references '
+                    . 'point inside the wiki it is in, so the same page is written slightly differently to each. An '
+                    . 'instance that cannot be reached does not stop the others: its failure is reported and the push '
+                    . 'carries on. This is a long sequence of API calls against somebody else\'s live wiki, times the '
+                    . 'number of instances, and can take several minutes on a large course; existing chapters and '
+                    . 'pages are overwritten in place, and none of it can be undone from CourseForge. part "all" '
+                    . 'publishes the whole course and resolves cross references afterwards; part "chapter" or "page" '
+                    . 'publishes one item and needs target_id, creates the book and the parent chapter around it, and '
+                    . 'leaves cross references alone - call resolve_links after those. force re-sends items whose '
+                    . 'fingerprint says they are unchanged, which also overwrites edits made in BookStack by hand. '
+                    . 'The course has to say where it publishes first: set_publish_targets sets the whole list, and '
+                    . 'update_course still sets a single one as bookstack_instance. No model is called - this reaches '
+                    . 'the BookStack server but buys nothing.',
                 properties: [
                     'course_id' => Schema::courseId(),
                     'part' => Schema::enum(
@@ -105,6 +112,12 @@ final class PublishTools
                     'target_id' => Schema::int(
                         'The chapter id or page id to publish, required when part is "chapter" or "page" and not '
                         . 'allowed otherwise. Ids come from get_course or list_pages.'
+                    ),
+                    'instances' => Schema::strings(
+                        'Publish to these BookStack instances only, named by their instance id. Leave it out to '
+                        . 'publish to every instance the course has switched on, which is the usual answer; name one '
+                        . 'when a single wiki was behind or failed and the others are already up to date. '
+                        . 'get_publish_status lists the ids.'
                     ),
                     'force' => Schema::bool(
                         'Re-send every item even when its fingerprint says it is unchanged. Use this to repair a book '
@@ -136,6 +149,10 @@ final class PublishTools
                     . 'page is written back to the live wiki - this reaches the BookStack server but buys nothing.',
                 properties: [
                     'course_id' => Schema::courseId(),
+                    'instances' => Schema::strings(
+                        'Resolve into these BookStack instances only, named by their instance id. Leave it out for '
+                        . 'every instance the course has switched on. Each wiki gets links pointing inside itself.'
+                    ),
                     'force' => Schema::bool(
                         'Re-send every page that holds a marker, even one whose text has not changed.'
                     ),
@@ -144,6 +161,48 @@ final class PublishTools
                 handler: static fn(Actor $actor, array $args): array => self::resolveLinks($actor, Args::of($args)),
                 idempotent: true,
                 openWorld: true,
+            ),
+
+            new Tool(
+                name: 'set_publish_targets',
+                scope: Scopes::PUBLISH,
+                title: 'Where a course publishes',
+                description: 'Sets the whole list of BookStack instances a course publishes to, in one call. A course '
+                    . 'may have several: the same book written into a staging wiki and a live one, or into the wikis '
+                    . 'of two departments. Each entry names an instance the course\'s profile defines - list_profiles '
+                    . 'shows them - and may carry a shelf and a switch. The first entry is the one the course reports '
+                    . 'as its own book and shelf everywhere a single answer is wanted. An entry left off the list is '
+                    . 'forgotten together with the record of what was published into it, so the next push there '
+                    . 'creates a second book rather than updating the first: to stop publishing to a wiki without '
+                    . 'losing that record, send it with enabled false instead. Nothing here reaches BookStack and '
+                    . 'nothing already published is changed or deleted - this only says where the next push goes. '
+                    . 'Costs nothing.',
+                properties: [
+                    'course_id' => Schema::courseId(),
+                    'targets' => Schema::objects(
+                        'Every instance this course publishes to, in order. An empty list means the course publishes '
+                        . 'nowhere, which clears its book and shelf.',
+                        [
+                            'instance' => Schema::string('The BookStack instance id, from list_profiles.'),
+                            'shelf_id' => Schema::int('The shelf the book belongs on in that instance, or omit for none.'),
+                            'shelf_name' => Schema::string('The name of that shelf, for display.'),
+                            'enabled' => Schema::bool(
+                                'Whether a push reaches this instance. Default true. False keeps everything already '
+                                . 'published there on record while leaving it out of the next push.'
+                            ),
+                        ],
+                        ['instance']
+                    ),
+                ],
+                required: ['course_id', 'targets'],
+                handler: static fn(Actor $actor, array $args): array => self::setTargets($actor, Args::of($args)),
+                // Nothing is deleted in BookStack, but an instance left off the
+                // list takes CourseForge's record of the book it made there
+                // with it, and that record cannot be got back: the next push to
+                // that wiki makes a second book beside the first. That is a
+                // loss worth a client asking about.
+                destructive: true,
+                idempotent: true,
             ),
 
             new Tool(
@@ -182,12 +241,18 @@ final class PublishTools
         $chapters = ['total' => 0, 'in_sync' => 0, 'changed' => 0, 'never_published' => 0];
         $pages = ['total' => 0, 'written' => 0, 'in_sync' => 0, 'changed' => 0, 'never_published' => 0, 'nothing_to_push' => 0];
 
+        // "changed" is asked before "never published", and that order is the
+        // whole of it once a course can publish to several wikis. An item that
+        // is in one of them and not in another is not in sync everywhere, so
+        // `pushed` is false - but it has certainly been published, and putting
+        // it in "never published" would say the opposite of what happened.
+        // `dirty` is the honest bucket for it: a push would write it.
         foreach ($tree['chapters'] as $chapter) {
             $chapters['total']++;
-            if (!$chapter['pushed']) {
-                $chapters['never_published']++;
-            } elseif ($chapter['dirty']) {
+            if ($chapter['dirty']) {
                 $chapters['changed']++;
+            } elseif (!$chapter['pushed']) {
+                $chapters['never_published']++;
             } else {
                 $chapters['in_sync']++;
             }
@@ -199,10 +264,10 @@ final class PublishTools
                     continue;
                 }
                 $pages['written']++;
-                if (!$page['pushed']) {
-                    $pages['never_published']++;
-                } elseif ($page['dirty']) {
+                if ($page['dirty']) {
                     $pages['changed']++;
+                } elseif (!$page['pushed']) {
+                    $pages['never_published']++;
                 } else {
                     $pages['in_sync']++;
                 }
@@ -220,7 +285,12 @@ final class PublishTools
             'course_id' => (int)$project['id'],
             'name' => (string)$project['name'],
             'owner' => $owner,
+            // The first destination on its own, because most courses have
+            // exactly one and a single answer reads better than a list of one.
             'target' => self::targetSummary($project, $owner),
+            // And all of them, each with the book it holds and how much of the
+            // course is in it. `enabled` false means a push skips it.
+            'targets' => $tree['targets'],
             'book' => [
                 'published' => $bookId !== null,
                 'book_id' => $bookId,
@@ -261,11 +331,13 @@ final class PublishTools
         // single request leaves the building - a refusal three API calls in
         // would already have created a book.
         self::assertPublishable($project, $owner);
+        $instances = self::instanceTargets($project, $args);
 
-        // Dozens to hundreds of round trips against a wiki that may be slow.
+        // Dozens to hundreds of round trips against a wiki that may be slow,
+        // once per wiki.
         Runtime::beginLongRequest();
 
-        $result = Publisher::open($owner, $projectId)->push($part, $targetId, $force);
+        $result = Publisher::open($owner, $projectId, $instances)->push($part, $targetId, $force);
         $items = self::classify($result['log']);
         $after = Projects::tree($owner, $projectId);
 
@@ -282,13 +354,15 @@ final class PublishTools
             'course.publish',
             (string)$project['name'],
             sprintf(
-                'part=%s%s: %d created, %d updated, %d unchanged, %d skipped',
+                'part=%s%s to %d instance(s): %d created, %d updated, %d unchanged, %d skipped%s',
                 $part . ($target === null ? '' : ' "' . $target . '"'),
                 $force ? ', forced' : '',
+                count($result['targets']),
                 $counts['created'],
                 $counts['updated'],
                 $counts['unchanged'],
-                $counts['skipped']
+                $counts['skipped'],
+                $result['failed'] > 0 ? ', ' . $result['failed'] . ' instance(s) failed' : ''
             ),
             'mcp'
         );
@@ -306,6 +380,10 @@ final class PublishTools
                 'url' => (string)$after['book_url'],
                 'shelf' => $after['shelf_id'] === null ? null : (string)$after['shelf_name'],
             ],
+            // One entry per wiki this push covered, in the order it ran. `ok`
+            // false is a wiki that refused the push; the others still happened.
+            'instances' => self::instanceResults($result['targets'], $after['targets']),
+            'instances_failed' => (int)$result['failed'],
             'counts' => $counts,
             'created' => $items['created'],
             'updated' => $items['updated'],
@@ -331,9 +409,10 @@ final class PublishTools
         $projectId = (int)$project['id'];
 
         self::assertPublishable($project, $owner);
-        Runtime::beginLongRequest(); // one BookStack write per page whose links changed
+        Runtime::beginLongRequest(); // one BookStack write per page whose links changed, per wiki
 
-        $result = Publisher::open($owner, $projectId)->resolveLinks($args->bool('force'));
+        $result = Publisher::open($owner, $projectId, self::instanceTargets($project, $args))
+            ->resolveLinks($args->bool('force'));
         $scan = self::scanLinks($projectId);
 
         Audit::record(
@@ -351,9 +430,12 @@ final class PublishTools
             'resolved' => true,
             'course_id' => $projectId,
             'links_resolved' => (int)$result['links']['resolved'],
+            // Summed across the wikis: the same page rewritten in three of them
+            // is three writes, which is what this number is counting.
             'pages_republished' => (int)$result['links']['updated'],
             'still_waiting_for_publication' => $stillWaiting,
             'still_unmatched' => $stillUnmatched,
+            'instances_failed' => (int)$result['failed'],
             'log' => $result['log'],
             'next_step' => match (true) {
                 $stillUnmatched > 0 => 'Call list_unresolved_links to see which references match no chapter or page - '
@@ -361,6 +443,74 @@ final class PublishTools
                 $stillWaiting > 0 => 'Some references point at items that are not published yet. Call publish_course, '
                     . 'then resolve_links again.',
                 default => 'Every cross reference in this course is resolved. get_publish_status confirms the rest.',
+            },
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function setTargets(Actor $actor, Args $args): array
+    {
+        ['project' => $project, 'owner' => $owner] = Resolve::course($actor, $args->id());
+        $projectId = (int)$project['id'];
+
+        $known = Targets::instancesOf($owner, $project['profile_id'] === null ? null : (int)$project['profile_id']);
+        $before = array_map(static fn(array $t): string => (string)$t['instance_id'], Targets::all($projectId));
+        // An instance the course already publishes to counts as known even if
+        // the profile has stopped defining it - otherwise the only way to edit
+        // the list would be to forget that destination, which is exactly what
+        // somebody in that position is trying not to do.
+        foreach ($before as $instanceId) {
+            $known[$instanceId] ??= ['name' => '', 'base_url' => ''];
+        }
+
+        $incoming = [];
+        foreach ($args->objects('targets') as $entry) {
+            $instanceId = trim((string)($entry['instance'] ?? $entry['instance_id'] ?? ''));
+            if ($instanceId === '') {
+                throw HttpException::unprocessable('Every entry in targets needs an "instance" - the BookStack '
+                    . 'instance id, which list_profiles gives for the course\'s profile.');
+            }
+            if (!isset($known[$instanceId])) {
+                throw HttpException::unprocessable(
+                    'The profile of course "' . (string)$project['name'] . '" defines no BookStack instance "'
+                    . $instanceId . '". list_profiles shows the ones it does; the instance has to be added to the '
+                    . 'profile before a course can publish to it.'
+                );
+            }
+            $incoming[] = [
+                'instance_id' => $instanceId,
+                'shelf_id' => array_key_exists('shelf_id', $entry) ? $entry['shelf_id'] : null,
+                'shelf_name' => (string)($entry['shelf_name'] ?? ''),
+                'enabled' => $entry['enabled'] ?? true,
+            ];
+        }
+
+        $stored = Targets::replaceAll($owner, $projectId, $incoming);
+        $after = array_map(static fn(array $t): string => (string)$t['instance_id'], $stored);
+        $forgotten = array_values(array_diff($before, $after));
+
+        Audit::record(
+            $actor->username,
+            'course.publish_targets',
+            (string)$project['name'],
+            count($after) . ' instance(s): ' . (implode(', ', $after) ?: 'none')
+            . ($forgotten === [] ? '' : '; forgot ' . implode(', ', $forgotten)),
+            'mcp'
+        );
+
+        $tree = Projects::tree($owner, $projectId);
+
+        return [
+            'course_id' => $projectId,
+            'targets' => $tree['targets'],
+            'forgotten' => $forgotten,
+            'next_step' => match (true) {
+                $after === [] => 'This course now publishes nowhere. Give set_publish_targets at least one instance '
+                    . 'before calling publish_course.',
+                $forgotten !== [] => 'CourseForge has forgotten what it published to ' . implode(', ', $forgotten)
+                    . '. Whatever is in those wikis is still there and is no longer tracked; publishing to one of '
+                    . 'them again would create a second book beside the first.',
+                default => 'Call get_publish_status to see what a push would do, then publish_course.',
             },
         ];
     }
@@ -451,10 +601,36 @@ final class PublishTools
             $reasons[] = 'Course "' . $name . '" has no profile, so there are no BookStack credentials to publish '
                 . 'with. list_profiles shows the options and update_course assigns one.';
         }
-        if ((string)$project['bs_instance_id'] === '') {
+
+        $targets = Targets::all((int)$project['id']);
+        if ($targets === []) {
             $reasons[] = 'Course "' . $name . '" has no BookStack instance chosen, so there is nowhere to publish it. '
-                . 'list_profiles shows the instances the course\'s profile defines; point the course at one by '
-                . 'calling update_course with bookstack_instance set to that id.';
+                . 'list_profiles shows the instances the course\'s profile defines; point the course at one or '
+                . 'several by calling set_publish_targets, or at a single one with update_course\'s '
+                . 'bookstack_instance.';
+        } elseif (Targets::enabled((int)$project['id']) === []) {
+            $reasons[] = 'Every BookStack instance of course "' . $name . '" is switched off, so a push would reach '
+                . 'nothing. set_publish_targets switches one back on with enabled true.';
+        }
+
+        // An instance a course points at that its profile has since stopped
+        // defining has no credentials behind it, and the push would fail on it
+        // rather than at the door. Saying which one is the whole difference
+        // between a fixable answer and a 400 from somebody else's server.
+        $known = Targets::instancesOf($owner, $project['profile_id'] === null ? null : (int)$project['profile_id']);
+        $orphans = [];
+        foreach ($targets as $target) {
+            if (!isset($known[(string)$target['instance_id']])) {
+                $orphans[] = (string)$target['instance_id'];
+            }
+        }
+        if ($orphans !== [] && $project['profile_id'] !== null) {
+            $reasons[] = 'Course "' . $name . '" publishes to ' . implode(', ', array_map(
+                static fn(string $id): string => '"' . $id . '"',
+                $orphans
+            )) . ', which its profile no longer defines - there are no credentials for '
+                . (count($orphans) === 1 ? 'it' : 'them') . '. Either add the instance back to the profile, or drop '
+                . 'it from the course with set_publish_targets.';
         }
 
         return $reasons;
@@ -470,53 +646,139 @@ final class PublishTools
     {
         $warnings = [];
 
-        if ($project['shelf_id'] === null && (string)$project['bs_instance_id'] !== '') {
+        $shelfless = [];
+        foreach (Targets::all((int)$project['id']) as $target) {
+            if ($target['shelf_id'] === null) {
+                $shelfless[] = (string)$target['instance_id'];
+            }
+        }
+        if ($shelfless !== []) {
             // A shelf is optional in BookStack, so this is a warning rather
             // than a refusal: the book is created either way, it is only
-            // harder to find.
-            $warnings[] = 'No shelf is chosen, so the book is created outside every shelf. list_bookstack_shelves '
-                . 'gives the ids; update_course takes shelf_id and shelf_name to place the book on one.';
+            // harder to find. Each instance has its own shelves and its own
+            // choice, so a course with three destinations can be missing one.
+            $warnings[] = 'No shelf is chosen for ' . implode(', ', $shelfless) . ', so the book is created there '
+                . 'outside every shelf. list_bookstack_shelves gives the ids; set_publish_targets takes a shelf_id '
+                . 'and shelf_name per instance.';
         }
 
         return $warnings;
     }
 
     /**
-     * Where this course publishes to, named rather than numbered.
+     * The targets a request named by instance id, or null for "all of them".
+     *
+     * Named rather than numbered because an instance id is what a model has
+     * already been handed - by list_profiles, and by get_publish_status - and
+     * because it survives a course being handed to another account, which a row
+     * id of somebody else's target would not.
+     *
+     * @param array<string,mixed> $project
+     * @return array<int,int>|null
+     */
+    private static function instanceTargets(array $project, Args $args): ?array
+    {
+        $wanted = $args->strings('instances');
+        if ($wanted === []) {
+            return null;
+        }
+
+        $ids = [];
+        foreach ($wanted as $instanceId) {
+            $target = Targets::byInstance((int)$project['id'], $instanceId);
+            if ($target === null) {
+                throw HttpException::unprocessable(
+                    'Course "' . (string)$project['name'] . '" does not publish to a BookStack instance called "'
+                    . $instanceId . '". get_publish_status lists the ones it does, and set_publish_targets adds one.'
+                );
+            }
+            $ids[] = (int)$target['id'];
+        }
+        return $ids;
+    }
+
+    /**
+     * What happened in each wiki, with the book it now holds beside it.
+     *
+     * @param array<int,array<string,mixed>> $results as Publisher hands them back
+     * @param array<int,array<string,mixed>> $targets the course tree's target list
+     * @return array<int,array<string,mixed>>
+     */
+    private static function instanceResults(array $results, array $targets): array
+    {
+        $byId = [];
+        foreach ($targets as $target) {
+            $byId[(int)$target['id']] = $target;
+        }
+
+        $out = [];
+        foreach ($results as $result) {
+            $target = $byId[(int)$result['target_id']] ?? [];
+            $items = self::classify($result['log']);
+            $out[] = [
+                'instance_id' => (string)$result['instance_id'],
+                'instance_name' => (string)$result['name'],
+                'ok' => (bool)$result['ok'],
+                'error' => (string)$result['error'],
+                'book_id' => $target['book_id'] ?? null,
+                'book_url' => (string)($target['book_url'] ?? ''),
+                'shelf' => ($target['shelf_id'] ?? null) === null ? null : (string)($target['shelf_name'] ?? ''),
+                'counts' => [
+                    'created' => count($items['created']),
+                    'updated' => count($items['updated']),
+                    'unchanged' => count($items['unchanged']),
+                    'skipped' => count($items['skipped']),
+                    'recreated' => count($items['recreated']),
+                ],
+                'links' => $result['links'],
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * The first place this course publishes to, named rather than numbered.
      *
      * The profile holds the credentials, so it is read from the course's owner
      * whoever is asking - and only the name and the address of the instance
      * ever come back out of it.
+     *
+     * A course may have several destinations; `targets` beside this one carries
+     * all of them. This stays because it is the answer to "where does this
+     * course publish" for the many courses where that has one answer, and
+     * because a client written against 4.6 reads it.
      *
      * @param array<string,mixed> $project
      * @return array<string,mixed>
      */
     private static function targetSummary(array $project, string $owner): array
     {
-        $instanceId = (string)$project['bs_instance_id'];
-        $summary = [
-            'instance_id' => $instanceId === '' ? null : $instanceId,
-            'instance_name' => null,
-            'base_url' => null,
-            'shelf_id' => $project['shelf_id'] === null ? null : (int)$project['shelf_id'],
-            'shelf_name' => (string)$project['shelf_name'] !== '' ? (string)$project['shelf_name'] : null,
-            'profile_id' => $project['profile_id'] === null ? null : (int)$project['profile_id'],
+        $target = Targets::primary((int)$project['id']);
+        $profileId = $project['profile_id'] === null ? null : (int)$project['profile_id'];
+
+        if ($target === null) {
+            return [
+                'instance_id' => null,
+                'instance_name' => null,
+                'base_url' => null,
+                'shelf_id' => null,
+                'shelf_name' => null,
+                'profile_id' => $profileId,
+                'instance_count' => 0,
+            ];
+        }
+
+        $known = Targets::instancesOf($owner, $profileId)[(string)$target['instance_id']] ?? null;
+
+        return [
+            'instance_id' => (string)$target['instance_id'],
+            'instance_name' => $known === null ? null : $known['name'],
+            'base_url' => $known === null ? null : $known['base_url'],
+            'shelf_id' => $target['shelf_id'] === null ? null : (int)$target['shelf_id'],
+            'shelf_name' => (string)$target['shelf_name'] !== '' ? (string)$target['shelf_name'] : null,
+            'profile_id' => $profileId,
+            'instance_count' => count(Targets::all((int)$project['id'])),
         ];
-
-        if ($instanceId === '' || $project['profile_id'] === null) {
-            return $summary;
-        }
-
-        $profile = Profiles::find($owner, (int)$project['profile_id']);
-        foreach ((array)($profile['data']['bookstack'] ?? []) as $instance) {
-            if ((string)($instance['id'] ?? '') === $instanceId) {
-                $summary['instance_name'] = (string)($instance['name'] ?? '');
-                $summary['base_url'] = (string)($instance['base_url'] ?? '');
-                break;
-            }
-        }
-
-        return $summary;
     }
 
     /**
@@ -561,12 +823,18 @@ final class PublishTools
         $items = ['created' => [], 'updated' => [], 'unchanged' => [], 'skipped' => [], 'recreated' => [], 'other' => []];
 
         foreach ($log as $line) {
+            // A push to more than one wiki names the wiki in front of every
+            // line. The verb is what is being read here, so the label comes
+            // off first - otherwise a course with two destinations reports
+            // nothing created and everything "other".
+            $verb = preg_replace('/^\[[^\]]*\] /', '', $line) ?? $line;
+
             $bucket = match (true) {
-                str_starts_with($line, 'Created ') => 'created',
-                str_starts_with($line, 'Updated ') => 'updated',
-                str_starts_with($line, 'Skipped ') => 'skipped',
-                str_contains($line, 'no longer exists in BookStack') => 'recreated',
-                str_contains($line, 'is already up to date') => 'unchanged',
+                str_starts_with($verb, 'Created ') => 'created',
+                str_starts_with($verb, 'Updated ') => 'updated',
+                str_starts_with($verb, 'Skipped ') => 'skipped',
+                str_contains($verb, 'no longer exists in BookStack') => 'recreated',
+                str_contains($verb, 'is already up to date') => 'unchanged',
                 default => 'other',
             };
             $items[$bucket][] = $line;
