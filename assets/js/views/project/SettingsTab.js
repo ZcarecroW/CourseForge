@@ -1,5 +1,5 @@
 import { reactive, computed, watch, ref } from 'vue';
-import { state, openCourse, loadProjects } from '@/core/store.js';
+import { state, openCourse, loadProjects, declareUnsaved } from '@/core/store.js';
 import { del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { formatDateTime } from '@/core/format.js';
@@ -58,6 +58,9 @@ export const SettingsTab = {
         || form.auto_tags !== p.auto_tags
         || form.tag_pool !== p.tag_pool || form.tag_pool_strict !== p.tag_pool_strict;
     });
+
+    // Leaving the course asks about settings that were changed and not saved.
+    declareUnsaved(() => (changed.value ? 'unsaved course settings' : ''));
 
     /* Where the course publishes is edited on the Publish tab and only reported
        here. It used to be a second select for the BookStack instance, which was

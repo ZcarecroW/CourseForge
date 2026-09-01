@@ -1,5 +1,5 @@
 import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue';
-import { state, openCourse, featureByKey, paramByKey } from '@/core/store.js';
+import { state, openCourse, featureByKey, paramByKey, declareUnsaved } from '@/core/store.js';
 import { busy, patchDetails, saveResearch } from '@/views/project/actions.js';
 import { plural } from '@/core/format.js';
 import { useScrollSync } from '@/core/scrollsync.js';
@@ -95,6 +95,9 @@ export const DetailsTab = {
     watch(() => research.value.text, (stored) => { draft.value = stored ?? ''; });
 
     const dirty = computed(() => draft.value !== (research.value.text ?? ''));
+
+    // Leaving the course asks about research findings that were edited and not saved.
+    declareUnsaved(() => (dirty.value ? 'unsaved research findings' : ''));
     const tooLong = computed(() => draft.value.length > (research.value.max_characters ?? 12000));
 
     const sourceLabel = computed(() => ({

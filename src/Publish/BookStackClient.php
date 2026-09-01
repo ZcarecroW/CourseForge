@@ -16,7 +16,7 @@ use CourseForge\Support\HttpException;
  * else), because treating a transport error as "gone" would recreate the whole
  * course as a duplicate.
  */
-final class BookStackClient
+class BookStackClient
 {
     private readonly string $baseUrl;
     private readonly int $timeout;
@@ -215,8 +215,15 @@ final class BookStackClient
         return ['Authorization' => 'Token ' . $this->tokenId . ':' . $this->tokenSecret];
     }
 
+    /*
+     * The two methods below are the whole of the wire, and they are protected
+     * rather than private so that a test can stand a wiki in memory behind
+     * them: the publisher's promise that a book is never created twice is
+     * only worth testing against a BookStack that can fail half way.
+     */
+
     /** @return array<string,mixed>|null null only on a genuine 404. */
-    private function get(string $type, int $id): ?array
+    protected function get(string $type, int $id): ?array
     {
         $res = Http::json('GET', $this->baseUrl . '/api/' . $type . '/' . $id, $this->headers(), null, $this->timeout);
         if ($res->status === 404) {
@@ -232,7 +239,7 @@ final class BookStackClient
     }
 
     /** @return array<string,mixed> */
-    private function call(string $method, string $path, mixed $payload = null): array
+    protected function call(string $method, string $path, mixed $payload = null): array
     {
         $res = Http::json($method, $this->baseUrl . '/api' . $path, $this->headers(), $payload, $this->timeout);
         if (!$res->ok()) {

@@ -112,7 +112,24 @@ final class Profiles
 
     public static function delete(string $username, int $id): void
     {
-        self::require($username, $id);
+        $profile = self::require($username, $id);
+
+        // A run that is still open reads its credentials from this profile
+        // every time the scheduler polls it. Delete the profile and the next
+        // poll finds nothing, writes the run off as failed, and stops asking -
+        // while the batch it submitted goes on running and billing at the
+        // provider with nobody left to collect it. The browser used to delete
+        // without looking; only the MCP tool asked first, and it asked about
+        // courses rather than runs.
+        $open = Runs::openCountForProfile($username, $id);
+        if ($open > 0) {
+            throw HttpException::unprocessable(
+                'The profile "' . (string)$profile['name'] . '" is still used by ' . $open . ' running or queued '
+                . 'generation run(s). Stop them, or wait for them to finish, before deleting it - a batch already '
+                . 'submitted under it cannot be collected once its credentials are gone.'
+            );
+        }
+
         Db::run('DELETE FROM profiles WHERE username = ? AND id = ?', [$username, $id]);
         // Projects keep working: profile_id becomes a dangling reference,
         // which the UI reports as "no profile" instead of silently deleting work.

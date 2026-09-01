@@ -172,8 +172,19 @@ export const UsersView = {
 
     /* ------------------------------------------------------------- creating */
 
+    /**
+     * A generated password is shown once, on a card, and the card holds one.
+     * Creating a second account with a generated password replaced the card -
+     * and with it the only copy of a password nobody had passed on yet. So a
+     * second generated password waits until the first has been acknowledged;
+     * an account given a typed password never touches the card and is not
+     * held up by it.
+     */
+    const passwordCardPending = computed(() => draft.password === '' && fresh.password !== null);
+
     const canCreate = computed(() =>
       draft.username.trim() !== ''
+      && !passwordCardPending.value
       && (draft.password === '' || draft.password.length >= minPassword.value));
 
     const create = () => run(async () => {
@@ -374,7 +385,7 @@ export const UsersView = {
       passwordFor, passwordDraft, openPassword, savePassword,
       deleting, deleteChoice, transferTo, typedName, inheritors, needsTyping, deleteReady,
       openDelete, confirmDelete,
-      inviteDraft, issueInvite, revokeInvite, confirmRevoke, TTL_CHOICES, MAX_INVITE_USES,
+      inviteDraft, issueInvite, revokeInvite, confirmRevoke, TTL_CHOICES, MAX_INVITE_USES, passwordCardPending,
       fresh, copy, copied, reload,
       formatDateTime, relativeTime, plural,
     };
@@ -643,7 +654,10 @@ export const UsersView = {
             </span>
           </label>
 
-          <div class="row end">
+          <div class="row end" style="align-items:center;gap:var(--space-3)">
+            <span v-if="passwordCardPending" class="hint grow" style="text-align:right">
+              Pass on the password shown above, and press "I have passed it on", before another one is generated.
+            </span>
             <button class="btn btn--primary none" :disabled="busy || !canCreate" @click="create">
               <app-icon name="plus" :size="14"/> Create account
             </button>
@@ -721,10 +735,16 @@ export const UsersView = {
                 <span class="t-xs dim none">account(s)</span>
               </div>
             </div>
-            <button class="btn none push" :disabled="busy" @click="issueInvite">
+            <button class="btn none push" :disabled="busy || fresh.invite"
+                    :title="fresh.invite ? 'Pass on the open invite above first - issuing another replaces it.' : ''"
+                    @click="issueInvite">
               <app-icon name="link" :size="14"/> Issue an invite
             </button>
           </div>
+          <p v-if="fresh.invite" class="hint">
+            The invite above is the open one. Issuing another replaces it - and its code, which is shown once -
+            so copy that one first, or revoke it.
+          </p>
 
           <p class="hint">
             Only one invite is ever open at a time, and it is deleted the moment the last account it is good for

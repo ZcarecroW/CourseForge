@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace CourseForge\Support;
 
 use PDO;
+use PDOException;
 use RuntimeException;
 
 /**
@@ -723,11 +724,26 @@ final class Db
         return false;
     }
 
-    /** SQLite has no `ADD COLUMN IF NOT EXISTS`, so check first. */
+    /**
+     * SQLite has no `ADD COLUMN IF NOT EXISTS`, so check first.
+     *
+     * The check and the ALTER are two statements, and the first requests
+     * after an upgrade arrive together: two workers can both find the column
+     * missing and both try to add it. The second gets "duplicate column name",
+     * which is the column existing - the state this method is here to reach -
+     * and not a reason to answer a person's request with a 500.
+     */
     private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void
     {
-        if (!self::hasColumn($pdo, $table, $column)) {
+        if (self::hasColumn($pdo, $table, $column)) {
+            return;
+        }
+        try {
             $pdo->exec('ALTER TABLE ' . $table . ' ADD COLUMN ' . $column . ' ' . $definition);
+        } catch (PDOException $e) {
+            if (stripos($e->getMessage(), 'duplicate column') === false || !self::hasColumn($pdo, $table, $column)) {
+                throw $e;
+            }
         }
     }
 }

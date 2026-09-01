@@ -776,30 +776,38 @@ final class ProfileTools
             || $args->has('ai_name') || $args->has('preset_key') || self::hasExtras($args);
         if ($touchesAccount || $args->str('ai_id') !== '') {
             if ($accounts === []) {
-                if (!$args->has('ai_kind')) {
+                // The first account of a profile, made from the same arguments
+                // add_ai_account takes: a preset row or a driver kind, the
+                // per-kind extras, and a name. This branch used to read only
+                // ai_kind, so a profile straight out of the browser - which
+                // starts with no account at all - could not be given a Groq or
+                // a Together account by the tool that documents preset_key,
+                // and a call that also sent ai_kind stored the preset as
+                // "custom" with an empty endpoint and no error.
+                if (!$args->has('ai_kind') && $args->str('preset_key') === '') {
                     throw HttpException::unprocessable(
-                        'This profile has no AI account yet, so ai_kind is required to add one. Call list_providers '
-                        . 'to see the kinds.'
+                        'This profile has no AI account yet, so ai_kind or preset_key is required to add one. '
+                        . 'Call list_providers to see the kinds and the preset rows.'
                     );
                 }
-                $kind = self::requireKind($args);
-                $catalogue = self::catalogueEntry($kind);
+                ['kind' => $kind, 'preset' => $preset, 'catalogue' => $catalogue] = self::chosenProvider($args, 'ai_kind');
                 if (self::needsKey($catalogue) && $args->str('api_key') === '') {
                     throw HttpException::unprocessable(
                         'A "' . (string)($catalogue['label'] ?? $kind) . '" account needs an API key, so api_key is required.'
                     );
                 }
-                $accounts[] = [
+                $accounts[] = self::accountExtras($args, [
                     'id' => self::newId(),
-                    'name' => (string)($catalogue['label'] ?? $kind),
+                    'name' => $args->has('ai_name') ? $args->requiredStr('ai_name') : (string)($catalogue['label'] ?? $kind),
                     'kind' => $kind,
+                    'preset_key' => $preset,
                     'base_url' => self::normaliseUrl($args->has('base_url') ? $args->str('base_url') : self::defaultUrl($catalogue)),
                     'api_key' => $args->str('api_key'),
                     'organization' => '',
                     'cli_path' => '',
                     'site_url' => '',
                     'site_name' => '',
-                ];
+                ]);
                 $target = 0;
                 $changed[] = 'ai_account_added';
             } else {
@@ -2001,7 +2009,11 @@ final class ProfileTools
 
         return [
             'id' => self::newId(),
-            'name' => 'BookStack',
+            // The name the call gave it, when it gave one. The schema promises
+            // bookstack_name names the instance "for the picker", and the
+            // first instance of a profile is the one most likely to be given
+            // a name - it used to be the one call that ignored it.
+            'name' => $args->has('bookstack_name') ? $args->requiredStr('bookstack_name') : 'BookStack',
             'base_url' => self::normaliseUrl($args->str('bookstack_url')),
             'token_id' => $tokenId,
             'token_secret' => $tokenSecret,

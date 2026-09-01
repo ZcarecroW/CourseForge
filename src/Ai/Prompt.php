@@ -44,13 +44,19 @@ final class Prompt
         if (trim($template) === '') {
             return '';
         }
-        $search = [];
-        $replace = [];
-        foreach ($vars as $key => $value) {
-            $search[] = '{{' . $key . '}}';
-            $replace[] = (string)$value;
-        }
-        return trim(str_replace($search, $replace, $template));
+        // One pass over the template, never over what was substituted into
+        // it. The array form of str_replace runs its replacements one after
+        // another over the result of the previous one, so a value holding a
+        // literal `{{tags}}` - the existing text of a page about Vue or Jinja
+        // templates, quoted back for a rewrite - had the real tag list written
+        // into it before the model ever saw it.
+        $rendered = preg_replace_callback(
+            '/\{\{([A-Za-z0-9_]+)\}\}/',
+            static fn(array $m): string => array_key_exists($m[1], $vars) ? (string)$vars[$m[1]] : $m[0],
+            $template
+        );
+
+        return trim($rendered ?? $template);
     }
 
     /**

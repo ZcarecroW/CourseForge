@@ -88,10 +88,22 @@ final class Text
         return $percent / 100;
     }
 
-    /** Word count that behaves on non-ASCII text (str_word_count does not). */
+    /**
+     * Word count that behaves on non-ASCII text (str_word_count does not).
+     *
+     * Chinese and Japanese write no spaces between words, so a run of their
+     * characters is not one word however long it is: a twenty-five character
+     * sentence used to count as one. Each such character counts on its own,
+     * which is how every word processor counts them, and a Latin run stops
+     * where such a character begins. Korean keeps its spaces and needs no
+     * special case.
+     */
     public static function words(string $value): int
     {
-        return preg_match_all('/[\p{L}\p{N}][\p{L}\p{N}\'’\-]*/u', $value) ?: 0;
+        $cjk = '\p{Han}\p{Hiragana}\p{Katakana}';
+        $pattern = '/[' . $cjk . ']|(?:(?![' . $cjk . '])[\p{L}\p{N}])(?:(?![' . $cjk . '])[\p{L}\p{N}\'’\-])*/u';
+
+        return preg_match_all($pattern, $value) ?: 0;
     }
 
     /** One-line excerpt for error messages. */

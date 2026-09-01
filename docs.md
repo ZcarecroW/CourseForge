@@ -74,6 +74,12 @@ Secrets are stored server-side and never sent back to the browser: a stored
 secret shows as `•••••••• stored`, and leaving the field empty on save keeps it.
 The subscription account and the local presets have no secret to store at all.
 
+A profile cannot be deleted while a generation run is still open under it. A
+batch submitted with its credentials is collected with its credentials, and a
+profile deleted mid-run would leave that batch running — and billing — at the
+provider with nothing left here to collect it. Stop the run, or let it finish,
+and the profile can go.
+
 **Models & output.** Choose which AI account and model designs the **course
 outline** and which writes the **individual pages**, set temperature and a token
 ceiling, pick the **course language**, and decide how many pages are written **in
@@ -123,7 +129,11 @@ Three panes on a wide screen:
   green = published, red = failed), a filter, a search box, and the generation
   controls.
 - **middle** — the editor: title, Markdown body in *edit*, *split* or *preview*
-  mode, word count, and a link to the published page. `Ctrl+S` saves.
+  mode, word count, and a link to the published page. `Ctrl+S` saves. Leaving
+  the course with an unsaved edit — by the sidebar, the back arrow or the
+  browser's own close button — asks first, as every other screen does; so does
+  an outline edited and not applied on the Structure tab, and a destinations
+  list not saved on the Publish tab.
 - **right** — the inspector: **details**, **tags** and **context** for whatever is
   selected. Below 1280 px it becomes a slide-over.
 
@@ -1150,6 +1160,15 @@ Two rules keep the three from tripping over each other:
 - A batch answer that arrives for a page somebody has since written another way
   is discarded rather than applied, and reported as "already written".
 
+**Stopping a run** is immediate for a background run: the run closes, and every
+page not yet written is released. A batch is stopped at the provider's pace. The
+cancel is asynchronous everywhere, and the batch keeps whatever it answered
+before the request landed, so the run stays open until the provider reports the
+batch cancelled — the next check then collects the pages that were finished,
+releases only the ones that never ran, and closes the run. OpenRouter has no
+cancel route at all; a run there stays open and says so, and its pages arrive
+when the provider is done with them.
+
 Setting up the scheduler is in [section 8](#8-installation), along with what a
 tick does and how `cron_workers` turns into parallelism. Until it is running, the
 Content tab does not offer background runs at all, and says so.
@@ -1527,7 +1546,7 @@ The ten or so that matter:
 | `poll_run` | Asks the provider *now* whether a batch has finished and writes home everything that has, instead of waiting for the next scheduler tick. Safe to call as often as you like. |
 | `fix_typography` | Sets the punctuation of a course, a chapter or one page that is already written — quotation marks, apostrophes, ellipses, dashes and spacing, the way the course language does. Costs nothing, changes nothing the second time, and `preview` says what it would do without doing it. |
 | `publish_course` | Pushes the course into BookStack: creates the book, puts it on the shelf, creates or updates every chapter and page with its effective tags, skips what has not changed, and resolves cross references afterwards. |
-| `list_pages` | Every page in reading order with its status and its word count — the count `get_page` and the browser report, over the Markdown as it is stored. |
+| `list_pages` | Every page in reading order with its status and its word count — the count `get_page` and the browser report, over the Markdown as it is stored; Chinese and Japanese count by character. |
 | the admin ones | `list_settings` / `set_settings` / `reset_setting`, `generate_cron_token` / `get_cron_url`, `list_users` / `create_user` / `update_user` / `delete_user`, `issue_invite` / `revoke_invite`, `transfer_course`, `get_diagnostics`, `get_audit_log`, `list_connections` / `revoke_connection`, `get_prompts` / `set_prompts`, and `check_for_update` / `install_update` / `rollback_update`. |
 
 ### The two ways to write a course, and what each costs
@@ -2138,7 +2157,11 @@ than a set of overrides. **It is reduced to its overrides the first time 4.0
 reads it** — recognised by the presence of `prompts`, `details` or
 `prompt_groups` at the top level — and rewritten. An upgraded installation
 therefore keeps exactly the settings it had changed and starts following the new
-defaults for everything it never disagreed with.
+defaults for everything it never disagreed with. That rewrite happens once,
+under the same lock every other write to the file takes, and only when the
+reduction changes something: reading the settings never writes them, so a page
+load cannot put a stale copy of the file back over a setting somebody has just
+saved.
 
 ### The settings
 
@@ -2594,8 +2617,11 @@ Seven files, chosen because each covers something whose failure mode is silent:
 | `typography.test.php` | That the mixed quotation pair a model actually writes comes out as a pair in German, French, Spanish and English; that code, links, addresses, formulas, tables and CourseForge's own markers are never touched; and that setting a page twice changes nothing the second time |
 | `jsonl-chunker.test.php` | That the 200 MB ceiling binds at about 25,000 course prompts rather than at the 50,000-row cap, and that an unsendable row is refused by name |
 | `openrouter-body.test.php` | That the create body serialises as `endpoint`, `model`, `requests`, in that order, because the beta endpoint stream-parses it |
+| `review-fixes.test.php` | The 4.10 review, each finding held down: that stopping a batch keeps the run open until the provider hands over what it finished, that a book is created exactly once however the shelf behaves, that reading the settings never writes them, that a profile with a run under it cannot be deleted, and that a refused course update changes nothing |
 
-Fifty-two tests at the time of writing, all passing.
+Those are the files worth reading first; the suite has grown to thirty-nine of
+them and three hundred and seventy-nine tests at the time of writing, all
+passing.
 
 `tools/detect-test.mjs` is separate and older: sixty snippets the language
 detector must recognise, twenty-five it must not, and the rule that a fence

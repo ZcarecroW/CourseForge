@@ -266,13 +266,19 @@ export const ConnectView = {
     }, 'Rename connection');
 
     const remove = () => attempt(async () => {
+      if (busy.value) return;                     // same reasoning as create()
       const target = confirmDelete.value;
       confirmDelete.value = null;
       if (!target) return;
-      const data = await del(`connect/${target.id}`);
-      Object.assign(connect, data.connect ?? {});
-      if (fresh.value?.client?.id === target.id) fresh.value = null;
-      toast.success('Connection revoked. That token stopped working immediately.');
+      busy.value = true;
+      try {
+        const data = await del(`connect/${target.id}`);
+        Object.assign(connect, data.connect ?? {});
+        if (fresh.value?.client?.id === target.id) fresh.value = null;
+        toast.success('Connection revoked. That token stopped working immediately.');
+      } finally {
+        busy.value = false;
+      }
     }, 'Revoke connection');
 
     /* ------------------------------------------------------------- reading */
@@ -657,8 +663,14 @@ export const ConnectView = {
             </template>
           </div>
 
-          <div class="row end">
-            <button class="btn btn--primary" :disabled="busy || connect.scopes_unavailable || !chosen.size"
+          <div class="row end" style="align-items:center;gap:var(--space-3)">
+            <!-- One token is readable at a time. Creating a second connection
+                 replaced the card above, and with it the only copy of a token
+                 that had not been pasted anywhere yet. -->
+            <span v-if="fresh" class="hint grow" style="text-align:right">
+              Copy the token above and press "I have copied it" before creating another connection.
+            </span>
+            <button class="btn btn--primary" :disabled="busy || connect.scopes_unavailable || !chosen.size || fresh"
                     @click="create">
               <app-icon :name="busy ? 'refresh' : 'plus'" :size="14" :spin="busy"/>
               {{ busy ? 'Creating…' : 'Create connection' }}

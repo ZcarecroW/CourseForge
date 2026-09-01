@@ -2,7 +2,9 @@ import {
   ref, reactive, computed, watch, nextTick, defineAsyncComponent,
   onMounted, onBeforeUnmount, onActivated, onDeactivated,
 } from 'vue';
-import { state, openCourse, allPages, concurrency, mergePage, markPageStatus, refreshProject } from '@/core/store.js';
+import {
+  state, openCourse, allPages, concurrency, mergePage, markPageStatus, refreshProject, declareUnsaved,
+} from '@/core/store.js';
 import { get, put, post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
@@ -95,6 +97,16 @@ export const ContentTab = {
       const chapter = selection.type === 'chapter' ? selectedChapter.value : null;
       if (!chapter) return false;
       return chapterDraft.title !== chapter.title || chapterDraft.description !== chapter.description;
+    });
+
+    // The same guard the other screens use, so leaving the course - by the
+    // sidebar or by the back arrow - asks first. This tab warned about a
+    // closed browser tab and about switching pages inside itself, and not
+    // about the one exit that loses the most: another screen.
+    declareUnsaved(() => {
+      if (dirty.value) return `unsaved edits to "${draft.title || 'this page'}"`;
+      if (chapterDirty.value) return `unsaved edits to the chapter "${chapterDraft.title || ''}"`;
+      return '';
     });
 
     /* -- tree ----------------------------------------------------------- */
@@ -259,13 +271,17 @@ export const ContentTab = {
       return data.page;
     }
 
+    /** The page a "Rewrite this page" click is still waiting on, so a second click cannot double it. */
+    const regenerating = ref(false);
+
     const regeneratePage = () => attempt(async () => {
-      if (!selectedPage.value) return;
+      if (!selectedPage.value || regenerating.value) return;
       if (selectedPage.value.status === 'queued') {
         toast.error('This page is waiting in a batch. Cancel the batch first, or wait for it to arrive.');
         return;
       }
       const pageId = selectedPage.value.id;
+      regenerating.value = true;
       try {
         await generateOne(pageId, {
           extra: draft.extra_context,
@@ -280,6 +296,8 @@ export const ContentTab = {
         const page = allPages.value.find((p) => p.id === pageId);
         if (page) page.error = error.message;
         throw error;
+      } finally {
+        regenerating.value = false;
       }
       pageFeedback.value = '';
       toast.success('Page written.');
@@ -333,10 +351,20 @@ export const ContentTab = {
       else toast.success(`${plural(written, 'page')} written.`);
     }
 
+    /**
+     * "Rewrite everything" replaces the text of every page in the course, so
+     * it is asked about first - whichever of the three buttons starts it. The
+     * question used to be asked only by the in-tab path, and the two primary
+     * buttons above it queued the same rewrite without a word.
+     */
+    const confirmRewriteAll = (count, go) => {
+      confirmRegenerateAll.value = { count, go };
+    };
+
     const startGeneration = () => {
       const ids = queue();
       if (!ids.length) { toast.info('Nothing to generate with this selection.'); return; }
-      if (gen.mode === 'all') { confirmRegenerateAll.value = ids; return; }
+      if (gen.mode === 'all') { confirmRewriteAll(ids.length, () => runQueue(ids)); return; }
       runQueue(ids);
     };
 
@@ -357,6 +385,11 @@ export const ContentTab = {
         const ids = queue();
         if (!ids.length) { toast.info('Nothing to start with this selection.'); return; }
         startRun(ids, mode);
+        return;
+      }
+      if (gen.mode === 'all') {
+        const count = allPages.value.filter((p) => p.status !== 'queued').length;
+        confirmRewriteAll(count, () => startRun('all', mode));
         return;
       }
       startRun(gen.mode, mode);
@@ -420,7 +453,18 @@ export const ContentTab = {
     const pushScope = (scope, targetId, label) => attempt(async () => {
       const data = await post(`projects/${project.value.id}/push`, { scope, target_id: targetId });
       state.project = data.project;
-      toast.success(`${label} published.`);
+      // A course that publishes into several wikis answers 200 when only some
+      // of them took it, and names the ones that did not in `failed` - which
+      // the Publish tab reads and this button used to ignore, saying
+      // "published" over a wiki that was never reached.
+      const failed = data.failed ?? 0;
+      if (failed) {
+        const where = (data.log ?? []).filter((line) => /fail|could not|error/i.test(line)).slice(0, 2);
+        toast.error(`${label} could not be published to ${plural(failed, 'destination')}.`
+          + (where.length ? ` ${where.join(' ')}` : ' See the Publish tab.'));
+      } else {
+        toast.success(`${label} published.`);
+      }
     }, 'Publish');
 
     const pushPage = () => pushScope('page', selectedPage.value.id, 'Page');
@@ -491,7 +535,7 @@ export const ContentTab = {
       dirty, chapterDirty, loadingPage, savingPage, pageFeedback, viewMode, inspectorTab,
       outlineOpen, inspectorOpen, search, filter, tree, filtering, isCollapsed, toggleChapter,
       collapseAll, pageDotClass, selectPage, selectChapter, savePage, saveChapterEdits,
-      gen, startGeneration, stopGeneration, regeneratePage, confirmRegenerateAll, runQueue,
+      gen, startGeneration, stopGeneration, regeneratePage, regenerating, confirmRegenerateAll, runQueue,
       runs, openRuns, doneRuns, cronStalled, pollNow, cancelRun, forgetRun,
       runTone, runProgress, runWhere, cronProblem, startSelection,
       confirmBackground, backgroundAnyway, writeHereInstead,
@@ -883,9 +927,10 @@ export const ContentTab = {
                   <label>Feedback for a rewrite</label>
                   <textarea v-model="pageFeedback" rows="4"
                             placeholder="More examples, shorter intro, focus on PhpStorm…"></textarea>
-                  <button class="btn btn--primary btn--block mt-2" :disabled="gen.running" @click="regeneratePage">
-                    <app-icon name="sparkles" :size="14"/>
-                    {{ selectedPage.has_content ? 'Rewrite this page' : 'Write this page' }}
+                  <button class="btn btn--primary btn--block mt-2" :disabled="gen.running || regenerating"
+                          @click="regeneratePage">
+                    <app-icon :name="regenerating ? 'refresh' : 'sparkles'" :size="14" :spin="regenerating"/>
+                    {{ regenerating ? 'Writing…' : (selectedPage.has_content ? 'Rewrite this page' : 'Write this page') }}
                   </button>
                   <p class="hint">Leaving the box empty writes the page from scratch.</p>
                 </div>
@@ -955,12 +1000,12 @@ export const ContentTab = {
     <app-modal v-if="confirmRegenerateAll" title="Rewrite every page?" icon="alert"
                @close="confirmRegenerateAll = null">
       <p class="t-sm">
-        All {{ confirmRegenerateAll.length }} pages will be written again and their current content replaced.
+        All {{ confirmRegenerateAll.count }} pages will be written again and their current content replaced.
       </p>
       <template #footer>
         <button class="btn" @click="confirmRegenerateAll = null">Cancel</button>
         <button class="btn btn--danger"
-                @click="runQueue(confirmRegenerateAll); confirmRegenerateAll = null">
+                @click="confirmRegenerateAll.go(); confirmRegenerateAll = null">
           Rewrite everything
         </button>
       </template>

@@ -53,6 +53,24 @@ if (preg_match('#^/api/(.*)$#', $path, $m) && $m[1] !== 'index.php' && !str_ends
 
 $file = __DIR__ . '/..' . rawurldecode($path);
 if ($path !== '/' && is_file($file)) {
+    // The rules above read the path as it was typed, and the file system
+    // reads it resolved: `/x/../tools/detect-test.mjs` passes every rule and
+    // is `tools/detect-test.mjs` on disk. Apache normalises before it matches,
+    // so the resolved path is checked here as well - against the root, so a
+    // `..` cannot leave it, and against the private directories by their real
+    // location rather than by the spelling of the request.
+    $root = realpath(__DIR__ . '/..');
+    $real = realpath($file);
+    $inside = $root !== false && $real !== false && str_starts_with($real, $root . DIRECTORY_SEPARATOR);
+    $relative = $inside ? str_replace('\\', '/', substr($real, strlen($root) + 1)) : '';
+    if (!$inside
+        || preg_match('#^(data|src|tools|config|tests)/#', $relative) === 1
+        || preg_match('#(^|/)\.[^/]+$#', $relative) === 1) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo '{"ok":false,"error":"Forbidden."}';
+        return true;
+    }
     return false; // let the built-in server serve it
 }
 

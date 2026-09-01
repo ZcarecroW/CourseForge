@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue';
-import { state, openCourse, applyProject } from '@/core/store.js';
+import { state, openCourse, applyProject, declareUnsaved } from '@/core/store.js';
 import { post, put } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { plural } from '@/core/format.js';
@@ -32,9 +32,22 @@ export const StructureTab = {
     // returns a fresh value every time the effect re-runs and the callback then
     // fires whenever `state.project` is merely replaced - which the batch poll
     // does every minute, and which would silently discard an unsaved edit.
+    /* The same rule the prompt watcher below states: the box is re-seeded
+       only while it still holds exactly what was stored before this change,
+       which is to say while nothing has been typed into it. The server
+       rewrites the stored outline whenever a title is edited on the Content
+       tab or the punctuation pass touches one, and under keep-alive that
+       arrives here while an edit may be half made - adopting it unconditionally
+       threw the edit away. A different course replaces the box outright. */
     watch(
       () => `${project.value?.id ?? 0}\u0000${project.value?.structure_md ?? ''}`,
-      () => { markdown.value = project.value?.structure_md ?? ''; }
+      (key, previous) => {
+        const [id, stored] = parts(key);
+        const [wasId, wasStored] = parts(previous);
+        if (id !== wasId || markdown.value === wasStored) {
+          markdown.value = stored;
+        }
+      }
     );
 
     /** `<id>NUL<prompt>` split back into the two things it is watching. */
@@ -76,6 +89,13 @@ export const StructureTab = {
     const topicDirty = computed(() => topic.value !== (project.value?.topic ?? ''));
     const hasStructure = computed(() => (project.value?.structure_md ?? '').trim() !== '');
     const canRefine = computed(() => hasStructure.value && feedback.value.trim() !== '');
+
+    // Leaving the course asks about an outline that was edited and not applied.
+    declareUnsaved(() => {
+      if (dirty.value) return 'an edited outline that has not been applied';
+      if (topicDirty.value) return 'an unsaved course prompt';
+      return '';
+    });
 
     const generate = (refine) => attempt(async () => {
       generating.value = true;

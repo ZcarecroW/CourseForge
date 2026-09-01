@@ -196,8 +196,13 @@ export const startRun = (selection, mode = '') => attempt(async () => {
 export const cancelRun = (id) => attempt(async () => {
   runs.busy = true;
   try {
-    apply(await post(`projects/${projectId()}/runs/cancel`, { run_id: id }));
-    toast.info('Run stopped. Pages that had not been written are pending again.');
+    const data = apply(await post(`projects/${projectId()}/runs/cancel`, { run_id: id }));
+    // A batch is stopped at the provider's pace, not this one's: the server
+    // says what has actually happened, and a background run says nothing
+    // because for it the stop is immediate.
+    const message = data?.run?.message;
+    if (message) toast.info(message);
+    else toast.info('Run stopped. Pages that had not been written are pending again.');
     syncTimer();
   } finally {
     runs.busy = false;

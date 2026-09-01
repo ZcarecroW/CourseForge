@@ -112,22 +112,27 @@ final class ProjectController
             Profiles::require($owner, (int)$fields['profile_id']);
         }
 
+        // Everything that can be refused is refused before anything is
+        // written. The destination check used to come after the update, so a
+        // request carrying a new name and a shelf for a course with no
+        // destination was answered 422 - "nothing happened" everywhere else in
+        // this API - with the name already changed.
+        $named = array_filter(self::DESTINATION, static fn(string $key): bool => $request->has($key));
+        $current = $named !== [] ? Targets::primary($id) : null;
+
+        // A shelf belongs to a destination. Asked for one on a course with
+        // none, and without an instance to make one, there is nothing to
+        // put it on - and saying so beats writing nothing and answering 200.
+        if ($named !== [] && !$request->has('bs_instance_id') && $current === null) {
+            throw HttpException::unprocessable(
+                'This course has no BookStack instance yet, so there is nothing for a shelf to belong to. '
+                . 'Choose an instance first.'
+            );
+        }
+
         Projects::update($owner, $id, $fields);
 
-        $named = array_filter(self::DESTINATION, static fn(string $key): bool => $request->has($key));
         if ($named !== []) {
-            $current = Targets::primary($id);
-
-            // A shelf belongs to a destination. Asked for one on a course with
-            // none, and without an instance to make one, there is nothing to
-            // put it on - and saying so beats writing nothing and answering 200.
-            if (!$request->has('bs_instance_id') && $current === null) {
-                throw HttpException::unprocessable(
-                    'This course has no BookStack instance yet, so there is nothing for a shelf to belong to. '
-                    . 'Choose an instance first.'
-                );
-            }
-
             $shelf = [];
             if ($request->has('shelf_id')) {
                 $shelf['shelf_id'] = $request->intOrNull('shelf_id');

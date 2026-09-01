@@ -54,17 +54,23 @@ final class Markdown
 
         // Split *after* each newline so the original line endings – and the
         // presence or absence of a trailing one – survive reassembly byte for byte.
+        // A fence is closed by a run of the same character at least as long as
+        // the one that opened it, which is how CommonMark lets a four-backtick
+        // block quote a three-backtick example inside it. Matching on the
+        // character alone closed the outer block at the inner example, and the
+        // rest of the block was then prose - which the typography pass and the
+        // auto-linker are free to rewrite.
         foreach (preg_split('/(?<=\n)/', $markdown, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $line) {
             if (preg_match('/^\s{0,3}(`{3,}|~{3,})/', $line, $m) === 1) {
                 if ($fence === null) {
                     if ($buffer !== '') {
                         $segments[] = ['code' => false, 'text' => $buffer];
                     }
-                    $fence = $m[1][0];
+                    $fence = $m[1];
                     $buffer = $line;
                     continue;
                 }
-                if ($m[1][0] === $fence) {
+                if ($m[1][0] === $fence[0] && strlen($m[1]) >= strlen($fence)) {
                     $segments[] = ['code' => true, 'text' => $buffer . $line];
                     $buffer = '';
                     $fence = null;

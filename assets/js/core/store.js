@@ -344,23 +344,34 @@ export async function probeUpdate() {
  * There is nothing to remember and nothing to undo - the registration ends
  * with the screen.
  */
-let unsavedProbe = null;
+/*
+ * A set rather than one slot: the five tabs of a course live side by side
+ * under keep-alive, and each holds its own kind of unsaved work - a page's
+ * text, an outline, a destinations list. One slot meant the last tab to
+ * register was the only one asked, and the others were left out entirely,
+ * which is how the course editor came to be the one screen this guard never
+ * covered.
+ */
+const unsavedProbes = new Set();
 
 export function declareUnsaved(probe) {
-  unsavedProbe = probe;
+  unsavedProbes.add(probe);
   onBeforeUnmount(() => {
-    if (unsavedProbe === probe) unsavedProbe = null;
+    unsavedProbes.delete(probe);
   });
 }
 
 /** What would be lost right now, as a phrase, or '' when nothing would be. */
 export function unsavedWork() {
-  try {
-    return String(unsavedProbe?.() ?? '').trim();
-  } catch {
-    // A probe that throws must never be able to trap somebody on a screen.
-    return '';
+  for (const probe of unsavedProbes) {
+    try {
+      const summary = String(probe() ?? '').trim();
+      if (summary) return summary;
+    } catch {
+      // A probe that throws must never be able to trap somebody on a screen.
+    }
   }
+  return '';
 }
 
 /**
@@ -454,8 +465,17 @@ export async function openProject(id) {
   state.sidebarOpen = false;
 }
 
-export function closeProject() {
+/**
+ * @param {object} [options]
+ * @param {boolean} [options.discard=false]  see go()
+ */
+export function closeProject({ discard = false } = {}) {
   if (generationBlocks()) return;
+  // The back arrow leaves the course exactly as the sidebar does, so it asks
+  // the same question first. It used to skip it, and a page edited and not yet
+  // saved went with the click.
+  if (!discard && unsavedBlocks('projects')) return;
+  state.leaving = null;
   state.project = null;
   state.view = 'projects';
   refresh('projects');

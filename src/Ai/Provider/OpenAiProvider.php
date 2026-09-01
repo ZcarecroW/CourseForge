@@ -69,6 +69,29 @@ class OpenAiProvider extends OpenAiCompatibleProvider implements SearchCapable
      */
     private const REASONING = '/^(gpt-5|o[134])/i';
 
+    /**
+     * Whether a model takes the reasoning parameters and refuses the chat ones.
+     *
+     * The prefix alone is not enough: `gpt-5-chat-latest` and its versioned
+     * siblings are the non-reasoning chat models of the gpt-5 family, and
+     * they take temperature and max_tokens like gpt-4o did. Matched by prefix
+     * they had their temperature stripped before the first request - silently,
+     * because there was nothing left for the 400-retry to restore.
+     */
+    public static function isReasoning(string $model): bool
+    {
+        $model = strtolower(trim($model));
+        if (preg_match(self::REASONING, $model) !== 1) {
+            return false;
+        }
+        foreach (self::ALSO_CHAT as $ending) {
+            if (str_ends_with($model, $ending)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** Rejected outright by the reasoning models, not ignored. */
     private const REASONING_REJECTS = [
         'temperature',
@@ -337,7 +360,7 @@ class OpenAiProvider extends OpenAiCompatibleProvider implements SearchCapable
 
     protected function tuneForModel(array $payload, string $model): array
     {
-        if (preg_match(self::REASONING, trim($model)) !== 1) {
+        if (!self::isReasoning($model)) {
             return $payload;
         }
 

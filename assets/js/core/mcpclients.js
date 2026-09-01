@@ -75,7 +75,8 @@ export const MCP_CLIENTS = [
     kind: 'json',
     where: '.cursor/mcp.json in a project, or ~/.cursor/mcp.json for all of them',
     note: 'Cursor expands ${env:NAME} in this file, so the token can stay out of it — put '
-      + 'COURSEFORGE_TOKEN in your shell profile and paste the second form instead.',
+      + 'COURSEFORGE_TOKEN in your shell profile and write "Bearer ${env:COURSEFORGE_TOKEN}" in place '
+      + 'of the token above.',
     build: (url, token, name) => JSON.stringify({
       mcpServers: { [name]: { url, headers: { Authorization: `Bearer ${token}` } } },
     }, null, 2),

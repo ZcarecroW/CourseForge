@@ -57,7 +57,107 @@ models, language), create a **Course**, generate the **Structure**, write the
 Full documentation, including the nginx configuration and the technical
 background, is in [docs.md](docs.md).
 
-## What is new in 4.9
+## What is new in 4.10
+
+Eleven readers went over the whole application with one instruction — find
+what is actually wrong, not what could be tidier — and this release is what
+they found. Twenty-odd fixes and no features; the ones worth knowing about are
+below, in the order of the damage they did.
+
+### Stopping a batch threw away the pages it had already written
+
+"Stop this run" on a batch asked the provider to cancel and then closed the run
+on the spot: every page still waiting was released, and the run was over. But a
+cancel is asynchronous everywhere, and a batch keeps whatever it answered before
+the request landed — pages that were paid for. Nothing could download them while
+the batch was still winding down, and nothing ever tried afterwards, because a
+closed run is never polled. So the button reliably discarded finished work, and
+on OpenRouter — which has no cancel route at all — it closed the run while the
+batch ran on, billing, with nobody left to collect it.
+
+The run now stays open until the provider has said its last word. The next check
+collects the pages that were finished, releases only the ones that never ran,
+and closes the run then. A provider that cannot be stopped says so, and its run
+stays open for the same reason.
+
+### A book created twice, once per retry
+
+A course's first publish created its book, attached it to the shelf, and then
+wrote the book's id down. A shelf that had been deleted, or a token not allowed
+to edit shelves, failed the middle step — and the id was thrown away with the
+exception. The next push found no book on record, created another, and failed
+the same way: one orphaned book per attempt until somebody fixed the shelf and
+deleted the extras by hand. The id is now written down the moment the book
+exists.
+
+### A setting saved, and lost to a page load
+
+Reading `data/config.json` rewrote it, on every request, whenever the file held
+a `prompts` key at its top level — which is not only a 3.x document but any
+installation that has overridden a single prompt. The rewrite took no lock. A
+request that read the file just before an administrator saved a setting wrote
+its stale copy back just after: HTTP 200 for the save, and the setting gone.
+Reading no longer writes anything, and the one-time reduction of a 3.x document
+happens under the same lock as every other write.
+
+### Deleting a profile stranded the batch running under it
+
+The Profiles screen deleted a profile without looking. The next poll of a run
+submitted under it found no credentials, wrote the run off as failed, and
+stopped asking — while the batch went on running at the provider with nobody
+left to collect it. A profile with an open run under it is now refused, on both
+surfaces, with the count.
+
+### The course editor was the one screen that never asked
+
+Every other screen asks "Leave without saving?" before it throws unsaved work
+away. The course editor did not: a page edited and not saved, an outline edited
+and not applied, a destinations list not saved — one click on the sidebar or
+the back arrow, and it was gone. All five tabs now ask, and the back arrow asks
+the way the sidebar does. Two more things in the same tab: **Rewrite
+everything** now asks before it starts from the two primary buttons, as it
+always did from the third, and an edit to the outline is no longer discarded
+when a title is renamed on the Content tab.
+
+### Smaller, and still real
+
+- `create_course` over MCP let an administrator create a course under their own
+  name pointing at somebody else's profile — a course that then failed "Profile
+  not found" on every call after. It is refused, as the browser refuses it.
+- `update_profile` ignored `preset_key`, the per-kind extras and
+  `bookstack_name` when adding a profile's *first* account or instance — which
+  is every profile made in the browser. A Groq account asked for that way was
+  stored as "custom" with an empty endpoint, and no error.
+- `gpt-5-chat-latest` was taken for a reasoning model and had its temperature
+  stripped before the first request went out.
+- The Claude subscription account passed the model id to the command line
+  unchecked. A model id is letters, digits and a few separators; anything else
+  is refused before it goes anywhere near a shell.
+- The word count for Chinese and Japanese counted a whole sentence as one word.
+  Each character counts, as every word processor counts them.
+- A four-backtick fence quoting a three-backtick example inside it was closed
+  at the example, and the rest of the block was set as prose.
+- A placeholder inside a *value* — a page about Vue templates quoting its own
+  `{{tags}}` back for a rewrite — had the real tag list written into it before
+  the model saw it.
+- A course update refused for its shelf had already renamed the course.
+- Publishing one page or one chapter from the Content tab reported success when
+  one of several wikis had failed.
+- Creating a second account with a generated password, or a second connection,
+  replaced the card holding the first password or token — the only copy there
+  was. Both wait now until the card has been acknowledged.
+- Mermaid and MathJax, once they failed to load for any reason but the network,
+  stayed failed until the page was reloaded. The editor's language modes had the
+  same memory.
+- A batch the provider accepted but the database could not record is withdrawn
+  from the provider rather than left running under an id nothing knows.
+- `tools/deploy.php --full --prune` pruned nothing; the development router could
+  be walked past with `/x/../`; two workers adding the same column after an
+  upgrade no longer answer one of them with a 500.
+
+Nothing to do when upgrading, and no schema change.
+
+## What was new in 4.9
 
 ### Two page counts disagreed, and the wrong one was believed
 

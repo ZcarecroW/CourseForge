@@ -198,6 +198,13 @@ final class Providers
     /** @param array<string,mixed> $account */
     public static function fromAccount(array $account): Provider
     {
+        if (self::$factory !== null) {
+            $made = (self::$factory)($account);
+            if ($made instanceof Provider) {
+                return $made;
+            }
+        }
+
         $kind = self::kindOf($account);
         $class = self::CLASSES[$kind] ?? null;
         if ($class === null) {
@@ -205,6 +212,20 @@ final class Providers
         }
         return new $class($account);
     }
+
+    /**
+     * A test's way of standing a provider in for an account.
+     *
+     * The run drivers ask for their provider by profile and account id, which
+     * is the right shape everywhere except a test - where the one thing wanted
+     * is a provider that answers from memory, and the only alternative is a
+     * socket. A callable here is given the account row and may answer with a
+     * Provider; anything else builds the real one. Null, which it is in every
+     * process but a test's, changes nothing.
+     *
+     * @var null|callable(array<string,mixed>):mixed
+     */
+    public static $factory = null;
 
     /** @param array<string,mixed> $profile */
     public static function fromProfile(array $profile, string $accountId): Provider

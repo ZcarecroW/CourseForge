@@ -89,11 +89,55 @@ final class Config
         $data = Json::read(self::file()) ?? [];
 
         if (isset($data['prompts']) || isset($data['details']) || isset($data['prompt_groups'])) {
-            $data = Json::diff(self::defaults(), $data);
-            unset($data['_comment'], $data['_note']);
-            Json::write(self::file(), $data);
+            $reduced = Json::diff(self::defaults(), $data);
+            unset($reduced['_comment'], $reduced['_note']);
+            if ($reduced !== $data) {
+                self::reduceOnDisk($reduced);
+            }
+            $data = $reduced;
         }
         return self::$overrides = $data;
+    }
+
+    /**
+     * Writes the reduced document back, once, and only under the lock every
+     * other write to this file takes.
+     *
+     * This used to happen inline on every read of a file whose top level held
+     * `prompts`, `details` or `prompt_groups` - which is not only a 3.x
+     * document but any 4.x installation that has overridden one prompt. So
+     * every request rewrote config.json, without the lock, and a request that
+     * read the file just before an administrator saved a setting wrote its
+     * stale copy back just after: HTTP 200 for the save, and the setting gone.
+     * Now nothing is written unless the reduction actually changed something,
+     * and when it does the file is read again inside the lock so that only a
+     * document that is still in the old shape is replaced.
+     *
+     * @param array<string,mixed> $reduced
+     */
+    private static function reduceOnDisk(array $reduced): void
+    {
+        $owner = bin2hex(random_bytes(8));
+        try {
+            $held = Lock::acquire('config-write', 10, $owner) !== false;
+        } catch (\Throwable) {
+            $held = false; // no database yet: a first start, or a repair. The write is still safe enough.
+        }
+
+        try {
+            $current = Json::read(self::file()) ?? [];
+            if (isset($current['prompts']) || isset($current['details']) || isset($current['prompt_groups'])) {
+                $again = Json::diff(self::defaults(), $current);
+                unset($again['_comment'], $again['_note']);
+                if ($again !== $current) {
+                    Json::write(self::file(), $again);
+                }
+            }
+        } finally {
+            if ($held) {
+                Lock::release('config-write', $owner);
+            }
+        }
     }
 
     /** @return array<string,mixed> */

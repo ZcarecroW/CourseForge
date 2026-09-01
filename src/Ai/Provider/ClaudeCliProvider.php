@@ -167,12 +167,26 @@ final class ClaudeCliProvider implements Provider
 
     public function chat(AiRequest $request): string
     {
-        $this->assertUsable();
-
         $model = trim($request->model);
         if ($model === '') {
             throw HttpException::unprocessable('No model is selected for this request.');
         }
+        // The model is the one argument on this command line that a signed-in
+        // user types, and it goes to proc_open as a bare argv element. That is
+        // safe on POSIX and safe on Windows in front of a real executable, but
+        // in front of the .cmd shim npm installs it is cmd.exe that reads the
+        // line, and a PHP older than 8.1.28 does not escape for cmd.exe
+        // correctly (CVE-2024-1874). A model id is letters, digits and a few
+        // separators - `claude-opus-5`, `opus[1m]`, a Bedrock id with a colon
+        // - so anything else is refused here rather than handed on.
+        if (preg_match('/^[A-Za-z0-9._:\/@+\[\]-]+$/', $model) !== 1) {
+            throw HttpException::unprocessable(
+                'The model id "' . Text::snippet($model, 60) . '" contains characters a model id never has. '
+                . 'Pick one from list_models, or type the id exactly as Anthropic publishes it.'
+            );
+        }
+
+        $this->assertUsable();
 
         // The system prompt travels as a file, never as an argument: it is long,
         // it contains typographic punctuation, and a Windows command line

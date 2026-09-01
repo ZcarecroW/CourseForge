@@ -195,6 +195,10 @@ function support(id) {
   })()
     .then((loaded) => { ready.set(id, loaded); return loaded; })
     .catch((error) => {
+      // Forgotten so the next fence in this language asks again: a fetch that
+      // failed once may well succeed next time, and a null memoised here kept
+      // the language plain for the rest of the session.
+      loading.delete(id);
       console.warn(`[CourseForge] no editor mode for "${id}":`, error);
       return null;
     });

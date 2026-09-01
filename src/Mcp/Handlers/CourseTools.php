@@ -426,8 +426,14 @@ final class CourseTools
                 $profileId = (int)$profiles[0]['id'];
             }
         } else {
-            $profile = Access::profile($actor, $profileId);
-            $actor->requireReach((string)$profile['username'], 'that profile');
+            // The course is created under the caller's own name, so the
+            // profile has to be the caller's own as well - the same rule the
+            // browser applies and update_course applies. Reachability is the
+            // wrong test here: an administrator can reach everybody's
+            // profiles, and a course of theirs pointed at somebody else's
+            // profile is a course that fails "Profile not found" on every
+            // brief, generation and publish call after this one.
+            Profiles::require($actor->username, $profileId);
         }
 
         $project = Projects::create($actor->username, $name, $topic, $profileId);

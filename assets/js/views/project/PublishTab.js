@@ -1,5 +1,5 @@
 import { ref, reactive, computed, watch } from 'vue';
-import { state, openCourse, bookstackInstances } from '@/core/store.js';
+import { state, openCourse, bookstackInstances, declareUnsaved } from '@/core/store.js';
 import { post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { plural } from '@/core/format.js';
@@ -45,6 +45,9 @@ export const PublishTab = {
     watch(() => project.value?.id, sync, { immediate: true });
 
     const changed = computed(() => shapeOf(targets.value) !== savedShape.value);
+
+    // Leaving the course asks about a destinations list that was not saved.
+    declareUnsaved(() => (changed.value ? 'unsaved changes to where this course publishes' : ''));
 
     /* A push rewrites the book id and URL of every destination it reached, and
        those have to show up here. Adopting the server's list unconditionally

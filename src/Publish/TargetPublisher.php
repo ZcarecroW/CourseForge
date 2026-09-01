@@ -292,23 +292,43 @@ final class TargetPublisher
             $this->say('Book "' . $title . '" is already up to date.');
         }
 
+        // The book is written down before anything else is asked of BookStack.
+        // The shelf call below can fail on its own - a shelf that was deleted,
+        // a token that may not edit shelves, a timeout - and when it did, the
+        // id of the book just created was thrown away with the exception. The
+        // next push then found no book on record, created another, and failed
+        // the same way: one orphaned book per attempt until somebody fixed the
+        // shelf and deleted the extras by hand. The hash is only written once
+        // the shelf is done, so a push that failed at the shelf is repeated in
+        // full next time - against the same book.
+        $slug = (string)($result['slug'] ?? $this->target['book_slug']);
+        $this->rememberBook($bookId, $slug, null);
+
         if ($this->target['shelf_id'] !== null) {
             $this->client->attachBookToShelf((int)$this->target['shelf_id'], $bookId);
         }
 
-        $slug = (string)($result['slug'] ?? $this->target['book_slug']);
-        Targets::update($this->targetId(), [
+        $this->rememberBook($bookId, $slug, $hash);
+
+        return $bookId;
+    }
+
+    /**
+     * Stores which book this target lives in, on the row and on the copy this
+     * publisher is working from. A null hash leaves the stored one alone.
+     */
+    private function rememberBook(int $bookId, string $slug, ?string $hash): void
+    {
+        $fields = [
             'book_id' => $bookId,
             'book_slug' => $slug,
             'book_url' => $this->client->bookUrl($slug),
-            'pushed_hash' => $hash,
-        ]);
-        $this->target['book_id'] = $bookId;
-        $this->target['book_slug'] = $slug;
-        $this->target['book_url'] = $this->client->bookUrl($slug);
-        $this->target['pushed_hash'] = $hash;
-
-        return $bookId;
+        ];
+        if ($hash !== null) {
+            $fields['pushed_hash'] = $hash;
+        }
+        Targets::update($this->targetId(), $fields);
+        $this->target = $fields + $this->target;
     }
 
     /**

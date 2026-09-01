@@ -18,6 +18,7 @@ use CourseForge\Domain\Runs;
 use CourseForge\Support\Db;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Runtime;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -89,14 +90,41 @@ final class BatchDriver
         }
 
         $handle = $provider->submitBatch($items);
-        Runs::activate(
-            $runId,
-            $handle->remoteId,
-            $handle->remoteState,
-            $handle->refJson(),
-            $handle->expiresAt ?? 0,
-            $handle->resultsExpireAt ?? 0,
-        );
+        try {
+            Runs::activate(
+                $runId,
+                $handle->remoteId,
+                $handle->remoteState,
+                $handle->refJson(),
+                $handle->expiresAt ?? 0,
+                $handle->resultsExpireAt ?? 0,
+            );
+        } catch (Throwable $e) {
+            // The provider has the batch and the database does not. The
+            // caller is about to discard the reservation, which is right for a
+            // submission that never left - and would here leave a batch
+            // running and billing under an id nothing records, while the
+            // person retries and submits a second one. So the batch is taken
+            // back where that is possible before the failure is reported, and
+            // the report names the id where it is not.
+            $withdrawn = false;
+            if ($provider->canCancel()) {
+                try {
+                    $withdrawn = $provider->cancelBatch($handle);
+                } catch (Throwable $cancelFailure) {
+                    Runtime::log('batch.withdraw', $cancelFailure);
+                }
+            }
+            throw new RuntimeException(
+                'The provider accepted the batch but CourseForge could not record it (' . $e->getMessage() . '). '
+                . ($withdrawn
+                    ? 'The batch was cancelled at the provider; nothing has been charged for what did not run.'
+                    : 'The batch is still running there as ' . $handle->remoteId . ' and is not tracked here - '
+                        . 'cancel it from the provider\'s console before queueing these pages again.'),
+                0,
+                $e
+            );
+        }
     }
 
     /**
@@ -213,12 +241,33 @@ final class BatchDriver
                 return Runs::summary(Runs::require($username, $runId));
             }
 
+            // Asked once. A second press while the provider is still winding
+            // the batch down has nothing to add, and on some gateways a cancel
+            // of a batch already cancelling is an error.
+            if ($status->state === BatchStatus::CANCELLING) {
+                return Runs::summary(Runs::require($username, $runId)) + [
+                    'canceled' => false,
+                    'message' => 'The provider is already stopping this batch. The pages it had finished arrive '
+                        . 'with the next check, and the rest are released then.',
+                ];
+            }
+
             // A provider with no cancel route is not asked. OpenRouter's is
             // undocumented, and a button that answers 404 is worse than one
-            // that is not offered.
-            if ($provider->canCancel()) {
-                $provider->cancelBatch($handle);
+            // that is not offered. The run is left open all the same: the
+            // batch runs on at the provider whatever is done here, and closing
+            // the run would only mean nobody collects what it produces.
+            if (!$provider->canCancel()) {
+                $why = $provider->label() . ' has no way to stop a batch once it is queued. The run stays open '
+                    . 'and its pages arrive as the provider finishes them; a page you write another way in the '
+                    . 'meantime keeps your version.';
+                Runs::update($runId, ['error' => mb_substr($why, 0, 500)]);
+                Projects::touch((int)$run['project_id']);
+
+                return Runs::summary(Runs::require($username, $runId)) + ['canceled' => false, 'message' => $why];
             }
+
+            $provider->cancelBatch($handle);
         } catch (Throwable $e) {
             // Nothing below this point is reversible: it settles every pending
             // item as canceled and closes the run for good. Doing that after a
@@ -243,20 +292,24 @@ final class BatchDriver
             ];
         }
 
-        foreach (Runs::pendingItems($runId) as $item) {
-            if (!Runs::settleItem($runId, (string)$item['custom_id'], 'canceled', 'Stopped before the provider answered.')) {
-                continue;
-            }
-            $page = Pages::find((int)$run['project_id'], (int)$item['page_id']);
-            if ($page !== null && (string)$page['status'] === 'queued') {
-                Pages::update((int)$item['page_id'], ['status' => 'pending', 'error' => '']);
-            }
-        }
-
-        Runs::update($runId, ['status' => Runs::CANCELED, 'finished_at' => time()]);
+        // Requested, not done. A cancel is asynchronous on every provider and
+        // the batch keeps whatever it had already answered - pages that were
+        // paid for - which nothing can download while the batch is still
+        // winding down. This used to settle every pending item as canceled
+        // and close the run on the spot, so those answers were never fetched
+        // and the pages went back to pending as if nothing had been written.
+        // The run stays open instead: the next poll finds the batch cancelled,
+        // collects the finished pages, and releases only the rest.
+        $message = 'Stopping. The pages the provider had already written arrive with the next check, '
+            . 'and the rest are released then.';
+        Runs::update($runId, [
+            'status' => Runs::RUNNING,
+            'error' => $message,
+            'polled_at' => time(),
+        ] + ($status->ref !== [] ? ['remote_ref' => $handle->refJson()] : []));
         Projects::touch((int)$run['project_id']);
 
-        return Runs::summary(Runs::require($username, $runId));
+        return Runs::summary(Runs::require($username, $runId)) + ['canceled' => true, 'message' => $message];
     }
 
     /* ------------------------------------------------------------ internals */
@@ -300,8 +353,18 @@ final class BatchDriver
                 return; // stays open; the next poll tries again
             }
 
+            // What the download had no answer for. After a cancel that is the
+            // work the provider never started, and those pages go back to
+            // pending rather than into an error state: nothing went wrong with
+            // them, somebody pressed Stop. Anything else is a page the batch
+            // should have answered and did not.
+            $stopped = $status->state === BatchStatus::CANCELLED;
             foreach (Runs::pendingItems($runId) as $item) {
-                if (Runs::settleItem($runId, (string)$item['custom_id'], 'errored', 'The provider returned no result for this page.')) {
+                if ($stopped) {
+                    if (Runs::settleItem($runId, (string)$item['custom_id'], 'canceled', 'Stopped before the provider answered.')) {
+                        self::release((int)$run['project_id'], (int)$item['page_id']);
+                    }
+                } elseif (Runs::settleItem($runId, (string)$item['custom_id'], 'errored', 'The provider returned no result for this page.')) {
                     PageGenerator::fail((int)$item['page_id'], 'The batch finished without an answer for this page.');
                 }
             }
@@ -368,7 +431,15 @@ final class BatchDriver
 
             if (!$result->succeeded()) {
                 $why = $result->errorMessage();
-                if (Runs::settleItem($runId, $customId, $result->status, $why)) {
+                if (!Runs::settleItem($runId, $customId, $result->status, $why)) {
+                    continue;
+                }
+                // A line the provider marked cancelled is a page that was
+                // stopped, not one that failed: Anthropic reports the requests
+                // a cancel cut short inside an otherwise ended batch.
+                if ($result->status === BatchItemResult::CANCELLED) {
+                    self::release($projectId, $pageId);
+                } else {
                     PageGenerator::fail($pageId, $why !== '' ? $why : 'The batch returned no content.');
                 }
                 continue;
@@ -403,6 +474,21 @@ final class BatchDriver
                 Runs::settleItem($runId, $customId, 'errored', $e->getMessage());
                 PageGenerator::fail($pageId, $e->getMessage());
             }
+        }
+    }
+
+    /**
+     * Puts a page a stopped batch never answered back where it was.
+     *
+     * Only a page still marked queued is touched: one written by hand or
+     * generated live while the batch ran has left that state, and its text is
+     * not this run's to reset.
+     */
+    private static function release(int $projectId, int $pageId): void
+    {
+        $page = Pages::find($projectId, $pageId);
+        if ($page !== null && (string)$page['status'] === 'queued') {
+            Pages::update($pageId, ['status' => 'pending', 'error' => '']);
         }
     }
 

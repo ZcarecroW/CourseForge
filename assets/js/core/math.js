@@ -48,9 +48,16 @@ function load() {
     const script = document.createElement('script');
     script.src = SCRIPT_URL;
     script.async = true;
+    // Every way this can fail forgets the attempt, not only the network one:
+    // a rejected promise left in `loading` kept every later formula as raw
+    // LaTeX until the page was reloaded.
+    const fail = (error) => {
+      loading = null;
+      reject(error instanceof Error ? error : new Error(String(error)));
+    };
     script.onload = () => {
       const mathjax = globalThis.MathJax;
-      if (!mathjax?.startup?.promise) { reject(new Error('MathJax did not start.')); return; }
+      if (!mathjax?.startup?.promise) { fail(new Error('MathJax did not start.')); return; }
       mathjax.startup.promise
         .then(() => {
           // The SVG output needs one stylesheet in the document; it is the same
@@ -62,12 +69,9 @@ function load() {
           }
           resolve(mathjax);
         })
-        .catch(reject);
+        .catch(fail);
     };
-    script.onerror = () => {
-      loading = null;
-      reject(new Error('MathJax could not be loaded.'));
-    };
+    script.onerror = () => fail(new Error('MathJax could not be loaded.'));
     document.head.append(script);
   });
   return loading;

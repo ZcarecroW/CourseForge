@@ -220,11 +220,14 @@ $config = credentials();
 $manifestFile = CF_DATA . MANIFEST;
 
 $local = localTree($root);
-$previous = $options['full'] ? [] : (is_file($manifestFile) ? (Json::read($manifestFile) ?? []) : []);
+$previous = is_file($manifestFile) ? (Json::read($manifestFile) ?? []) : [];
 
+// --full defeats the hash comparison and nothing else. It used to empty the
+// manifest itself, which also emptied the list of files to prune: --full
+// --prune then re-uploaded everything and deleted nothing, quietly.
 $changed = [];
 foreach ($local as $path => $hash) {
-    if (($previous[$path] ?? null) !== $hash) {
+    if ($options['full'] || ($previous[$path] ?? null) !== $hash) {
         $changed[$path] = $hash;
     }
 }

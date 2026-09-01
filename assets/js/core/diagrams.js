@@ -35,13 +35,17 @@ function load() {
   loading ??= new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = SCRIPT_URL;
+    // Every way this can fail forgets the attempt, not only the network one:
+    // a rejected promise left in `loading` answered every later diagram with
+    // the same stale error until the page was reloaded.
+    const fail = (message) => {
+      loading = null;
+      reject(new Error(message));
+    };
     script.onload = () => (globalThis.mermaid
       ? resolve(globalThis.mermaid)
-      : reject(new Error('Mermaid loaded but did not register itself.')));
-    script.onerror = () => {
-      loading = null;
-      reject(new Error('Mermaid could not be loaded.'));
-    };
+      : fail('Mermaid loaded but did not register itself.'));
+    script.onerror = () => fail('Mermaid could not be loaded.');
     document.head.append(script);
   });
   return loading;

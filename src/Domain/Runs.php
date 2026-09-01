@@ -227,6 +227,24 @@ final class Runs
         return array_map(static fn(array $row): array => self::summary($row), Db::rows($sql, $args));
     }
 
+    /**
+     * How many of one user's runs are still open under a profile.
+     *
+     * Counted on the run's own snapshot of the profile rather than on the
+     * course's current one: a course can be pointed at another profile while a
+     * batch submitted under the old one is still in flight, and it is the old
+     * one whose credentials that batch is collected with.
+     */
+    public static function openCountForProfile(string $username, int $profileId): int
+    {
+        $row = Db::row(
+            'SELECT COUNT(*) AS n FROM batch_jobs WHERE username = ? AND profile_id = ? AND status NOT IN (?,?,?)',
+            array_merge([$username, $profileId], self::TERMINAL)
+        );
+
+        return (int)($row['n'] ?? 0);
+    }
+
     /** @return array<int,array<string,mixed>> */
     public static function items(int $runId): array
     {
