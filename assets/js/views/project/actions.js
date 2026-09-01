@@ -161,6 +161,35 @@ export const saveTargets = (targets, { silent = false } = {}) => run(async () =>
   return result;
 }, 'Save destinations');
 
+/* --------------------------------------------------------------- typography */
+
+/**
+ * Sets the punctuation of text that is already written, over the course, one
+ * chapter or one page.
+ *
+ * `preview` runs the whole pass server side and writes nothing, which is what
+ * lets a button say how much of the course it is about to change before it
+ * changes it. A preview answers with no tree, and applyProject leaves the store
+ * alone when a payload carries none - so the same call serves both.
+ */
+export const fixTypography = (target, targetId = null, { preview = false } = {}) => run(async () => {
+  const payload = applyProject(await post(`projects/${projectId()}/typography`, {
+    target, target_id: targetId, preview,
+  }));
+  return payload.typography;
+}, 'Correct punctuation');
+
+/** "3 pages and 1 chapter", or "nothing" - the same sentence in both tabs. */
+export const typographyCount = (result) => {
+  const counts = result?.corrected ?? {};
+  const parts = [];
+  if (counts.pages) parts.push(plural(counts.pages, 'page'));
+  if (counts.chapters) parts.push(plural(counts.chapters, 'chapter'));
+  if (counts.course) parts.push('the course description');
+  if (!parts.length) return 'nothing';
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+};
+
 /* ----------------------------------------------------------------- chapters */
 
 export const saveChapter = (chapterId, fields) => run(async () => {

@@ -57,7 +57,76 @@ models, language), create a **Course**, generate the **Structure**, write the
 Full documentation, including the nginx configuration and the technical
 background, is in [docs.md](docs.md).
 
-## What is new in 4.7
+## What is new in 4.8
+
+### The punctuation pass reads a quotation mark the way a reader does
+
+4.6 taught CourseForge to set a generated page's punctuation the way its
+language sets it. It read each mark by position — a mark after a space opens, a
+mark after a word closes — and position turned out not to be enough twice over.
+`**"Wort"**` came out as `**"Wort“**`, because a Markdown asterisk stood where a
+space should have been and the opening rule declined the mark on its account.
+And correct French came out *wrong*: in `« bonjour » et`, the closing guillemet
+has a space on both sides, exactly like an opening one, so every `»` was turned
+back into a `«` — on text that had been right before the pass ran.
+
+The mark is now decided by three signals in order. **Position** first, with
+Markdown emphasis stepped over on the way to it, so a quotation with asterisks
+around it is still a quotation. **Nesting depth** second, which is what tells a
+closing guillemet from an opening one when both of its neighbours are spaces.
+**The glyph** last, for a mark that only ever points one way. And what gets
+written is not what was read: a closing mark takes the pair *its own opening
+mark* took, which is why `„Wort"` comes out as a pair at all, and why a double
+quotation inside a double quotation comes out as `„… ‚…‘ …“` whichever character
+the model typed. The depth is forgotten at every blank line, heading, list item
+and table row, so one unbalanced mark costs its own paragraph instead of every
+paragraph after it.
+
+The rest of the pass grew with it, and all of it is code rather than a prompt —
+nothing here calls a model, and none of it costs anything:
+
+- an em dash between two words becomes a spaced en dash in the languages that
+  set one that way, which is the single most reliable thing an AI writing German
+  reproduces from English;
+- `1990-2000` becomes a span, while `2026-09-01` and `T-34` are left alone;
+- `5"` after a digit with no quotation open is a measurement and becomes `5″`,
+  while the `"` closing `"42"` stays a quotation mark;
+- `don't`, `'90s`, `rock 'n' roll` and `dogs' bowls` each get the apostrophe
+  they want, and none of them is mistaken for a quotation;
+- four spaces become one, a space before a comma goes, `( innen )` closes on its
+  content, three blank lines become one, and trailing whitespace goes — except
+  the two spaces that are a line break in Markdown;
+- HTML comments and characters escaped on purpose join fenced blocks, inline
+  spans, links, addresses, tags, formulas and table alignment rows as things
+  that are lifted out and put back untouched;
+- and Polish, Czech, Slovak, Hungarian, Russian, Ukrainian, Greek, Swedish and
+  Finnish now get their own marks rather than English ones.
+
+### …and it can be pointed at a course that is already written
+
+All of that runs when a page is stored, which was no help to the pages stored
+before it existed, stored with the setting off, or stored by 4.6 and 4.7.
+
+**Course → Settings → Punctuation** now runs the same rules over a course that
+is already finished. One chapter and its pages have their own button beside
+**Publish chapter**; one page has one in the inspector. It asks first: the button
+runs the whole pass with the writing switched off and says how much would change
+— “of 41 pages and 6 chapters, this would change 12 pages and 1 chapter” — and
+only then offers to go through with it. The number in the dialog is the number
+that changes, because it comes from the same run.
+
+It runs whether or not the profile corrects new pages, which is the point: that
+setting answers “correct the pages I am about to generate”, and this button is
+somebody standing in front of a course they already have. It touches every
+page's Markdown and title, every chapter's title and description, and the book
+title and description, and it rewrites the outline from the titles afterwards. A
+page that needed nothing is not written at all, so nothing goes newly out of sync
+with a wiki over a change that never happened.
+
+Over MCP: `fix_typography`, with `course_id`, an optional `chapter_id` or
+`page_id`, an optional `language`, and `preview`.
+
+## What was new in 4.7
 
 ### A course can be published into more than one BookStack
 

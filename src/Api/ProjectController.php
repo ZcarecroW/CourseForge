@@ -11,6 +11,7 @@ use CourseForge\Domain\Projects;
 use CourseForge\Domain\Research;
 use CourseForge\Domain\Tags;
 use CourseForge\Domain\Transfers;
+use CourseForge\Domain\Typesetter;
 use CourseForge\Publish\Targets;
 use CourseForge\Security\Access;
 use CourseForge\Security\Actor;
@@ -308,6 +309,52 @@ final class ProjectController
 
         Projects::touch($id);
         return ['project' => Projects::tree($owner, $id)];
+    }
+
+    /* ---------------------------------------------------------- typography */
+
+    /**
+     * Sets the punctuation of a course, one chapter or one page that is already
+     * written.
+     *
+     * The same `target` / `target_id` shape as details and tags, for the same
+     * reason: it is the one sentence the interface keeps saying, and a screen
+     * that already knows how to name a chapter should not have to learn a
+     * second way to do it here.
+     *
+     * `preview` runs the whole pass and writes nothing, which is what the
+     * browser asks first so that the button can say how many pages it is about
+     * to change before it changes them.
+     */
+    public static function typography(Request $request, ?Actor $actor): array
+    {
+        $me = $actor ?? throw HttpException::unauthorized();
+        $id = $request->id('id');
+        $project = Access::project($me, $id);
+        $owner = (string)$project['username'];
+
+        $target = $request->enum('target', Typesetter::LEVELS, 'course');
+        $language = $request->has('language') ? $request->str('language') : null;
+
+        // A course of five hundred pages is five hundred passes over Markdown,
+        // and none of them needs the session lock the next request is waiting for.
+        Runtime::beginLongRequest();
+
+        $result = Typesetter::apply(
+            $owner,
+            $project,
+            $target,
+            $request->intOrNull('target_id'),
+            $language,
+            $request->bool('preview')
+        );
+
+        return [
+            'typography' => $result,
+            // A preview changed nothing, so the tree it would return is the tree
+            // the client is already holding.
+            'project' => $result['preview'] ? null : Projects::tree($owner, $id),
+        ];
     }
 
     /* ------------------------------------------------------------- research */

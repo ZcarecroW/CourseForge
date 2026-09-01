@@ -86,11 +86,13 @@ final class Settings
             [
                 'key' => 'app.typography', 'group' => 'general', 'type' => 'bool',
                 'label' => 'Correct punctuation after the AI',
-                'description' => 'Sets quotation marks, ellipses and dashes the way the course language does '
-                    . 'before a generated page is stored - German gets „ and “ where the model wrote „ and ", '
-                    . 'French gets its guillemets and its narrow spaces. Code, links, formulas and the markers '
-                    . 'CourseForge writes are never touched. This is what a new profile starts from, and each '
-                    . 'profile can decide for itself.',
+                'description' => 'Sets the quotation marks, apostrophes, ellipses, dashes and spacing of a '
+                    . 'generated page the way the course language does, before it is stored - German gets „ and “ '
+                    . 'where the model wrote " and ", French gets its guillemets and its narrow spaces, an ellipsis '
+                    . 'becomes one character and a hyphen between two words becomes a dash. Code, links, formulas '
+                    . 'and the markers CourseForge writes are never touched. This is what a new profile starts '
+                    . 'from, and each profile can decide for itself. It says nothing about a course that is already '
+                    . 'written: Course > Settings > Punctuation corrects one of those whatever this is set to.',
                 'default' => true,
             ],
             [

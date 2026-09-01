@@ -7,6 +7,7 @@ use CourseForge\Ai\PageGenerator;
 use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Pages;
 use CourseForge\Domain\Structure;
+use CourseForge\Domain\Typesetter;
 use CourseForge\Mcp\Args;
 use CourseForge\Mcp\Resolve;
 use CourseForge\Mcp\Schema;
@@ -168,6 +169,34 @@ final class PageTools
                 required: ['course_id'],
                 handler: static fn(Actor $actor, array $args): array => self::generatePage($actor, Args::of($args)),
                 spends: true,
+            ),
+
+            new Tool(
+                name: 'fix_typography',
+                scope: Scopes::PAGES,
+                title: 'Correct the punctuation of what is already written',
+                description: 'Sets the quotation marks, apostrophes, ellipses, dashes and spacing of a course, one '
+                    . 'chapter or one page the way the course language sets them - German gets „ and “ where the '
+                    . 'model wrote " and ", French gets its guillemets and its narrow spaces, an ellipsis becomes '
+                    . 'one character and a hyphen between two words becomes a dash. Code, links, formulas, HTML and '
+                    . 'anything the author escaped are never touched. Costs nothing: no model is called, the rules '
+                    . 'are all in code. page_id wins over chapter_id, which wins over the course, so course_id '
+                    . 'alone corrects the whole course. Send preview to be told what would change without changing '
+                    . 'it. Running it twice changes nothing the second time.',
+                properties: [
+                    'course_id' => Schema::courseId(),
+                    'chapter_id' => Schema::int('One chapter and its pages. Omit for the whole course.'),
+                    'page_id' => Schema::int('One page. Omit for the whole chapter or course.'),
+                    'language' => Schema::string(
+                        'Set the text as this language instead of the course\'s own.',
+                        'Deutsch'
+                    ),
+                    'preview' => Schema::bool('Report what would change and write nothing.'),
+                ],
+                required: ['course_id'],
+                handler: static fn(Actor $actor, array $args): array => self::fixTypography($actor, Args::of($args)),
+                destructive: true,
+                idempotent: true,
             ),
         ];
     }
@@ -406,6 +435,64 @@ final class PageTools
         \CourseForge\Domain\Projects::resyncStructure($owner, (int)$project['id']);
 
         return ['updated' => true, 'chapter_id' => (int)$chapter['id'], 'changed' => array_keys($fields)];
+    }
+
+    /**
+     * Corrects the punctuation of text that already exists.
+     *
+     * The three levels are resolved here rather than in the domain, in the
+     * order the tool description promises: a page names its own chapter, so a
+     * chapter_id sent beside a page_id that disagrees with it is a mistake
+     * worth naming rather than a preference worth guessing at.
+     *
+     * @return array<string,mixed>
+     */
+    private static function fixTypography(Actor $actor, Args $args): array
+    {
+        ['project' => $project, 'owner' => $owner] = Resolve::course($actor, $args->id());
+
+        $chapterId = $args->optionalId('chapter_id');
+        $pageId = $args->optionalId('page_id');
+
+        if ($pageId !== null) {
+            $page = Resolve::page($project, $pageId);
+            if ($chapterId !== null && $chapterId !== (int)$page['chapter_id']) {
+                throw HttpException::unprocessable(
+                    'Page ' . $pageId . ' belongs to chapter ' . (int)$page['chapter_id'] . ', not chapter '
+                    . $chapterId . '. Send page_id alone to correct the page, or chapter_id alone for the chapter.'
+                );
+            }
+            $level = 'page';
+            $target = $pageId;
+        } elseif ($chapterId !== null) {
+            Resolve::chapter($project, $chapterId);
+            $level = 'chapter';
+            $target = $chapterId;
+        } else {
+            $level = 'course';
+            $target = null;
+        }
+
+        // A whole course is many passes over Markdown and none of them needs
+        // the session lock the next request is waiting for.
+        Runtime::beginLongRequest();
+
+        $result = Typesetter::apply(
+            $owner,
+            $project,
+            $level,
+            $target,
+            $args->has('language') ? $args->str('language') : null,
+            $args->bool('preview')
+        );
+
+        return $result + [
+            'next_step' => $result['total'] === 0
+                ? 'Nothing needed correcting.'
+                : ($result['preview']
+                    ? 'Call fix_typography again without preview to make these changes.'
+                    : 'Corrected pages differ from what was published; publish_course brings the wiki back in step.'),
+        ];
     }
 
     /** @return array<string,mixed> */

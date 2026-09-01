@@ -723,43 +723,117 @@ So a generated page has its punctuation set before it is stored:
 
 | | Written | Stored |
 |---|---|---|
-| German | `„Wort"` / `"Wort"` | `„Wort“` |
-| French | `"mot"`, `mot ;` | `« mot »`, `mot ;` |
-| Spanish, Italian | `"parola"` | `«parola»` |
-| English and the rest | `"word"`, `don't` | `“word”`, `don’t` |
-| every language | `...`, `a - b` | `…`, `a – b` |
+| German | `„Wort"`, `**"Wort"**`, `Wort—Wort` | `„Wort“`, `**„Wort“**`, `Wort – Wort` |
+| French | `"mot"`, `« mot »`, `mot ;` | `« mot »` with narrow spaces, `mot ;` |
+| Spanish, Italian, Greek | `"parola"` | `«parola»` |
+| Polish, Hungarian | `"słowo"` | `„słowo”` |
+| Czech, Slovak | `"slovo"` | `„slovo“` |
+| Russian, Ukrainian | `"слово"` | `«слово»` |
+| Swedish, Finnish | `"ord"` | `”ord”` |
+| English and the rest | `"word"`, `don't`, `'90s` | `“word”`, `don’t`, `’90s` |
+| every language | `...`, `a - b`, `1990-2000`, `5"` | `…`, `a – b`, `1990–2000`, `5″` |
+| every language | `zwei  Wörter ,` and three blank lines | one space, `,` against the word, one blank line |
 
-Three things are worth knowing about it.
+Anything the recogniser does not know is set the English way. A language field
+is free text — a course may be written in a language nobody thought to list — so
+this is a recogniser rather than a validator, and a two-letter code only ever
+matches exactly: `es` is Spanish and `Estonian` is not.
+
+Four things are worth knowing about it.
 
 **It never touches anything that is not prose.** A fenced block, an inline span,
-a link and its target, a bare address, an HTML tag, a formula, a table's
-alignment row and the two markers CourseForge writes into a page — a cross
-reference and a cloze deletion — are lifted out before the rules run and put
-back exactly as they were. Turning a straight quote into a curly one inside a
-JSON sample is not a typographic improvement, it is a broken example, and a
-course about a programming language is mostly examples.
+a link and its target, a bare address, an HTML tag, an HTML comment, a formula, a
+table's alignment row, a character the author escaped on purpose, and the two
+markers CourseForge writes into a page — a cross reference and a cloze deletion —
+are lifted out before the rules run and put back exactly as they were. Turning a
+straight quote into a curly one inside a JSON sample is not a typographic
+improvement, it is a broken example, and a course about a programming language is
+mostly examples.
 
-**It reads position, not order.** A mark after a space opens and a mark after a
-word closes, which is what makes the half-corrected pair the models actually
-produce come out right. A counter that alternated would need to have seen the
-whole document and would stay wrong for the rest of it after one stray
-apostrophe.
+**It reads a quotation mark the way a reader does.** Three signals decide every
+mark, in this order. *Position* first: a mark glued to text on exactly one side
+has already said which side it is on — and Markdown emphasis is stepped over on
+the way to that answer, because `**"Wort"**` is a quotation with asterisks around
+it, not a quotation mark with a word attached. *Depth* second: it is what tells
+the closing `»` of `« mot » et` from an opening one when both of its neighbours
+are spaces, which position alone cannot. *The glyph* last, for a mark that only
+ever points one way.
+
+And what is written is not what was read: an opening mark takes the pair one
+level in from the pair around it, and a closing mark takes the pair *its own
+opening mark* took. That is why `„Wort"` — which is what the models actually
+write — comes out as a pair at all, and why a double quotation inside a double
+quotation comes out as `„… ‚…‘ …“` whichever character was typed.
 
 **It is idempotent.** A page written, regenerated, published and pulled back is
 byte-for-byte the page written once. Anything else would be a diff appearing
-from nowhere on a page nobody edited.
+from nowhere on a page nobody edited — and it is the property the retroactive
+pass in 3.3 leans on to know that a page it did not change needed no change.
+
+**It is bounded.** The quotation depth is forgotten at every block boundary: a
+blank line, a heading, a list item, a table row. One unbalanced quotation mark
+can therefore confuse its own paragraph and nothing after it, which is the
+difference between a typo and a page-long cascade.
 
 It runs where the page is stored, which is the one place all three roads meet:
 the browser's generator, an overnight batch, and a page a connected client wrote
-through `store_page`. It does not touch the outline — the titles there are
-matched byte-for-byte when a structure is applied, and a title quietly rewritten
-is a page quietly deleted and recreated.
+through `store_page`. It sees a page's Markdown and nothing else, so it never
+touches the outline: the titles there are matched byte-for-byte when a structure
+is applied, and a title quietly rewritten by a generator would be a page quietly
+deleted and recreated. Correcting the titles too is a thing you ask for, and 3.3
+is where that lives.
 
 **Switching it off.** Each profile decides for itself, under
 **Profiles → Correct the punctuation of a generated page**. What a new profile
 starts with is `app.typography` on the Settings screen, which is on. A profile
 that has never said anything follows the installation, so an administrator can
 change the answer for everything that has not disagreed.
+
+### 3.3 Correcting a course that is already written
+
+The pass above runs when a page is stored, which is no help at all to the pages
+stored before it existed, stored with the setting switched off, or stored by a
+release whose rules were worse than today's. **Course → Settings → Punctuation**
+is the door for those: the same rules, run over a course that is already
+finished, on a button rather than on a setting.
+
+Three scopes, each of them where the work already is:
+
+- **the whole course** — Course → Settings → **Punctuation**;
+- **one chapter and its pages** — the **Punctuation** button beside **Publish
+  chapter** in the chapter editor;
+- **one page** — **Punctuation** in the inspector, beside Publish just this page.
+
+**It asks before it does anything.** The button runs the entire pass with the
+writing switched off and answers with the number that would change — “of 41
+pages and 6 chapters, this would change 12 pages and 1 chapter”, with the first
+forty of them named — and only then offers to do it. The number in the dialog is
+the number that changes, not an estimate, because it comes from the same run.
+
+**It runs whatever the profile says.** The per-profile switch answers “correct
+the pages I am about to generate”. Pressing this button is somebody standing in
+front of a course they already have and saying “correct that”. A setting that
+turned the second question into a no would be a setting that refuses an
+instruction, which is not what settings are for.
+
+**What it touches:** every page's Markdown and title, every chapter's title and
+description, and the course's book title and description. Titles are lines of
+the outline, so the outline is rewritten from them afterwards — the same repair
+renaming a page has always made. A page's extra context and the course's
+research notes are deliberately left out: they are instructions to the writer,
+not text anybody reads.
+
+**What it costs:** nothing, and no model is called. A corrected page does differ
+from the one already in BookStack, so it shows as out of sync until the next
+publish. A page that needed nothing is not written at all — its timestamp does
+not move and it does not go newly out of sync — which is only possible because
+the pass is idempotent.
+
+Over MCP the same thing is `fix_typography`: `course_id`, an optional
+`chapter_id` or `page_id` (a page wins over a chapter, which wins over the whole
+course), an optional `language` to set the text as something other than the
+course's own, and `preview` to be told what would change without changing it.
+
 
 ## 4. The prompt library
 
@@ -1398,6 +1472,7 @@ The ten or so that matter:
 | `estimate_run` | What `start_run` would do with the same arguments, without doing it. Free, because the prompts it measures are built and thrown away. |
 | `start_run` | Queues a set of pages on the server and returns at once. Survives the client disconnecting, the session ending and a restart of the server. |
 | `poll_run` | Asks the provider *now* whether a batch has finished and writes home everything that has, instead of waiting for the next scheduler tick. Safe to call as often as you like. |
+| `fix_typography` | Sets the punctuation of a course, a chapter or one page that is already written — quotation marks, apostrophes, ellipses, dashes and spacing, the way the course language does. Costs nothing, changes nothing the second time, and `preview` says what it would do without doing it. |
 | `publish_course` | Pushes the course into BookStack: creates the book, puts it on the shelf, creates or updates every chapter and page with its effective tags, skips what has not changed, and resolves cross references afterwards. |
 | the admin ones | `list_settings` / `set_settings` / `reset_setting`, `generate_cron_token`, `list_users` / `create_user` / `update_user` / `delete_user`, `issue_invite`, `transfer_course`, `get_diagnostics`, `get_audit_log`, `list_connections` / `revoke_connection`, `get_prompts` / `set_prompts`, and `check_for_update` / `install_update` / `rollback_update`. |
 

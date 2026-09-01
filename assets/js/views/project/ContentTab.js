@@ -8,7 +8,10 @@ import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
 import { useScrollSync } from '@/core/scrollsync.js';
 import { compactNumber, plural } from '@/core/format.js';
-import { busy, patchDetails, tagAdd, tagRemove, tagInherit, tagToggle, inheritedTags, saveChapter } from '@/views/project/actions.js';
+import {
+  busy, patchDetails, tagAdd, tagRemove, tagInherit, tagToggle, inheritedTags, saveChapter,
+  fixTypography, typographyCount,
+} from '@/views/project/actions.js';
 import {
   runs, openRuns, doneRuns, cronStalled, loadRuns, stopPolling, resetRuns, pollNow,
   startRun, cancelRun, forgetRun, runTone, runProgress, runWhere, cronProblem,
@@ -423,6 +426,37 @@ export const ContentTab = {
     const pushPage = () => pushScope('page', selectedPage.value.id, 'Page');
     const pushChapter = () => pushScope('chapter', selectedChapter.value.id, 'Chapter');
 
+    /* Correcting the punctuation rewrites the stored text, which is the one
+       thing the editor is holding its own copy of. Unsaved edits are refused
+       rather than reconciled: the request would win and the sentence being
+       typed would not, and there is no version of that the author asked for.
+       Afterwards the copy is re-read, because what is on disk has moved. */
+    const typeset = (target) => attempt(async () => {
+      const page = target === 'page';
+      if (page ? dirty.value : chapterDirty.value) {
+        toast.error('Save your changes first - correcting the punctuation rewrites what is stored.');
+        return;
+      }
+      const id = page ? selectedPage.value?.id : selectedChapter.value?.id;
+      if (!id) return;
+
+      const result = await fixTypography(target, id);
+      if (!result) return;
+
+      if (page) await loadPage(id);
+      else if (selectedChapter.value) {
+        chapterDraft.title = selectedChapter.value.title;
+        chapterDraft.description = selectedChapter.value.description;
+      }
+
+      toast.success(result.total
+        ? `Punctuation corrected in ${typographyCount(result)}.`
+        : 'Nothing needed correcting.');
+    }, 'Correct punctuation');
+
+    const typesetPage = () => typeset('page');
+    const typesetChapter = () => typeset('chapter');
+
     const onKey = (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
@@ -462,7 +496,7 @@ export const ContentTab = {
       runTone, runProgress, runWhere, cronProblem, startSelection,
       confirmBackground, backgroundAnyway, writeHereInstead,
       onDetailChange, detailTarget, detailEntity, tagAdd, tagRemove, tagInherit, tagToggle, inheritedTags,
-      wordCount, pushPage, pushChapter, confirmDiscard, discardAndGo,
+      wordCount, pushPage, pushChapter, typesetPage, typesetChapter, confirmDiscard, discardAndGo,
       concurrency, compactNumber,
       editor, previewPane, editorKey,
       syncEnabled: sync.enabled, toggleSync: sync.toggle, claim: sync.claim,
@@ -709,6 +743,10 @@ export const ContentTab = {
             <button class="btn btn--success btn--sm" :disabled="!chapterDirty || busy" @click="saveChapterEdits">
               <app-icon name="save" :size="13"/> Save
             </button>
+            <button class="btn btn--sm" :disabled="busy || chapterDirty" @click="typesetChapter"
+                    title="Set the punctuation of this chapter and its pages the way the course language does">
+              <app-icon name="quote" :size="13"/> Punctuation
+            </button>
             <button class="btn btn--sm" :disabled="busy" @click="pushChapter"
                     title="Publish this chapter and its pages to BookStack">
               <app-icon name="upload" :size="13"/> Publish chapter
@@ -850,6 +888,21 @@ export const ContentTab = {
                     {{ selectedPage.has_content ? 'Rewrite this page' : 'Write this page' }}
                   </button>
                   <p class="hint">Leaving the box empty writes the page from scratch.</p>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="col gap-2">
+                  <span class="eyebrow">Punctuation</span>
+                  <button class="btn btn--block" :disabled="busy || dirty || !selectedPage.has_content"
+                          @click="typesetPage">
+                    <app-icon name="quote" :size="14"/> Correct this page
+                  </button>
+                  <p class="hint">
+                    Quotation marks, apostrophes, ellipses, dashes and spacing, set the way the course
+                    language sets them. Code, links and formulas are never touched, and running it twice
+                    changes nothing.
+                  </p>
                 </div>
 
                 <div class="divider"></div>

@@ -183,11 +183,226 @@ test('the markers the pass works with cannot be smuggled in', static function ()
     // The three control characters the implementation parks its decisions on.
     // Arriving in the input, they would have come out as quotation marks or
     // eaten a code span, so they are dropped on the way in.
-    $sneaky = "Ein \x01Wort\x02 mit \x03 Zeichen.";
+    $sneaky = "Ein \x01Wort\x02 mit \x03 und \x04 Zeichen.";
     $set = Typography::apply($sneaky, 'de');
-    foreach (["\x01", "\x02", "\x03"] as $control) {
+    foreach (["\x01", "\x02", "\x03", "\x04"] as $control) {
         ok(!str_contains($set, $control), 'the control character does not survive');
     }
+});
+
+test('a quotation mark reads through the emphasis around it', static function (): void {
+    // The bug this release exists for. A Markdown asterisk stood where a space
+    // should have been, the opening rule declined the mark on its account, and
+    // the closing rule took it - so a bold quotation came out with two closing
+    // marks and the report read "the first one is wrong".
+    same(
+        'Das **„Wort“** ist fett.',
+        typeset('Das **"Wort"** ist fett.', 'de', 'a bold quotation'),
+        'a pair inside ** is still a pair'
+    );
+
+    foreach (['*%s*', '_%s_', '__%s__', '***%s***', '~~%s~~'] as $wrapper) {
+        same(
+            sprintf($wrapper, '„Wort“'),
+            typeset(sprintf($wrapper, '"Wort"'), 'de', 'a quotation inside ' . $wrapper),
+            'emphasis is transparent to the decision, whichever kind it is'
+        );
+    }
+
+    same(
+        "- **„Fett“** hier\n- *„Kursiv“* dort\n",
+        typeset("- **\"Fett\"** hier\n- *\"Kursiv\"* dort\n", 'de', 'emphasis inside a list'),
+        'and inside a list item, which is its own block'
+    );
+});
+
+test('a mark with no space on either side still picks a side', static function (): void {
+    same(
+        'Das Wort„Test“ ohne Leerzeichen.',
+        typeset('Das Wort"Test" ohne Leerzeichen.', 'de', 'a quotation glued to the word before it'),
+        'glued on both sides, so the open quotation decides: there is none, so it opens'
+    );
+
+    same(
+        'Ein „Wort“-Bindestrich.',
+        typeset('Ein "Wort"-Bindestrich.', 'de', 'a quotation a hyphen is attached to'),
+        'a hyphen after the closing mark is not part of the quotation'
+    );
+});
+
+test('a French quotation that was already right stays right', static function (): void {
+    // Both of a French closing guillemet's neighbours are spaces, which is
+    // exactly what an opening one looks like. Reading position alone, the pass
+    // used to turn every `»` into a `«` - and it did it to correct French,
+    // which is the worst version: text that was right before it ran.
+    same(
+        "Il a dit \u{00AB}\u{202F}bonjour\u{202F}\u{00BB} et voil\u{00E0}.",
+        typeset('Il a dit « bonjour » et voilà.', 'fr', 'a correct French quotation'),
+        'the closing guillemet closes, because a quotation is open and only it can'
+    );
+
+    same(
+        "\u{00AB}\u{202F}Un\u{202F}\u{00BB} et \u{00AB}\u{202F}deux\u{202F}\u{00BB}.",
+        typeset('« Un » et « deux ».', 'fr', 'two French quotations in a row'),
+        'and the second pair is not confused by the first'
+    );
+});
+
+test('a pair is closed by the mark that opened it', static function (): void {
+    // Not by the character the model typed, which is the whole point: the model
+    // types the wrong one. And the pairs alternate with the depth, so a double
+    // quotation inside a double quotation is set as the inner pair.
+    same(
+        'Er sagte „Er sagte ‚Hallo‘“ laut.',
+        typeset('Er sagte "Er sagte "Hallo"" laut.', 'de', 'a double inside a double'),
+        'the inner pair is the secondary one, whichever character was typed'
+    );
+
+    same(
+        'Nested: “He said ‘yes’ loudly.”',
+        typeset('Nested: "He said \'yes\' loudly."', 'English', 'English nesting'),
+        'and English alternates the same way'
+    );
+
+    same(
+        'Ein „falsches“ Paar und ein „umgekehrtes“.',
+        typeset('Ein ”falsches„ Paar und ein »umgekehrtes«.', 'de', 'marks pointing the wrong way'),
+        'a mark facing the wrong way is still read by where it stands'
+    );
+});
+
+test('an inch is not a closing quotation mark', static function (): void {
+    same(
+        'Das Brett ist 5″ breit und 3′ hoch.',
+        typeset('Das Brett ist 5" breit und 3\' hoch.', 'de', 'a measurement'),
+        'a straight mark after a digit, with nothing open, is a prime'
+    );
+
+    same(
+        'Die Antwort ist „42“.',
+        typeset('Die Antwort ist "42".', 'de', 'a quotation that ends on a digit'),
+        'and the same mark closes a quotation when there is one to close'
+    );
+});
+
+test('the apostrophe is told from the quotation mark', static function (): void {
+    same(
+        'It’s the ’90s, and rock ’n’ roll never left.',
+        typeset("It's the '90s, and rock 'n' roll never left.", 'en', 'apostrophes of three kinds'),
+        'inside a word, in front of a decade, and around an elided word'
+    );
+
+    same(
+        'The dogs’ bowls and James’ book.',
+        typeset("The dogs' bowls and James' book.", 'en', 'possessives'),
+        'a trailing apostrophe is a closing mark by position, and the right one'
+    );
+
+    same(
+        'Ein ‚kleines‘ Zitat im „großen“.',
+        typeset("Ein 'kleines' Zitat im \"großen\".", 'de', 'single marks are not apostrophes'),
+        'a single mark around a word is still a quotation'
+    );
+});
+
+test('the dashes a model reaches for become the ones the language uses', static function (): void {
+    same(
+        'Ein Wort – ohne Leerzeichen – Gedankenstrich.',
+        typeset('Ein Wort—ohne Leerzeichen—Gedankenstrich.', 'de', 'em dashes in German'),
+        'German sets a spaced en dash where English sets an em dash'
+    );
+
+    same(
+        'He said “hello” — then left.',
+        typeset('He said "hello" — then left.', 'English', 'an em dash in English'),
+        'and English keeps its own'
+    );
+
+    same(
+        'Von 1990–2000, S. 12–15, aber 2026-09-01 und T-34.',
+        typeset('Von 1990-2000, S. 12-15, aber 2026-09-01 und T-34.', 'de', 'ranges'),
+        'a span of numbers is a span; a date and a name with a hyphen in it are not'
+    );
+
+    same(
+        'Erst – so – und dann – so.',
+        typeset('Erst - so -- und dann --- so.', 'de', 'hyphens standing in for a dash'),
+        'one, two or three hyphens between two words are all the same dash'
+    );
+});
+
+test('the spacing a keyboard gets wrong', static function (): void {
+    same(
+        'Mehrere Leerzeichen und doppelte, hier.',
+        typeset('Mehrere    Leerzeichen und  doppelte , hier.', 'de', 'runs of spaces'),
+        'one space between two words, and none before a comma'
+    );
+
+    same(
+        'Die Funktion (innen) bleibt.',
+        typeset('Die Funktion ( innen ) bleibt.', 'de', 'spaces inside brackets'),
+        'a round bracket closes on its content'
+    );
+
+    same(
+        "Erster Absatz.\n\nZweiter Absatz.\n",
+        typeset("Erster Absatz.   \n\n\n\n\nZweiter Absatz.\n", 'de', 'blank lines and trailing space'),
+        'at most one blank line, and no whitespace hanging off the end'
+    );
+
+    // Two trailing spaces are a line break in Markdown, and deleting them
+    // would join two lines the author deliberately separated.
+    same(
+        "Zeile eins  \nZeile zwei\n",
+        typeset("Zeile eins  \nZeile zwei\n", 'de', 'a hard line break'),
+        'exactly two trailing spaces survive, because they mean something'
+    );
+
+    // A table's padding is what makes its source readable and means nothing to
+    // the renderer, so rewriting it would be a diff on every table for nothing.
+    $table = "| Name    | Wert |\n| ------- | ---- |\n| „a“     | 1    |\n";
+    same($table, typeset($table, 'de', 'a padded table'), 'a table row keeps its padding');
+});
+
+test('a paragraph cannot spoil the next one', static function (): void {
+    // One unbalanced mark used to shift every mark after it for the rest of the
+    // page. The depth is forgotten at every block boundary, so it costs its own
+    // paragraph and nothing else.
+    same(
+        "Ein „offenes Zitat\n\nEin „neues“ hier.\n",
+        typeset("Ein \"offenes Zitat\n\nEin \"neues\" hier.\n", 'de', 'an unbalanced quotation'),
+        'the second paragraph starts from nothing open'
+    );
+});
+
+test('more languages than the four that started it', static function (): void {
+    foreach ([
+        'Polski' => ['pl', '„Test”'],
+        'Čeština' => ['cs', '„Test“'],
+        'Magyar' => ['hu', '„Test”'],
+        'Русский' => ['ru', '«Test»'],
+        'Svenska' => ['sv', '”Test”'],
+        'Ελληνικά' => ['el', '«Test»'],
+    ] as $language => [$locale, $expected]) {
+        same($locale, Typography::localeOf((string)$language), $language . ' is recognised');
+        same(
+            $expected,
+            typeset('"Test"', (string)$language, 'a quotation in ' . $language),
+            $language . ' gets the marks it uses'
+        );
+    }
+
+    same(['„', '“'], Typography::marksOf('Deutsch'), 'the marks a screen can show before it offers to set them');
+    same('de', Typography::styleOf('Čeština'), 'and languages that share an arrangement say so');
+});
+
+test('what an author escaped, and what a comment holds, are not prose', static function (): void {
+    $md = "Ein \\\"Wort\\\" bleibt gerade.\n\n<!-- ein \"Kommentar\" mit ... -->\n\nAber \"dieses\" nicht.\n";
+    $set = typeset($md, 'de', 'escapes and comments');
+
+    ok(str_contains($set, '\\"Wort\\"'), 'a quotation mark escaped on purpose stays a straight one');
+    ok(str_contains($set, '<!-- ein "Kommentar" mit ... -->'), 'an HTML comment comes back exactly as it went in');
+    ok(str_contains($set, 'Aber „dieses“ nicht.'), 'and the prose around them is still set');
 });
 
 /* ------------------------------------------------- through the whole funnel */

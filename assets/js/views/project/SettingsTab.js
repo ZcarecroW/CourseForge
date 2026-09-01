@@ -3,7 +3,7 @@ import { state, openCourse, loadProjects } from '@/core/store.js';
 import { del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { formatDateTime } from '@/core/format.js';
-import { busy, saveSettings, tagAdd, tagRemove, tagInherit, tagToggle } from '@/views/project/actions.js';
+import { busy, saveSettings, tagAdd, tagRemove, tagInherit, tagToggle, fixTypography, typographyCount } from '@/views/project/actions.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';
@@ -80,9 +80,30 @@ export const SettingsTab = {
     // marker example is data rather than template text.
     const tagMarker = '{' + '{Vue, Reactivity}' + '}';
 
+    /* -- punctuation ---------------------------------------------------- */
+
+    /* Asked before it is done, because "correct this course" touches every page
+       of it and the honest way to offer that is to say how many first. The
+       preview is the same pass with the writing turned off, so the number in
+       the dialog is the number that will actually change - not an estimate. */
+    const typography = ref(null);
+
+    const previewTypography = async () => {
+      const result = await fixTypography('course', null, { preview: true });
+      if (result) typography.value = result;
+    };
+
+    const applyTypography = async () => {
+      const result = await fixTypography('course');
+      typography.value = null;
+      if (!result) return;
+      toast.success(result.total ? `Punctuation corrected in ${typographyCount(result)}.` : 'Nothing needed correcting.');
+    };
+
     return {
       state, project, form, changed, save, busy, confirmDelete, remove, destinations,
       tagAdd, tagRemove, tagInherit, tagToggle, tagMarker, formatDateTime,
+      typography, previewTypography, applyTypography, typographyCount,
     };
   },
   template: `
@@ -200,6 +221,30 @@ export const SettingsTab = {
         </section>
 
         <section class="card">
+          <div class="card__head">
+            <app-icon name="quote" :size="16"/>
+            <span class="card__title grow">Punctuation</span>
+          </div>
+          <div class="card__body col gap-3">
+            <p class="hint">
+              Sets the quotation marks, apostrophes, ellipses, dashes and spacing of every page, chapter
+              and title of this course the way its language sets them. Code, links, formulas, HTML and
+              anything escaped on purpose are never touched, and running it twice changes nothing the
+              second time. This works whether or not the profile corrects new pages as they are written.
+            </p>
+            <div class="row wrap between gap-3">
+              <p class="t-xs dim grow">
+                Pages generated from now on are corrected on the profile's terms; this is for the ones
+                already written.
+              </p>
+              <button class="btn none" :disabled="busy" @click="previewTypography">
+                <app-icon name="quote" :size="14"/> Correct the punctuation
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
           <div class="card__head"><span class="card__title grow">Facts</span></div>
           <div class="card__body grid grid-2 t-sm">
             <div class="row between"><span class="dim">Chapters</span><span class="nums">{{ project.stats.chapters }}</span></div>
@@ -230,6 +275,38 @@ export const SettingsTab = {
         </section>
       </div>
     </div>
+
+    <app-modal v-if="typography" title="Correct the punctuation of this course?" icon="quote"
+               @close="typography = null">
+      <p class="t-sm" v-if="typography.total">
+        Set as <strong>{{ typography.language }}</strong>, which uses
+        <code>{{ typography.marks[0] }}…{{ typography.marks[1] }}</code>.
+        Of {{ typography.scanned.pages }} page(s) and {{ typography.scanned.chapters }} chapter(s),
+        this would change <strong>{{ typographyCount(typography) }}</strong>.
+      </p>
+      <p class="t-sm" v-else>
+        Nothing to do: every page, chapter and title is already set the way
+        <strong>{{ typography.language }}</strong> sets it.
+      </p>
+      <ul v-if="typography.changed.length" class="t-xs dim mt-2" style="padding-left:18px">
+        <li v-for="item in typography.changed" :key="item.type + item.id">
+          {{ item.type }} · {{ item.title }} <span class="faint">({{ item.fields.join(', ') }})</span>
+        </li>
+      </ul>
+      <p v-if="typography.total > typography.listed" class="hint mt-2">
+        …and {{ typography.total - typography.listed }} more.
+      </p>
+      <p v-if="typography.total" class="hint mt-2">
+        A corrected page differs from the one already in BookStack, so it will show as out of sync
+        until the next publish.
+      </p>
+      <template #footer>
+        <button class="btn" @click="typography = null">{{ typography.total ? 'Cancel' : 'Close' }}</button>
+        <button v-if="typography.total" class="btn btn--primary" :disabled="busy" @click="applyTypography">
+          <app-icon name="quote" :size="14"/> Correct {{ typographyCount(typography) }}
+        </button>
+      </template>
+    </app-modal>
 
     <app-modal v-if="confirmDelete" title="Delete this course?" icon="alert" @close="confirmDelete = false">
       <p class="t-sm"><strong>{{ project.name }}</strong> and its {{ project.stats.pages }} page(s) will be removed.</p>
