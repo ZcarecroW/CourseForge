@@ -47,7 +47,21 @@ final class Structure
      * real one and far short of a paragraph. The number only has to separate
      * those two populations, and there is a wide empty gap between them.
      */
-    private const PAGE_TITLE_MAX = 200;
+    private const TITLE_MAX_CHARS = 200;
+
+    /**
+     * A sentence this long that also ends like a sentence is not a title.
+     *
+     * Length alone turned out not to be enough. The paragraph that actually
+     * turns up in a six-hundred-word description is one ordinary sentence -
+     * "3. Install the toolchain before you start, because every example
+     * assumes it is present." - and that is a hundred and ten characters, well
+     * under the ceiling above. What separates it from "Reactive state with
+     * ref" is not its length but its shape: it is a sentence, and a title is
+     * not. Both signals have to hold, so a long title with no full stop is
+     * still a title and a short exclamation is still not prose.
+     */
+    private const TITLE_MAX_WORDS = 10;
     /**
      * `title` is empty when the outline carries no `# ` line at all.
      *
@@ -116,7 +130,7 @@ final class Structure
             // item shapes here sends the line to the prose branch below with
             // its marker still on it, which is what it is: description text
             // that happens to start that way.
-            if (($ordered || $bullet) && mb_strlen($itemText) > self::PAGE_TITLE_MAX) {
+            if (($ordered || $bullet) && self::isProse($itemText)) {
                 $ordered = false;
                 $bullet = false;
             }
@@ -222,6 +236,41 @@ final class Structure
     }
 
     /* ------------------------------------------------------------- helpers */
+
+    /**
+     * Whether a list item's text is a paragraph rather than a title.
+     *
+     * This is the net under outlines that did not come from toMarkdown() -
+     * which is most of them, because the interesting ones are written freehand
+     * by a model or assembled by a client, and neither of those escapes
+     * anything. At six hundred words a description has paragraphs, and sooner
+     * or later one of them opens with a year, a numbered step or a dash. At
+     * three spaces of indentation that is exactly a page entry.
+     *
+     * Two signals, and both must hold, because either alone is wrong:
+     *
+     *   - **length**, which catches a whole paragraph on one line, but not the
+     *     single-sentence paragraph that is only a hundred characters;
+     *   - **sentence shape** - it ends in terminal punctuation and runs past a
+     *     title's worth of words - which catches that one, but on its own
+     *     would demote a legitimately wordy title that happens to end in a
+     *     full stop.
+     *
+     * Requiring both keeps every real title: "Reactive state with ref and
+     * reactive" is six words with no full stop, and "Past tense of regular
+     * verbs" is five. Neither is close to the line.
+     */
+    private static function isProse(string $text): bool
+    {
+        if ($text === '') {
+            return false;
+        }
+        if (mb_strlen($text) > self::TITLE_MAX_CHARS) {
+            return true;
+        }
+        return preg_match('/[.!?][)"\'\x{201D}\x{2019}]?$/u', $text) === 1
+            && Text::words($text) > self::TITLE_MAX_WORDS;
+    }
 
     /**
      * Adds one prose line to a description, keeping paragraphs apart.

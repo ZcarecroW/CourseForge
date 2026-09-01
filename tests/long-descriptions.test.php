@@ -151,6 +151,90 @@ test('a long chapter title line at indent zero does not swallow the chapter list
     ok(str_contains($parsed['description'], $prose), 'the paragraph stayed in the book description');
 });
 
+test('a freehand six-hundred-word outline keeps its shape and all of its words', function () {
+    // The case the browser found and the length ceiling alone did not catch:
+    // outline Markdown written the way a model writes it - no escaping, because
+    // nothing escaped it - where one paragraph of each description happens to
+    // open with a numbered step, a heading hash or a dash. Each of those is
+    // around a hundred and ten characters, well under TITLE_MAX_CHARS, and each
+    // was read as structure: the outline grew a chapter and three pages nobody
+    // asked for, and the book description lost two thirds of itself to them.
+    $sentences = static fn(string $seed, int $n): string => implode(' ', array_map(
+        static fn(int $i): string => $seed . ' sentence ' . $i
+            . ' carries real weight and says something concrete about the material a learner has to absorb here.',
+        range(1, $n)
+    ));
+
+    $bookDesc = implode("\n\n", [
+        $sentences('Opening', 14),
+        '3. Install the toolchain before you start, because every example assumes it is present and configured.',
+        $sentences('Middle', 14),
+        $sentences('Closing', 14),
+    ]);
+
+    $chapterDesc = implode("\n\n", [
+        $sentences('Chapter opening', 14),
+        '- 1 is the chapter where the tooling stops being incidental and starts being the subject itself for good.',
+        $sentences('Chapter closing', 14),
+    ]);
+
+    $indent = static fn(string $text): string => implode("\n", array_map(
+        static fn(string $line): string => trim($line) === '' ? '' : '   ' . $line,
+        explode("\n", $text)
+    ));
+
+    $md = "# WordPress 7.2 for PHP Developers\n\n" . $bookDesc . "\n\n";
+    for ($c = 1; $c <= 3; $c++) {
+        $md .= $c . ". Chapter " . $c . ": Blocks and the editor\n" . $indent($chapterDesc) . "\n";
+        for ($p = 1; $p <= 4; $p++) {
+            $md .= '   ' . $p . '. Page ' . $c . '.' . $p . " - a concrete teachable title\n";
+        }
+        $md .= "\n";
+    }
+
+    ok(str_word_count($bookDesc) > 600, 'the book description really is past six hundred words');
+    ok(str_word_count($chapterDesc) > 400, 'and the chapter description is a long one too');
+
+    $parsed = Structure::parse($md);
+
+    same(3, count($parsed['chapters']), 'three chapters, not four');
+    same(
+        12,
+        array_sum(array_map(static fn(array $c): int => count($c['pages']), $parsed['chapters'])),
+        'twelve pages, not fifteen'
+    );
+
+    ok(
+        str_contains($parsed['description'], 'Install the toolchain before you start'),
+        'the numbered paragraph stayed in the book description'
+    );
+    ok(str_contains($parsed['description'], 'Closing sentence 14'), 'and so did everything after it');
+    same(4, substr_count($parsed['description'], "\n\n") + 1, 'with all four of its paragraphs intact');
+
+    ok(
+        str_contains($parsed['chapters'][0]['description'], 'is the chapter where the tooling'),
+        'and the dashed paragraph stayed in the chapter description'
+    );
+    same(
+        ['Page 1.1 - a concrete teachable title', 'Page 1.2 - a concrete teachable title',
+         'Page 1.3 - a concrete teachable title', 'Page 1.4 - a concrete teachable title'],
+        array_map(static fn(array $p): string => $p['title'], $parsed['chapters'][0]['pages']),
+        'leaving exactly the four real pages'
+    );
+});
+
+test('an ordinary short title is never mistaken for prose', function () {
+    // The other direction, which is the one that would break every existing
+    // course: the prose test must not demote a real title.
+    $parsed = Structure::parse(
+        "# A Book\n\nDescription.\n\n1. Reactive state\n   1. Reactive state with ref and reactive\n"
+        . "   2. Past tense of regular verbs\n   3. Working with files\n   4. What is new in 7.2?\n"
+    );
+
+    same(4, count($parsed['chapters'][0]['pages']), 'all four titles are still pages');
+    same('What is new in 7.2?', $parsed['chapters'][0]['pages'][3]['title'], 'a short question mark is a title');
+});
+
 test('the description a six-hundred-word contract produces is stored whole', function () {
     // Nothing in CourseForge truncates it: book_desc and chapters.description
     // are TEXT. What the model wrote is what comes back.

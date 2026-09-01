@@ -174,8 +174,11 @@ export const DetailsTab = {
               </p>
               <div class="row gap-2">
                 <button class="btn btn--ghost btn--sm" :disabled="busy || !dirty" @click="revert">Revert</button>
+                <!-- "Clear" only when there is actually something stored to clear:
+                     on an empty panel the button read "Clear research" over an
+                     empty box, which describes nothing that could happen. -->
                 <button class="btn btn--primary btn--sm" :disabled="busy || !dirty || tooLong" @click="save">
-                  {{ draft.trim() ? 'Save research' : 'Clear research' }}
+                  {{ !draft.trim() && research.text ? 'Clear research' : 'Save research' }}
                 </button>
               </div>
             </div>

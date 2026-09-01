@@ -59,6 +59,21 @@ background, is in [docs.md](docs.md).
 
 ## What is new in 4.5
 
+### Descriptions that are prose, read as prose
+
+4.5.0 escaped a description paragraph that began "3. Install the plugin" on the
+way out and read it back correctly — but only for outlines CourseForge had
+written itself. An outline written freehand, which is what a model or an MCP
+client produces, had nothing escaping it, and the length ceiling that was meant
+to be the net only caught paragraphs over 200 characters. The paragraph that
+actually turns up is one ordinary sentence of about a hundred and ten.
+
+The result, on a real 600-word outline: a chapter and three pages nobody asked
+for, and a book description cut from 835 words to 266. A title is now told from
+a paragraph by shape as well as length — a paragraph ends like a sentence and
+runs past a title's worth of words — and a freehand 600-word outline keeps every
+chapter, every page and every word.
+
 ### Research the subject once, before the course is designed
 
 A course about WordPress, a framework, an API or a standard is out of date the
