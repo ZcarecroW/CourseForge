@@ -34,13 +34,46 @@ export const StructureTab = {
     // does every minute, and which would silently discard an unsaved edit.
     watch(
       () => `${project.value?.id ?? 0}\u0000${project.value?.structure_md ?? ''}`,
-      () => {
-        markdown.value = project.value?.structure_md ?? '';
-        topic.value = project.value?.topic ?? '';
+      () => { markdown.value = project.value?.structure_md ?? ''; }
+    );
+
+    /** `<id>NUL<prompt>` split back into the two things it is watching. */
+    const parts = (key) => {
+      const at = key.indexOf('\u0000');
+      return [key.slice(0, at), key.slice(at + 1)];
+    };
+
+    /* The prompt gets a watcher of its own rather than riding on that key. The
+       Settings tab edits the same field, and under keep-alive both tabs are
+       alive at once, so a prompt saved over there has to arrive here - but
+       folding it into the key above would re-seed the outline every time the
+       prompt changed, which is the unsaved edit that key was written to protect.
+
+       What is adopted is deliberately narrower than "whatever the server now
+       says". `wasStored` is the prompt as it was before this change, so the box
+       is re-seeded only while it still holds exactly that - which is to say
+       while nothing has been typed into it. An edit made here and not yet saved
+       is a disagreement the badge is already reporting, and answering it by
+       quietly deleting one of the two is the worst of the three things that
+       could happen. A different course is not that case at all: its prompt
+       belongs to a document this one never had open, so it replaces the box. */
+    watch(
+      () => `${project.value?.id ?? 0}\u0000${project.value?.topic ?? ''}`,
+      (key, previous) => {
+        const [id, stored] = parts(key);
+        const [wasId, wasStored] = parts(previous);
+        if (id !== wasId || topic.value === wasStored) {
+          topic.value = stored;
+        }
       }
     );
 
     const dirty = computed(() => markdown.value !== (project.value?.structure_md ?? ''));
+
+    /* Typing in the prompt box changes nothing anywhere else until it is saved,
+       and the other copy of it is a tab away. Saying which of the two states it
+       is in here is what stops the Settings tab from looking like it disagrees. */
+    const topicDirty = computed(() => topic.value !== (project.value?.topic ?? ''));
     const hasStructure = computed(() => (project.value?.structure_md ?? '').trim() !== '');
     const canRefine = computed(() => hasStructure.value && feedback.value.trim() !== '');
 
@@ -114,7 +147,7 @@ export const StructureTab = {
 
     return {
       state, project, topic, markdown, feedback, generating, applying, atRisk,
-      dirty, hasStructure, canRefine, publishedAs, plural,
+      dirty, topicDirty, hasStructure, canRefine, publishedAs, plural,
       generate, apply, saveTopic, revert,
     };
   },
@@ -151,7 +184,10 @@ export const StructureTab = {
       <aside class="pane pane--aside">
         <div class="pane__body view-pad col gap-4">
           <div class="card card--pad col gap-3">
-            <span class="eyebrow">Course prompt</span>
+            <div class="row gap-2">
+              <span class="eyebrow grow">Course prompt</span>
+              <span v-if="topicDirty" class="badge badge--warning">unsaved</span>
+            </div>
             <textarea v-model="topic" rows="4"
                       placeholder="Vue.js – complete course from beginner to professional"></textarea>
             <div class="row gap-2">
@@ -159,10 +195,15 @@ export const StructureTab = {
                 <app-icon v-if="generating" name="refresh" :size="14" spin/><app-icon v-else name="sparkles" :size="14"/>
                 {{ generating ? 'Designing…' : (hasStructure ? 'Regenerate' : 'Generate structure') }}
               </button>
-              <button class="btn none" @click="saveTopic" title="Save the prompt without generating">
+              <button class="btn none" :disabled="!topicDirty" @click="saveTopic"
+                      title="Save the prompt without generating">
                 <app-icon name="save" :size="14"/>
               </button>
             </div>
+            <p class="hint">
+              The course's own prompt, and the same one the <strong>Settings</strong> tab shows. Generating saves
+              it on the way past; the save button keeps an edit without spending anything.
+            </p>
             <p v-if="hasStructure" class="hint">
               Regenerating designs a brand-new outline. To adjust the current one, use the revision box below —
               it keeps untouched titles byte-identical so their content survives.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace CourseForge\Api;
 
 use CourseForge\Ai\Run\RunManager;
+use CourseForge\Domain\Details;
 use CourseForge\Security\Actor;
 use CourseForge\Support\Audit;
 use CourseForge\Support\Config;
@@ -82,6 +83,8 @@ final class SettingsController
             $changed[] = $key;
         }
 
+        self::refuseCrossedLengths($write);
+
         if ($write !== []) {
             Config::setMany($write);
 
@@ -103,6 +106,44 @@ final class SettingsController
             'scheduler' => self::scheduler(),
             'saved' => $changed,
         ];
+    }
+
+    /**
+     * Refuses a course-defaults save that would put Minimum length above
+     * Maximum length.
+     *
+     * Every other door to this pair already refuses it: DetailTools::setDetails()
+     * throws, and the browser's course editor warns. This is now the third door
+     * and the lowest one - a crossed pair here is inherited by every course,
+     * chapter and page that has not overridden both - so it cannot be the one
+     * that lets it through. The check is against the pair as it will stand
+     * afterwards, because only one of the two is usually being written.
+     *
+     * Zero is not a bound but "leave the length to the model", so a pair is only
+     * crossed when both ends are actually set. Checked before anything is
+     * written, like the reset below and for the same reason: 422 means nothing
+     * happened everywhere else in this file.
+     *
+     * @param array<string,mixed> $write the values this request is about to store
+     */
+    private static function refuseCrossedLengths(array $write): void
+    {
+        $minKey = 'details.params.min_length.default';
+        $maxKey = 'details.params.max_length.default';
+        if (!array_key_exists($minKey, $write) && !array_key_exists($maxKey, $write)) {
+            return;
+        }
+
+        $after = static fn(string $key): int => (int)($write[$key] ?? Config::get($key, 0));
+        $min = $after($minKey);
+        $max = $after($maxKey);
+        if (Details::lengthsCross($min, $max)) {
+            throw HttpException::unprocessable(
+                'Minimum length (' . $min . ') would be above Maximum length (' . $max . '), so every page of '
+                . 'every course that has not overridden both would ask the AI for a length no page can have. '
+                . 'Raise the maximum, or lower the minimum. Nothing was saved.'
+            );
+        }
     }
 
     /** Puts one or more settings back to what the release ships. */

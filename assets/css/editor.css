@@ -28,6 +28,42 @@
 .cf-editor .cm-editor { flex: 1 1 auto; min-height: 0; }
 .cf-editor .cm-editor.cm-focused { outline: none; }
 
+/* The research briefing, in the Details tab: the same source-and-rendered split
+   the Content tab gives a page. Every other use of that split is a pane in a
+   layout that already has a height for it; this one sits in the flow of a card,
+   so it is given one - tall enough for the headings-and-bullets shape a briefing
+   has, and no taller, because the card is what scrolls. The border and the
+   radius are the ones every other field on that card wears, so it reads as the
+   control it replaced rather than as a hole in the page. */
+.research-split {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  height: 440px;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--bg);
+}
+.research-split:focus-within { border-color: var(--accent); box-shadow: var(--ring); }
+
+.research-split__head {
+  flex: none;
+  padding: var(--s-2) var(--s-3);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+/* The preview's own padding is a page's, which is generous for a pane that is
+   half of 440 pixels. */
+.research-split .cf-preview { padding: var(--s-3) var(--s-4); }
+
+/* Locked while a save is in flight, which is the one moment the document is not
+   the author's to change. Dimmed rather than greyed, in the same measure a
+   disabled field is, so the wait reads as a wait and not as a failure. */
+.cf-editor .cm-content[contenteditable="false"] { opacity: 0.55; }
+
 /* What stands in for the editor while it is being fetched, or if it never came. */
 .cf-editor--notice {
   align-items: center;

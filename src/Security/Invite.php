@@ -219,6 +219,57 @@ final class Invite
         @unlink(CF_DATA . '/' . self::FILE);
     }
 
+    /**
+     * Takes the open invite back, before anybody has spent it.
+     *
+     * The one thing an administrator could not do from the application. An
+     * invite sent to the wrong person, or issued for the wrong role, could only
+     * be answered by issuing a second one - which closes the first row but
+     * leaves a live code sitting in INVITE-CODE.txt for whoever finds it, and
+     * leaves the installation with an open invite nobody meant to be open.
+     *
+     * Closing the row is the whole of the guarantee: verify() reads the open
+     * row and there is no longer one to match, so the code is worthless the
+     * instant this returns. Deleting the file is tidiness on top of that, and
+     * discard() is what does it - the row is closed first precisely so that its
+     * "only unlink the file of a closed row" rule lets it through.
+     *
+     * `used_by` is written as the bare word "revoked" rather than as a
+     * sentence, because Db::migrate() reads that column to tell a row closed
+     * administratively from one somebody actually spent, and it matches on
+     * exact names. Who did it is the invite.revoke line in the audit log.
+     *
+     * @return array<string,mixed>|null the row that was closed, or null when
+     *                                  there was nothing open to take back
+     */
+    public static function revoke(): ?array
+    {
+        $invite = self::open();
+        if ($invite === null) {
+            return null;
+        }
+
+        // Conditional on the row still being open, for the same reason
+        // consume() is: the last redemption and this can arrive together, and
+        // the one that loses must not report that it revoked anything.
+        $closed = Db::run(
+            'UPDATE invites SET used_at = ?, used_by = ? WHERE id = ? AND used_at = 0',
+            [time(), 'revoked', (int)$invite['id']]
+        )->rowCount() > 0;
+
+        // Only the caller that actually closed the row may sweep the file.
+        // Losing the race here does not mean losing it to a redemption: it also
+        // means losing it to issue(), which supersedes this row and writes a
+        // NEW code into the very same file. Unlinking unconditionally would
+        // have deleted that one - leaving an invite open in the database whose
+        // code nobody, including the administrator who had just issued it,
+        // could ever read.
+        if ($closed) {
+            self::discard($invite);
+        }
+        return $closed ? $invite : null;
+    }
+
     /** Where the file for this invite was written, as recorded on the row. */
     public static function pathOf(array $invite): string
     {

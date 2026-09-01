@@ -57,7 +57,98 @@ language), create a **Course**, generate the **Structure**, write the
 Full documentation, including the nginx configuration and the technical
 background, is in [docs.md](docs.md).
 
-## What is new in 4.5
+## What is new in 4.6
+
+### Punctuation set the way the language sets it
+
+A model writing German opens a quotation with `„` and closes it with a straight
+`"`. The two are one keystroke apart in the training data, it is not wrong
+enough to notice while reading one page, and it is wrong on every page of a
+five-hundred-page book — exactly the kind of error worth fixing with code
+rather than with a sentence in a prompt, because a rule that runs beats a rule
+that is asked for.
+
+A generated page now has its punctuation set before it is stored: German gets
+`„Wort“`, French its guillemets and the narrow spaces its typography asks for,
+Spanish and Italian their own guillemets, English its curly marks and a real
+apostrophe in `don't`. Every language gets `...` as one character and a spaced
+hyphen as a dash.
+
+It never touches anything that is not prose. Fenced blocks, inline spans, links
+and their targets, bare addresses, HTML tags, formulas, a table's alignment row
+and CourseForge's own cross-reference and cloze markers are lifted out before
+the rules run and put back exactly as they were — a straight quote turned curly
+inside a JSON sample is not a typographic improvement, it is a broken example,
+and a course about a programming language is mostly examples. It reads position
+rather than order, which is what makes the half-corrected pair the models
+actually produce come out right. And it is idempotent, so a page written,
+regenerated and re-imported is byte-for-byte the page written once.
+
+Each profile decides for itself under **Profiles → Correct the punctuation of a
+generated page**; what a new profile starts with is a setting an administrator
+owns, and it is on.
+
+### The baseline every course starts from is yours to set
+
+Content details — learning objectives, a summary section, exercises, a minimum
+length, an audience — are inherited downwards: catalogue, then course, then
+chapter, then page. The catalogue end of that chain has always been a real
+setting; what it never had was a way in. An installation that teaches one
+subject to one audience had to open the file that ships with the release and
+edit it there, which the next update then replaced.
+
+Every element and every value is now a field on **Administration → Settings**,
+under **Course defaults**. Set *Learning objectives* on, or a house minimum
+length, or a standing audience, and every course that has not decided otherwise
+follows — which is what "inherited" meant all along. They are ordinary settings:
+only what you change is written, Reset hands the decision back to the release,
+and `set_settings` over MCP reaches them by the same keys. They are generated
+from the details catalogue rather than listed by hand, so an element added in a
+later release arrives with its own field already in place.
+
+### One course prompt, in both of the places it shows
+
+The prompt a course is designed from is on the **Structure** tab beside the
+outline and on the **Settings** tab, and it is one field — but each tab held its
+own copy of it and only re-read it when a different course was opened. Saving it
+in one place left the other showing what it had been, with *unsaved* lit up over
+a change nobody had made, and **Save changes** on the Settings tab would then
+push that stale prompt back over the one just saved next door.
+
+Both boxes now follow the stored value, without either of them dragging an
+unsaved outline or an unsaved course name along with it, and without either
+overwriting an edit typed into the other and not yet saved — two boxes
+disagreeing is a question for whoever typed in them, and silently answering it
+by throwing one away is the worse half. The Structure tab also says *unsaved*
+while an edit is only in the box, which is the state that made the two look as
+though they disagreed in the first place.
+
+### The research briefing has both halves
+
+Course → **Details** → **Research** was the one Markdown box in CourseForge that
+was still a plain textarea: headings, bullets and the list of sources all one
+wall of grey, and no way to see the rendering at all, while the page beside it
+has had both halves all along.
+
+It is now the same split the Content tab gives a page: Markdown on the left,
+highlighted as you type, rendered on the right, **edit / split / preview**, and
+the same linked scrolling that keeps the two on the same passage. The page-only
+markers are switched off — a cross reference and a cloze deletion mean nothing
+in a briefing — and CodeMirror is still fetched on demand, so nobody who never
+opens the tab pays for it.
+
+### An invite can be taken back
+
+Issuing an invite always closed the one before it, so cancelling one was
+possible — at the price of publishing a second live code to a file on the server,
+which is the opposite of what somebody who sent the first to the wrong address
+is asking for. **Administration → Accounts** now has **Revoke** beside the open
+invite: it closes the row and deletes `INVITE-CODE.txt` in one step, the code
+stops working immediately wherever it has already been sent, and afterwards
+there is no open invite at all. Accounts already created with it are untouched,
+and the withdrawal is in the audit log as `invite.revoke`.
+
+## What was new in 4.5
 
 ### Descriptions that are prose, read as prose
 

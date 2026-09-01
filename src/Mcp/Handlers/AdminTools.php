@@ -240,9 +240,14 @@ final class AdminTools
                     . 'secret - the cron token, the GitHub token - is never returned; you are told only whether one '
                     . 'is stored. Use the keys from here with set_settings. Costs nothing.',
                 properties: [
+                    // Listed from the catalogue rather than by hand. The
+                    // written-out list had already gone stale once - it never
+                    // learned about claude_cli - and a description an LLM reads
+                    // to decide what to send is exactly the wrong place for a
+                    // list that drifts.
                     'group' => Schema::string(
-                        'One group only: general, scheduler, batch, updates, mcp, security or timeouts. Omit for all '
-                        . 'of them.'
+                        'One group only: ' . implode(', ', array_column(Settings::groups(), 'key'))
+                        . '. Omit for all of them.'
                     ),
                 ],
                 required: [],

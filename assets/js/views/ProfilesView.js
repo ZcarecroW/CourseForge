@@ -1032,6 +1032,19 @@ export const ProfilesView = {
                   <input v-model.number="draft.data.concurrency" type="number" min="1" max="12">
                   <p class="hint">How many pages are written simultaneously. Raise it only if your provider allows it.</p>
                 </div>
+                <label class="check" style="grid-column:1/-1">
+                  <input type="checkbox" v-model="draft.data.typography">
+                  <span>
+                    Correct the punctuation of a generated page
+                    <span class="hint">
+                      Quotation marks, ellipses and dashes set the way the language above sets them, before the
+                      page is stored - a German page closes with <code>&#8220;</code> rather than with whatever
+                      the model reached for, a French one gets its guillemets and its narrow spaces. Code,
+                      links, formulas and CourseForge's own markers are never touched. The installation decides
+                      what a new profile starts with.
+                    </span>
+                  </span>
+                </label>
               </div>
             </div>
           </div>

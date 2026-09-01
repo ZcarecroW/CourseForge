@@ -1,15 +1,37 @@
-import { computed, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue';
 import { state, openCourse, featureByKey, paramByKey } from '@/core/store.js';
 import { busy, patchDetails, saveResearch } from '@/views/project/actions.js';
 import { plural } from '@/core/format.js';
+import { useScrollSync } from '@/core/scrollsync.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import EmptyState from '@/components/EmptyState.js';
 import DetailEditor from '@/components/DetailEditor.js';
+import MarkdownPreview from '@/components/MarkdownPreview.js';
+
+/**
+ * The briefing is Markdown - headings, bullets and a list of sources - and it is
+ * read and edited here as often as it is written by a client. A textarea showed
+ * it as one wall of grey while every other Markdown box in CourseForge is
+ * highlighted, so it gets the same editor, fetched the same way the Content tab
+ * fetches it: on demand, because it is the largest dependency in the
+ * application and nobody who never opens this tab should pay for it.
+ */
+const notice = (text, tone = '') => ({
+  inheritAttrs: false,          // Vue hands the error component the error itself
+  template: `<div class="cf-editor cf-editor--notice ${tone}">${text}</div>`,
+});
+
+const MarkdownEditor = defineAsyncComponent({
+  loader: () => import('@/components/MarkdownEditor.js'),
+  delay: 250,
+  loadingComponent: notice('Loading the editor…'),
+  errorComponent: notice('The editor could not be loaded. Reload the page to try again.', 'c-danger'),
+});
 
 export const DetailsTab = {
   name: 'DetailsTab',
-  components: { AppIcon, EmptyState, DetailEditor },
+  components: { AppIcon, EmptyState, DetailEditor, MarkdownEditor, MarkdownPreview },
   setup() {
     const project = openCourse;
     const showInherited = ref(false);
@@ -63,10 +85,12 @@ export const DetailsTab = {
     const researchOn = computed(() => project.value.details.effective.features.web_research === true);
     const research = computed(() => project.value.research ?? { text: '', freshness: 'none stored', source: '' });
 
-    // A local copy, because the textarea is edited over several keystrokes and
-    // the stored value is only replaced when Save is pressed. Re-seeded when the
+    // A local copy, because the box is edited over several keystrokes and the
+    // stored value is only replaced when Save is pressed. Re-seeded when the
     // server sends a different text - which is what happens when a connected
-    // client researches the course while this tab is open.
+    // client researches the course while this tab is open, and is also why the
+    // editor is locked while a save of our own is in flight: the answer to it
+    // arrives through this watcher and would land on top of the keystroke.
     const draft = ref(research.value.text ?? '');
     watch(() => research.value.text, (stored) => { draft.value = stored ?? ''; });
 
@@ -79,12 +103,60 @@ export const DetailsTab = {
       manual: 'entered here',
     }[research.value.source] ?? ''));
 
-    const save = () => saveResearch(draft.value);
+    /**
+     * True only while a save of the briefing is in flight.
+     *
+     * Not `busy`, which every action on this tab shares: toggling a course
+     * default or clearing an override lit it too, and the editor is locked while
+     * it is lit, so an unrelated request half a second long silently swallowed
+     * whatever was typed into the briefing during it. What the lock is for is
+     * the answer to OUR save landing through the watcher above, and that is the
+     * only thing this follows.
+     */
+    const saving = ref(false);
+
+    const save = async () => {
+      saving.value = true;
+      try {
+        await saveResearch(draft.value);
+      } finally {
+        saving.value = false;
+      }
+    };
     const revert = () => { draft.value = research.value.text ?? ''; };
+
+    /* -- the two halves --------------------------------------------------- */
+
+    /**
+     * The briefing is read far more often than it is written, and a list of
+     * sources is worth seeing as links rather than as brackets - so it gets the
+     * same split the Content tab gives a page, with the same scroll link.
+     *
+     * `useScrollSync` keeps the linked/unlinked choice in one place under one
+     * localStorage key, which means the two screens share it. That is the right
+     * answer rather than an accident of reuse: it is a preference about how
+     * split views behave, not about which document is open.
+     */
+    const researchView = ref('split');
+    const researchEditor = ref(null);
+    const researchPreview = ref(null);
+    const sync = useScrollSync(researchEditor, researchPreview);
+
+    // Leaving the split unmounts one half, and coming back must not throw the
+    // survivor to line 0: the half that is about to appear is the follower, and
+    // the one that was on screen keeps the position it had.
+    watch(researchView, (mode, previous) => {
+      if (mode !== 'split') return;
+      sync.claim(previous === 'preview' ? 'preview' : 'editor');
+      nextTick(sync.realign);
+    });
 
     return {
       state, project, busy, onChange, overrides, clearOverride, showInherited, autoLinksOn, linkStats, plural,
-      researchOn, research, draft, dirty, tooLong, sourceLabel, save, revert,
+      researchOn, research, draft, dirty, tooLong, sourceLabel, save, revert, saving,
+      researchView, researchEditor, researchPreview,
+      syncEnabled: sync.enabled, toggleSync: sync.toggle, claim: sync.claim,
+      fromEditor: sync.fromEditor, fromPreview: sync.fromPreview, realign: sync.realign,
     };
   },
   template: `
@@ -163,8 +235,42 @@ export const DetailsTab = {
               them yourself, or edit what it found.
             </p>
 
-            <textarea class="mono" rows="12" spellcheck="false" v-model="draft" :disabled="busy"
-                      placeholder="## Versions&#10;- ...&#10;&#10;## Recently changed&#10;- ...&#10;&#10;## Sources&#10;- ..."></textarea>
+            <div class="research-split">
+              <div class="research-split__head row gap-2">
+                <span class="eyebrow grow">Briefing — Markdown</span>
+                <div class="btn-group hide-sm">
+                  <button v-for="mode in ['edit','split','preview']" :key="mode"
+                          :class="{ 'is-active': researchView === mode }" @click="researchView = mode">{{ mode }}</button>
+                </div>
+                <button v-if="researchView === 'split'" class="btn btn--ghost btn--sm btn--icon cf-sync hide-sm"
+                        :class="{ 'is-active': syncEnabled }" :aria-pressed="String(syncEnabled)"
+                        :title="syncEnabled ? 'Scrolling is linked — click to unlink' : 'Scrolling is independent — click to link'"
+                        @click="toggleSync">
+                  <app-icon :name="syncEnabled ? 'arrow-down-up' : 'arrow-down-up-off'" :size="14"/>
+                </button>
+              </div>
+
+              <div class="split" :class="{ 'split--both': researchView === 'split' }">
+                <div v-if="researchView !== 'preview'" class="split__half"
+                     @pointerdown="claim('editor')" @wheel.passive="claim('editor')"
+                     @focusin="claim('editor')" @keydown="claim('editor')">
+                  <!-- Keyed on the course, like every other document in the
+                       application: a different course is a different document,
+                       and undo must not reach back into the one before it. -->
+                  <markdown-editor ref="researchEditor" v-model="draft" :reset-key="project.id"
+                                   :readonly="saving" :markers="false" label="Research briefing, Markdown"
+                                   placeholder="## Versions&#10;- ...&#10;&#10;## Recently changed&#10;- ...&#10;&#10;## Sources&#10;- ..."
+                                   @scroll="fromEditor"/>
+                </div>
+                <div v-if="researchView !== 'edit'" class="split__half"
+                     @pointerdown="claim('preview')" @wheel.passive="claim('preview')">
+                  <markdown-preview ref="researchPreview" :key="project.id" :source="draft"
+                                    empty-title="Nothing established yet"
+                                    empty-hint="Write the findings on the left, or let a connected client research them."
+                                    @scroll="fromPreview" @rendered="realign"/>
+                </div>
+              </div>
+            </div>
 
             <div class="row between wrap gap-2">
               <p class="hint">

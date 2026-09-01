@@ -28,6 +28,13 @@ export const MarkdownPreview = {
   components: { EmptyState },
   props: {
     source: { type: String, default: '' },
+    /**
+     * What stands here while there is nothing to render. The default describes
+     * a page, which is what this preview was written for; the research briefing
+     * is the second document it shows and is not generated a page at a time.
+     */
+    emptyTitle: { type: String, default: 'No content yet' },
+    emptyHint: { type: String, default: 'Generate this page, or start typing on the left.' },
   },
   emits: ['scroll', 'rendered'],
   setup(props, { emit, expose }) {
@@ -186,8 +193,7 @@ export const MarkdownPreview = {
     <div class="pane__body view-pad cf-preview cf-reader" ref="scroller" @scroll.passive="onScroll"
          :class="{ 'is-wrap': codeWrap, 'is-numbered': codeNumbers }">
       <div v-show="hasContent" class="prose" ref="body" v-html="html"></div>
-      <empty-state v-if="!hasContent" icon="file-text" title="No content yet"
-                   hint="Generate this page, or start typing on the left."/>
+      <empty-state v-if="!hasContent" icon="file-text" :title="emptyTitle" :hint="emptyHint"/>
     </div>`,
 };
 

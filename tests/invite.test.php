@@ -217,3 +217,148 @@ test('status reports the places, and an invite with places left keeps its file',
     same(false, is_file($file), 'the last place takes the file with it');
     same(false, Invite::status()['open'], 'and the invite is closed');
 });
+
+/* --------------------------------------------------------- taking one back */
+
+/**
+ * Revokes, putting INVITE-CODE.txt back if the sweep took it.
+ *
+ * Same care as spend(): revoke() ends in discard(), which unlinks both fixed
+ * locations as well as the recorded one, and one of those is the file of the
+ * installation this suite is being run inside.
+ */
+function revokeKeepingTheRealFile(): ?array
+{
+    $rootFile = CF_ROOT . '/' . Invite::FILE;
+    $saved = is_file($rootFile) ? (string)file_get_contents($rootFile) : null;
+    try {
+        return Invite::revoke();
+    } finally {
+        if ($saved !== null && !is_file($rootFile)) {
+            file_put_contents($rootFile, $saved);
+        }
+    }
+}
+
+test('revoking the open invite closes it and takes its file with it', static function (): void {
+    [$code, $id] = openInvite(0, 3);
+    $file = CF_DATA . '/' . Invite::FILE;
+    file_put_contents($file, 'the code lives here');
+
+    $revoked = revokeKeepingTheRealFile();
+    ok($revoked !== null, 'revoke reports the row it closed');
+    same($id, (int)($revoked['id'] ?? 0), 'which is the invite that was open');
+
+    same(null, Invite::open(), 'nothing is open afterwards');
+    same(false, Invite::status()['open'], 'and the status says so');
+    same(false, is_file($file), 'the published code is deleted, places left or not');
+    same(
+        403,
+        raises(static fn(): array => Invite::verify($code), 'a revoked code')->status(),
+        'and the code itself is refused'
+    );
+});
+
+test('there is nothing to revoke once no invite is open', static function (): void {
+    openInvite();
+    ok(revokeKeepingTheRealFile() !== null, 'the first call takes the open one back');
+    same(null, revokeKeepingTheRealFile(), 'the second has nothing to close');
+});
+
+test('a revoked invite is not recorded as one somebody redeemed', static function (): void {
+    [$code, $id] = openInvite(0, 5);
+    ok(spend(Invite::verify($code), 'alice'), 'one place is taken before it is withdrawn');
+
+    revokeKeepingTheRealFile();
+
+    $row = Db::row('SELECT uses, used_at, used_by FROM invites WHERE id = ?', [$id]) ?? [];
+    ok((int)($row['used_at'] ?? 0) > 0, 'the row is stamped closed');
+    same('revoked', (string)($row['used_by'] ?? ''), 'with the marker the schema knows');
+    same(1, (int)($row['uses'] ?? 0), 'and the place alice took is still counted as taken');
+
+    // Db::migrate() backfills `uses` for rows closed before the counter
+    // existed, and it tells a redemption from an administrative close by the
+    // exact name in used_by. It runs on every connection rather than once, so a
+    // name missing from that list would re-brand every revoked invite as
+    // redeemed on the very next request.
+    //
+    // The list is read out of the statement rather than matched as a fixed
+    // string: reformatting the SQL is not a regression and must not fail this,
+    // while dropping a name from it is exactly the regression worth catching.
+    // migrate() is private and runs at connect, so the row this test just wrote
+    // cannot be put through it from here - what is asserted instead is the one
+    // thing that decides the row's fate when it does.
+    $db = (string)file_get_contents(CF_ROOT . '/src/Support/Db.php');
+    ok(
+        preg_match('/used_by\s+NOT\s+IN\s*\(([^)]*)\)/i', $db, $m) === 1,
+        'the backfill still excludes some names by hand'
+    );
+    $excluded = array_map(
+        static fn(string $name): string => trim($name, " '"),
+        explode(',', $m[1])
+    );
+    ok(in_array('revoked', $excluded, true), 'and "revoked" is one of them');
+    same(
+        (string)($row['used_by'] ?? ''),
+        'revoked',
+        'which is the name revoke() actually writes, so the two cannot drift apart'
+    );
+});
+
+/**
+ * Revoking is a read of the open row followed by a write to it, and something
+ * else can close that row in between - a last redemption, or another
+ * administrator issuing a replacement. The second is the dangerous one:
+ * issue() supersedes the row AND writes a new code into the same file, so a
+ * revoke that swept the file after losing that race would delete a live code
+ * and leave an invite open that nobody could ever read.
+ *
+ * The window itself is two statements wide and cannot be opened from a test
+ * without a seam in revoke() that exists only to be tested. What is asserted
+ * here is the pair of properties that close it: revoke() decides from the row
+ * that is open when it runs rather than from one a caller read earlier, and it
+ * sweeps the file only when its own write is the one that closed something.
+ */
+test('revoking takes back the invite that is open now, not one already superseded', static function (): void {
+    [, $id] = openInvite();
+
+    // What another administrator did: supersede that row and publish a new code.
+    Db::run('UPDATE invites SET used_at = ?, used_by = ? WHERE id = ?', [time(), 'superseded', $id]);
+    [$fresh, $freshId] = openInvite();
+
+    $revoked = revokeKeepingTheRealFile();
+    ok($revoked !== null, 'something was taken back');
+    same($freshId, (int)($revoked['id'] ?? 0), 'and it is the invite that is open, not the one read before it');
+
+    same(
+        'superseded',
+        (string)(Db::row('SELECT used_by FROM invites WHERE id = ?', [$id])['used_by'] ?? ''),
+        'the superseded row keeps its own marker rather than being restamped'
+    );
+    same(403, raises(static fn(): array => Invite::verify($fresh), 'the revoked code')->status(), 'the code is refused');
+});
+
+test('a revoke with nothing to take back deletes no code file at all', static function (): void {
+    Db::run('UPDATE invites SET used_at = ?, used_by = ? WHERE used_at = 0', [time(), 'closed by a test']);
+
+    $file = CF_DATA . '/' . Invite::FILE;
+    file_put_contents($file, 'a file this revoke has no business touching');
+
+    same(null, revokeKeepingTheRealFile(), 'there was nothing open');
+    ok(is_file($file), 'and the sweep that would have followed one did not happen');
+    @unlink($file);
+});
+
+test('revoking is reachable, and only by an administrator', static function (): void {
+    $routes = (string)file_get_contents(CF_ROOT . '/api/index.php');
+    ok(
+        str_contains($routes, "\$router->add('DELETE', 'admin/invite', [UserController::class, 'revokeInvite'], admin: true);"),
+        'DELETE admin/invite is wired to the handler, behind the admin flag'
+    );
+
+    $controller = (string)file_get_contents(CF_ROOT . '/src/Api/UserController.php');
+    ok(
+        str_contains($controller, 'public static function revokeInvite('),
+        'and the handler is there to be reached'
+    );
+});

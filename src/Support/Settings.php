@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace CourseForge\Support;
 
+use CourseForge\Domain\Details;
 use CourseForge\Security\Actor;
 
 /**
@@ -32,6 +33,17 @@ final class Settings
      *                          admin_only?:bool,advanced?:bool,placeholder?:string,suggest?:string}>
      */
     public static function catalogue(): array
+    {
+        return [...self::declared(), ...self::contentDefaults()];
+    }
+
+    /**
+     * The settings written out one by one, because each of them is its own
+     * decision with its own words.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private static function declared(): array
     {
         return [
             /* ------------------------------------------------------ general */
@@ -70,6 +82,16 @@ final class Settings
                     . 'instance. It is what the cron URL is built from; the MCP connection line has its own setting below.',
                 'placeholder' => 'https://courseforge.example.com',
                 'default' => '',
+            ],
+            [
+                'key' => 'app.typography', 'group' => 'general', 'type' => 'bool',
+                'label' => 'Correct punctuation after the AI',
+                'description' => 'Sets quotation marks, ellipses and dashes the way the course language does '
+                    . 'before a generated page is stored - German gets „ and “ where the model wrote „ and ", '
+                    . 'French gets its guillemets and its narrow spaces. Code, links, formulas and the markers '
+                    . 'CourseForge writes are never touched. This is what a new profile starts from, and each '
+                    . 'profile can decide for itself.',
+                'default' => true,
             ],
             [
                 'key' => 'app.debug', 'group' => 'general', 'type' => 'bool',
@@ -322,11 +344,91 @@ final class Settings
         ];
     }
 
+    /**
+     * One setting per content detail: what a page contains before any course
+     * has said anything.
+     *
+     * These are generated rather than written out, because they already exist -
+     * `details.features.<key>.default` in config/defaults.json is the bottom of
+     * the chain Details::resolve() walks, and has been since 3.x. What was
+     * missing was a way to reach it: the value was editable only by opening the
+     * shipped file, which is the one thing 4.0 said nobody should have to do,
+     * and an installation that teaches one subject to one audience wants a
+     * different baseline for every course it will ever make.
+     *
+     * Declaring them here is what makes the whole chain follow. The Settings
+     * screen renders them from `type`, the API validates them against `min` and
+     * `max`, `set_settings` over MCP reaches them, Reset drops the override -
+     * and Details::baseline() reads the merged config, so a course that has
+     * overridden nothing simply starts obeying the new answer.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private static function contentDefaults(): array
+    {
+        $catalogue = Details::catalogue();
+        $out = [];
+
+        foreach ($catalogue['features'] as $feature) {
+            $key = 'details.features.' . $feature['key'] . '.default';
+            $out[] = [
+                'key' => $key, 'group' => 'content', 'type' => 'bool',
+                'label' => (string)$feature['label'],
+                'description' => self::baselineHint((string)$feature['description']),
+                // The shipped value, not the effective one: Details::catalogue()
+                // reads the merged config, so asking it would answer with the
+                // override and Reset would offer to reset to itself.
+                'default' => (bool)Config::shipped($key, false),
+                'admin_only' => true,
+            ];
+        }
+
+        foreach ($catalogue['params'] as $param) {
+            $key = 'details.params.' . $param['key'] . '.default';
+            $text = $param['type'] === 'text';
+            $field = [
+                'key' => $key, 'group' => 'content', 'type' => $text ? 'string' : 'int',
+                'label' => (string)$param['label'],
+                'description' => self::baselineHint((string)$param['description']),
+                'default' => $text
+                    ? (string)Config::shipped($key, '')
+                    : (int)Config::shipped($key, 0),
+                'admin_only' => true,
+            ];
+            if (!$text) {
+                $field['unit'] = (string)$param['unit'];
+                $field['min'] = (int)$param['min'];
+                $field['max'] = (int)$param['max'];
+            }
+            $out[] = $field;
+        }
+
+        return $out;
+    }
+
+    /**
+     * The catalogue's own description of a detail, plus the one thing that is
+     * different about editing it here rather than on a course.
+     */
+    private static function baselineHint(string $description): string
+    {
+        $description = rtrim($description);
+        if ($description !== '' && !str_ends_with($description, '.')) {
+            $description .= '.';
+        }
+        return trim($description . ' Every course starts from this and any course, chapter or page can '
+            . 'override it; changing it here moves everything that has not.');
+    }
+
     /** @return array<int,array{key:string,label:string,description:string}> */
     public static function groups(): array
     {
         return [
             ['key' => 'general', 'label' => 'General', 'description' => 'What this installation is called and how it behaves by default.'],
+            ['key' => 'content', 'label' => 'Course defaults',
+                'description' => 'What a generated page is made of before any course has decided otherwise. '
+                    . 'This is the bottom of the chain the Details tab shows: course, then chapter, then page, '
+                    . 'each overriding the one above.'],
             ['key' => 'scheduler', 'label' => 'Scheduler', 'description' => 'The cron endpoint that keeps writing courses after the browser is closed.'],
             ['key' => 'batch', 'label' => 'Batch and runs', 'description' => 'How queued generation is polled and how long its records are kept.'],
             ['key' => 'updates', 'label' => 'Updates', 'description' => 'Checking GitHub for a new version, and installing it.'],
@@ -341,7 +443,13 @@ final class Settings
     public static function byKey(): array
     {
         static $index = null;
-        if ($index === null) {
+        static $revision = -1;
+
+        // Keyed on the configuration generation, because part of this catalogue
+        // is now generated from it: an index built before a write would still
+        // answer with the shipped default afterwards.
+        if ($index === null || $revision !== Config::revision()) {
+            $revision = Config::revision();
             $index = [];
             foreach (self::catalogue() as $field) {
                 $index[$field['key']] = $field;

@@ -34,6 +34,24 @@ export const SettingsTab = {
     };
     watch(() => project.value?.id, sync, { immediate: true });
 
+    /* The Structure tab edits the same prompt, and keep-alive means this form is
+       still mounted and still holding its own copy of it while that happens.
+       Only that one field is re-seeded, never the whole form, because sync()
+       would take an unsaved course name or tag pool down with it. Without this
+       the box here kept whatever it was opened with, "unsaved" lit up over a
+       change nobody made, and Save changes pushed the stale prompt back over the
+       one just saved next door.
+
+       `wasStored` is the prompt as it was before this change, so an incoming
+       one is taken only while the box still holds it - untyped-in, in other
+       words. Somebody who has edited this field keeps what they wrote and the
+       badge goes on saying it differs; a prompt saved elsewhere is not a reason
+       to throw away the sentence they are halfway through. Course switching
+       does not come through here at all - sync() above owns that. */
+    watch(() => project.value?.topic ?? '', (stored, wasStored) => {
+      if (form.topic === wasStored) form.topic = stored;
+    });
+
     const changed = computed(() => {
       const p = project.value;
       if (!p) return false;
@@ -79,7 +97,10 @@ export const SettingsTab = {
             <div class="form-row">
               <label>Course prompt</label>
               <textarea v-model="form.topic" rows="3"></textarea>
-              <p class="hint">The brief the outline is designed from. Editing it does not regenerate anything by itself.</p>
+              <p class="hint">
+                The brief the outline is designed from, and the same box the <strong>Structure</strong> tab shows
+                beside the outline. Editing it does not regenerate anything by itself.
+              </p>
             </div>
             <div class="grid grid-2">
               <div class="form-row">

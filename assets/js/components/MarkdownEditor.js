@@ -280,11 +280,34 @@ export const MarkdownEditor = {
     tokens: { type: Boolean, default: false },
     /** What a screen reader calls this box. */
     label: { type: String, default: 'Page content, Markdown' },
+    /**
+     * Typing switched off, for as long as the parent owns the document.
+     *
+     * The screens that save a whole box at once used to be textareas, and a
+     * textarea has `disabled` - which is what kept a keystroke landing during
+     * the round trip from being overwritten by the answer to it. There is no
+     * such attribute here, so it is a prop.
+     *
+     * It takes BOTH facets, and one of them alone is not a lock.
+     * `EditorView.editable` only sets `contenteditable` on the content element,
+     * which stops what the browser types into it - and nothing else. Every
+     * structural command in the keymaps below runs off `keydown` and calls
+     * dispatch() itself, so Backspace, Enter, Tab and undo all still edited a
+     * document that was supposed to be held still. `EditorState.readOnly` is
+     * what those commands consult. Neither of them blocks a dispatch from
+     * outside, which is the point: the parent still has to be able to put the
+     * saved document into the view when the answer arrives.
+     */
+    readonly: { type: Boolean, default: false },
   },
   emits: ['update:modelValue', 'scroll'],
   setup(props, { emit, expose }) {
     const host = ref(null);
     const darkness = new Compartment();
+    const editing = new Compartment();
+
+    /** Both halves of "nobody may change this", which is one facet short of a lock. */
+    const lock = (locked) => [EditorView.editable.of(!locked), EditorState.readOnly.of(locked)];
 
     let view = null;
     let echoing = false;          // guards the round trip back from the parent
@@ -307,6 +330,7 @@ export const MarkdownEditor = {
       EditorState.tabSize.of(2),
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({ spellcheck: 'false', 'aria-label': props.label }),
+      editing.of(lock(props.readonly)),
       // The line the cursor is on is highlighted, and while text is selected
       // that line is part of the selection — so the highlight would sit on top
       // of exactly the end an author is watching. This is what lets the
@@ -411,6 +435,10 @@ export const MarkdownEditor = {
 
     watch(resolvedTheme, (theme) => {
       view?.dispatch({ effects: darkness.reconfigure(EditorView.darkTheme.of(theme === 'dark')) });
+    });
+
+    watch(() => props.readonly, (locked) => {
+      view?.dispatch({ effects: editing.reconfigure(lock(locked)) });
     });
 
     /**

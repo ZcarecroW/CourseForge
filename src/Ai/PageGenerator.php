@@ -6,12 +6,14 @@ namespace CourseForge\Ai;
 use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Details;
 use CourseForge\Domain\Pages;
+use CourseForge\Domain\Profiles;
 use CourseForge\Domain\Projects;
 use CourseForge\Domain\Research;
 use CourseForge\Domain\Tags;
 use CourseForge\Support\Config;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Markdown;
+use CourseForge\Support\Typography;
 use Throwable;
 
 /**
@@ -179,11 +181,70 @@ final class PageGenerator
         if ($content === '') {
             throw HttpException::badRequest('The AI returned an empty page.');
         }
+        $content = self::setPunctuation($project, $content);
 
         Pages::update($pageId, ['content' => $content, 'status' => 'generated', 'error' => '']);
         Projects::touch($projectId);
 
         return Pages::detail($projectId, $pageId);
+    }
+
+    /**
+     * Sets the page's punctuation the way its language does, if the profile
+     * asks for it.
+     *
+     * Here rather than in the prompt because a rule that runs beats a rule that
+     * is asked for: a model told to close a German quotation with `“` does it
+     * on most pages, and "most" is the wrong number for a book. Here rather
+     * than at publish time because what is stored is what an author reads,
+     * edits and re-publishes, and a page that is corrected only on the way out
+     * would be corrected again on every way out.
+     *
+     * It is also why this sits in store() rather than in run(): a page a
+     * connected client wrote through `store_page`, and one a batch answered
+     * overnight, are the same page arriving by another road.
+     *
+     * @param array<string,mixed> $project
+     */
+    private static function setPunctuation(array $project, string $content): string
+    {
+        $profile = self::profileOf($project);
+
+        // No profile is the MCP path on a course that has not been given one.
+        // The installation's answer is the right one to fall back to: it is
+        // what a profile would have started from anyway.
+        $on = $profile === null
+            ? Config::bool('app.typography', true)
+            : (bool)($profile['typography'] ?? true);
+
+        return $on ? Typography::apply($content, Completion::language($profile ?? [])) : $content;
+    }
+
+    /**
+     * The profile a course was written with, or null when it has none.
+     *
+     * Read rather than passed in, because store() is reached from three places
+     * and only one of them was holding a profile - and a page that is stored
+     * without one is still a page in a language.
+     *
+     * @param array<string,mixed> $project
+     * @return array<string,mixed>|null
+     */
+    private static function profileOf(array $project): ?array
+    {
+        $id = $project['profile_id'] ?? null;
+        $owner = (string)($project['username'] ?? $project['owner'] ?? '');
+        if ($id === null || $owner === '') {
+            return null;
+        }
+
+        try {
+            return Profiles::data($owner, (int)$id);
+        } catch (Throwable) {
+            // A profile deleted since the page was queued is not a reason to
+            // lose the page the model has already been paid for.
+            return null;
+        }
     }
 
     /** Records a failure on the page, so the Content tab can show it. */

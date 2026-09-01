@@ -27,6 +27,9 @@ final class Details
     /** @var array{features:array<string,array<string,mixed>>,params:array<string,array<string,mixed>>}|null */
     private static ?array $catalogue = null;
 
+    /** The configuration generation $catalogue was read out of. See Config::revision(). */
+    private static int $revision = -1;
+
     /**
      * The catalogue from config.json, normalised and ordered.
      *
@@ -34,9 +37,13 @@ final class Details
      */
     public static function catalogue(): array
     {
-        if (self::$catalogue !== null) {
+        // Rebuilt when the configuration has been written since, because the
+        // defaults in here are now editable from the Settings screen and a
+        // request that changes one goes on to read it back.
+        if (self::$catalogue !== null && self::$revision === Config::revision()) {
             return self::$catalogue;
         }
+        self::$revision = Config::revision();
 
         $features = [];
         foreach ((array)Config::get('details.features', []) as $key => $spec) {
@@ -76,6 +83,24 @@ final class Details
         uasort($params, static fn(array $a, array $b): int => $a['order'] <=> $b['order']);
 
         return self::$catalogue = ['features' => $features, 'params' => $params];
+    }
+
+    /**
+     * Whether a Minimum length and a Maximum length contradict each other.
+     *
+     * Asked at three heights now - a course, chapter or page through
+     * DetailTools, the installation-wide baseline through the Settings screen,
+     * and the browser's own warning - so the rule lives here rather than three
+     * times. Each caller keeps its own wording, because "every page here" and
+     * "every page of every course" are different sentences about the same
+     * arithmetic.
+     *
+     * Zero is not a bound. It means "leave the length to the model", so a pair
+     * is only in conflict when both ends are actually set.
+     */
+    public static function lengthsCross(int $min, int $max): bool
+    {
+        return $min > 0 && $max > 0 && $min > $max;
     }
 
     /** @return string[] */

@@ -133,6 +133,7 @@ $router->add('POST', 'admin/users', [UserController::class, 'create'], admin: tr
 $router->add('PUT', 'admin/users/{id}', [UserController::class, 'update'], admin: true);
 $router->add('DELETE', 'admin/users/{id}', [UserController::class, 'delete'], admin: true);
 $router->add('POST', 'admin/invite', [UserController::class, 'invite'], admin: true);
+$router->add('DELETE', 'admin/invite', [UserController::class, 'revokeInvite'], admin: true);
 $router->add('GET', 'admin/audit', [UserController::class, 'audit'], admin: true);
 
 $router->add('GET', 'admin/settings', [SettingsController::class, 'show'], admin: true);

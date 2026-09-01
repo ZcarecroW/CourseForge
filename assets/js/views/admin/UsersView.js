@@ -100,6 +100,9 @@ export const UsersView = {
     const transferTo = ref('');
     const typedName = ref('');
 
+    /** True while the "are you sure" for revoking the open invite is up. */
+    const confirmRevoke = ref(false);
+
     /* ------------------------------------------------------------ loading */
 
     const reload = () => attempt(async () => {
@@ -307,6 +310,25 @@ export const UsersView = {
       fresh.invite = data.invite;
     }, 'Issue invite');
 
+    /**
+     * Takes the open invite back.
+     *
+     * Issuing another one always closed the first, so cancelling an invite was
+     * possible - at the price of leaving a second live code in a file on the
+     * server, which is not what somebody who sent the first to the wrong
+     * address is asking for. This leaves no open invite at all.
+     *
+     * The card holding the code goes with it, for the same reason it is only
+     * ever shown once: leaving a dead code on screen is an invitation to pass
+     * it on and have the other person find out it does not work.
+     */
+    const revokeInvite = () => run(async () => {
+      confirmRevoke.value = false;
+      await del('admin/invite');
+      fresh.invite = null;
+      toast.success('The invite has been revoked. That code stopped working immediately.');
+    }, 'Revoke invite');
+
     /* --------------------------------------------------------------- copying */
 
     /**
@@ -352,7 +374,7 @@ export const UsersView = {
       passwordFor, passwordDraft, openPassword, savePassword,
       deleting, deleteChoice, transferTo, typedName, inheritors, needsTyping, deleteReady,
       openDelete, confirmDelete,
-      inviteDraft, issueInvite, TTL_CHOICES, MAX_INVITE_USES,
+      inviteDraft, issueInvite, revokeInvite, confirmRevoke, TTL_CHOICES, MAX_INVITE_USES,
       fresh, copy, copied, reload,
       formatDateTime, relativeTime, plural,
     };
@@ -660,6 +682,9 @@ export const UsersView = {
               <span v-if="state.invite.max_uses > 1" class="badge none">
                 {{ state.invite.uses }} of {{ state.invite.max_uses }} used
               </span>
+              <button class="btn btn--ghost btn--sm none" :disabled="busy" @click="confirmRevoke = true">
+                <app-icon name="trash" :size="13"/> Revoke
+              </button>
             </div>
             <p class="hint">
               Its code is in <span class="mono">{{ state.invite.path }}</span
@@ -669,7 +694,7 @@ export const UsersView = {
                 It stops working on {{ formatDateTime(state.invite.expires_at) }}.
               </template>
               <template v-else>It does not expire.</template>
-              Issuing a new one below cancels it.
+              Issuing a new one below replaces it; <strong>Revoke</strong> takes it back and leaves none open.
             </p>
           </div>
 
@@ -705,7 +730,8 @@ export const UsersView = {
             Only one invite is ever open at a time, and it is deleted the moment the last account it is good for
             is created. Leave <strong>Good for</strong> at one unless you are expecting a group: the code sits in
             a plain file on the server, and a code worth ten accounts is worth ten accounts to whoever finds it.
-            At most {{ MAX_INVITE_USES }}.
+            At most {{ MAX_INVITE_USES }}. An invite you have sent to the wrong person is taken back with
+            <strong>Revoke</strong>, above, which deletes the file as well as closing the code.
           </p>
         </section>
       </div>
@@ -848,6 +874,24 @@ export const UsersView = {
           {{ !ownsAnything(deleting)
             ? 'Delete account'
             : (deleteChoice === 'transfer' ? 'Delete account, keep the work' : 'Delete account and all its work') }}
+        </button>
+      </template>
+    </app-modal>
+
+    <!-- take the open invite back ---------------------------------------------- -->
+    <app-modal v-if="confirmRevoke" title="Revoke the open invite?" icon="alert" @close="confirmRevoke = false">
+      <p class="t-sm">
+        The code stops working immediately, wherever it has already been sent, and
+        <span class="mono">{{ state.invite ? state.invite.path : '' }}</span> is deleted.
+        Accounts already created with it are not touched.
+      </p>
+      <p class="hint mt-2">
+        There is no way to bring the same code back - you would issue a new one, and send that instead.
+      </p>
+      <template #footer>
+        <button class="btn" @click="confirmRevoke = false">Leave it open</button>
+        <button class="btn btn--danger" :disabled="busy" @click="revokeInvite">
+          <app-icon name="trash" :size="14"/> Revoke the invite
         </button>
       </template>
     </app-modal>`,

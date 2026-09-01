@@ -503,12 +503,15 @@ final class Db
         self::ensureColumn($pdo, 'invites', 'uses', 'INTEGER NOT NULL DEFAULT 0');
 
         // A row that was genuinely redeemed before the counter existed would
-        // otherwise read as "0 of 1 used" for ever. The three excluded names
-        // are the ones the application writes when it closes a row
-        // administratively rather than because somebody spent it.
+        // otherwise read as "0 of 1 used" for ever. The excluded names are the
+        // ones the application writes when it closes a row administratively
+        // rather than because somebody spent it - and this runs on every
+        // request, not once, so an invite an administrator revokes today has to
+        // be on the list as surely as one superseded in 4.2 does.
         $pdo->exec(
             "UPDATE invites SET uses = 1 "
-            . "WHERE uses = 0 AND used_at > 0 AND used_by NOT IN ('', 'superseded', 'file lost')"
+            . "WHERE uses = 0 AND used_at > 0 "
+            . "AND used_by NOT IN ('', 'superseded', 'file lost', 'revoked')"
         );
 
         if (self::schemaVersion($pdo) < 3) {

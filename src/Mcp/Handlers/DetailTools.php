@@ -256,7 +256,7 @@ final class DetailTools
         $effective = $resolved['effective']['params'] ?? [];
         $min = (int)($values['min_length'] ?? $effective['min_length'] ?? 0);
         $max = (int)($values['max_length'] ?? $effective['max_length'] ?? 0);
-        if ($min > 0 && $max > 0 && $min > $max) {
+        if (Details::lengthsCross($min, $max)) {
             throw HttpException::unprocessable(
                 'Minimum length (' . $min . ') is above maximum length (' . $max . '), so every page here would ask '
                 . 'for a length no page can have. Raise the maximum, or lower the minimum.'

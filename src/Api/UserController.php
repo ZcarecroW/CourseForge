@@ -183,6 +183,41 @@ final class UserController
         return ['invite' => $issued];
     }
 
+    /**
+     * Takes the open invite back.
+     *
+     * Issuing a second invite always closed the first, so "cancel that one"
+     * could be done - but only by leaving a fresh live code in a file on the
+     * server that nobody meant to hand out, which is the opposite of what was
+     * being asked for. This closes the row and deletes the file, and afterwards
+     * the installation has no open invite at all.
+     *
+     * A code already sent to somebody stops working the moment this returns,
+     * which is the entire point: it is what an administrator reaches for when
+     * the invite went to the wrong address.
+     */
+    public static function revokeInvite(Request $request, ?Actor $actor): array
+    {
+        $me = self::admin($actor);
+
+        $revoked = Invite::revoke();
+        if ($revoked === null) {
+            throw HttpException::notFound('There is no open invite to revoke.');
+        }
+
+        Audit::record(
+            $me->username,
+            'invite.revoke',
+            (string)$revoked['role'],
+            'issued by ' . (string)$revoked['issued_by'] . ', ' . (int)$revoked['uses']
+                . ' of ' . (int)$revoked['max_uses'] . ' place(s) had been used'
+        );
+
+        // The status rather than nothing, so the screen that asked can redraw
+        // from the server's answer instead of assuming what it now says.
+        return ['invite' => Invite::status()];
+    }
+
     /** @return array<string,mixed> */
     public static function audit(Request $request, ?Actor $actor): array
     {

@@ -20,8 +20,18 @@ import { ref } from 'vue';
 
 const STORAGE_KEY = 'cf.syncScroll';
 
+/**
+ * Linked or not, for the whole application rather than per split view.
+ *
+ * It is a preference about how a split behaves and not about which document is
+ * open, so the Content tab and the Details tab share it - and they have to
+ * share the ref rather than only the stored value, because keep-alive means
+ * both are mounted at once: a per-instance ref would have left the other tab's
+ * button showing the opposite of what it does until something remounted it.
+ */
+const enabled = ref(localStorage.getItem(STORAGE_KEY) !== 'off');
+
 export function useScrollSync(editor, preview) {
-  const enabled = ref(localStorage.getItem(STORAGE_KEY) !== 'off');
   let driver = 'editor';
   let queued = false;
 

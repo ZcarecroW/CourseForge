@@ -45,6 +45,7 @@ final class Profiles
             'models' => $slots,
             'concurrency' => Config::int('app.default_concurrency', 2),
             'language' => Config::str('app.default_language', 'English'),
+            'typography' => Config::bool('app.typography', true),
             'prompts' => new \stdClass(),
         ];
     }
@@ -390,6 +391,14 @@ final class Profiles
             'models' => $models,
             'concurrency' => max(1, min(12, (int)($data['concurrency'] ?? $defaults['concurrency']))),
             'language' => trim((string)($data['language'] ?? $defaults['language'])) ?: (string)$defaults['language'],
+            // Absent means "whatever the installation says", which is what lets
+            // an administrator change the answer for every profile that has
+            // never disagreed with it - the same arrangement language and
+            // concurrency have had since 4.0.
+            'typography' => filter_var(
+                $data['typography'] ?? $defaults['typography'],
+                FILTER_VALIDATE_BOOLEAN
+            ),
             'prompts' => $prompts === [] ? new \stdClass() : $prompts,
         ];
     }

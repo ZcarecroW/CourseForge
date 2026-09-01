@@ -286,14 +286,20 @@ mistaken for another — no `I`, `O`, `0` or `1` — because it is typed by hand
 from a text file, once. Case, spaces and hyphens are normalised away, so pasting
 it out of the file works however it arrives.
 
-Four properties are worth knowing before you deploy:
+Six properties are worth knowing before you deploy:
 
 - **Only the hash is stored.** The plain code is in that file and nowhere else,
   the same way a password or a connection token is. If the file is lost before
-  it is used, delete the open row from the `invites` table and reload, and a
-  fresh code is written.
+  it is used, **Revoke** it under **Administration → Accounts** and issue
+  another; on a first-run installation, where there is no administrator to do
+  that with, deleting the open row from the `invites` table and reloading writes
+  a fresh code.
 - **One invite is open at a time.** The file holds exactly one code, so issuing
   a second closes the first — a second open row would be a code nobody can read.
+- **It can be taken back.** **Revoke** closes the open row and deletes the file,
+  and leaves no invite open at all — which is the difference between it and
+  issuing a replacement. The code stops working immediately, wherever it has
+  already been sent; accounts already created with it are not touched.
 - **It is spent on use.** Creating an account takes one of the invite's places.
   When the last one goes the invite closes and the file is deleted, from the
   install root and from `data/`; while places remain the file stays, because the
@@ -331,6 +337,14 @@ two ways, and they differ in who ends up knowing the password:
 |---|---|---|
 | **Create an account** | You set a password, or leave it blank and CourseForge generates one. Either way it is shown once, on the card that created it, and the account is asked to choose its own at first sign-in. | You are handing somebody an account face to face |
 | **Issue an invite** | A code is written to `INVITE-CODE.txt` again, with a role and an expiry — 48 hours by default, 30 days at most. The holder creates their own account with it. | You would rather not send a password over a chat |
+
+An invite that has gone to the wrong address is withdrawn with **Revoke**, next
+to the *An invite is already open* notice. It closes the row and deletes the
+file in one step, so the code is worthless from that moment; issuing a
+replacement would have closed the same row but published a second live code in
+its place, which is the opposite of what is being asked for. The withdrawal is
+recorded in the audit log as `invite.revoke`, with the role it was for and how
+many of its places had already been used.
 
 An invite grants nothing that reading the server's file system did not already
 grant, which is why an administrator is allowed to issue one at all. It is not,
@@ -504,6 +518,19 @@ The catalogue is the merge of `config/defaults.json`, which ships with the
 release, and whatever this installation has overridden in `data/config.json` —
 see [section 8](#8-installation). Everything below it is per course.
 
+**The catalogue end of that chain is editable too.** Every element and every
+value appears on **Administration → Settings** under **Course defaults**, one
+field each, so an installation that teaches one subject to one audience can set
+the baseline every course starts from — learning objectives on, a house minimum
+length, a standing *Audience* — without opening the shipped file. They behave
+like every other setting: only what you change is written to `data/config.json`,
+Reset drops the override and hands the decision back to the release, and
+`set_settings` over MCP reaches them by the same keys
+(`details.features.objectives.default`, `details.params.min_length.default`).
+Because only deviations are stored below them, changing one moves every course,
+chapter and page that never disagreed — which is the point, and worth knowing
+before you change one on an installation with courses already in it.
+
 Each level either decides or defers. In the UI that is the three-way switch:
 
 | ↳ on / ↳ off | inherit — the arrow shows what the level above currently resolves to |
@@ -561,11 +588,12 @@ there plus its two prompt slots — no code change, no migration. Because it
 ships with the release, an update may add elements to it, and anything a course
 had already decided survives that, since only deviations are stored.
 
-The Settings screen does not offer the catalogue: it renders the 36 declared
-application settings and nothing else, and the detail defaults are a data
-structure rather than a field. To change one for the whole installation, put it
-in `data/config.json` under `details` — never in `config/defaults.json`, which
-the next update replaces wholesale.
+The Settings screen offers the catalogue too, under **Course defaults**: one
+field per element and per value, generated from the catalogue rather than
+written out, so the fifteenth element arrives with its own field already in
+place. Changing one there writes an override into `data/config.json` and leaves
+`config/defaults.json` — which the next update replaces wholesale — alone,
+which is the same arrangement every other setting has.
 
 ### 3.1 Research: establishing what is true today
 
@@ -590,6 +618,16 @@ apart:
 | The Claude Code CLI provider | Runs on your own subscription, with `WebSearch` and `WebFetch` handed to the child process |
 | A provider with a server-side search tool | Anthropic, Gemini, OpenRouter, and the OpenAI models that have one |
 | A person | Course → **Details** → **Research** |
+
+The panel a person writes it in is the same split the Content tab gives a page:
+the Markdown on the left, highlighted as it is typed, and the rendered briefing
+on the right, with **edit / split / preview** and the same linked scrolling. A
+briefing is headings, bullets and a list of sources; it is read here far more
+often than it is typed, and a list of sources is worth seeing as links rather
+than as brackets. The page-only markers are switched off — a cross reference and
+a cloze deletion mean nothing in a briefing — and the linked-scrolling choice is
+one preference shared with the Content tab, because it is a decision about how
+split views behave rather than about which document is open.
 
 The client path is the one worth reaching for: the searching happens inside a
 subscription you are already paying for, and the server never spends anything.
@@ -640,6 +678,56 @@ course when the course names no number of its own, and is separate from
 **Searches per page**.
 
 ---
+
+### 3.2 Punctuation, set the way the language sets it
+
+A model writing German opens a quotation with `„` and closes it with `"`. The
+two are one keystroke apart in the training data, the mistake is not big enough
+to notice while reading one page, and it is on every page of a five-hundred-page
+book. It is the kind of error worth fixing with code rather than with a sentence
+in a prompt, because a rule that runs beats a rule that is asked for.
+
+So a generated page has its punctuation set before it is stored:
+
+| | Written | Stored |
+|---|---|---|
+| German | `„Wort"` / `"Wort"` | `„Wort“` |
+| French | `"mot"`, `mot ;` | `« mot »`, `mot ;` |
+| Spanish, Italian | `"parola"` | `«parola»` |
+| English and the rest | `"word"`, `don't` | `“word”`, `don’t` |
+| every language | `...`, `a - b` | `…`, `a – b` |
+
+Three things are worth knowing about it.
+
+**It never touches anything that is not prose.** A fenced block, an inline span,
+a link and its target, a bare address, an HTML tag, a formula, a table's
+alignment row and the two markers CourseForge writes into a page — a cross
+reference and a cloze deletion — are lifted out before the rules run and put
+back exactly as they were. Turning a straight quote into a curly one inside a
+JSON sample is not a typographic improvement, it is a broken example, and a
+course about a programming language is mostly examples.
+
+**It reads position, not order.** A mark after a space opens and a mark after a
+word closes, which is what makes the half-corrected pair the models actually
+produce come out right. A counter that alternated would need to have seen the
+whole document and would stay wrong for the rest of it after one stray
+apostrophe.
+
+**It is idempotent.** A page written, regenerated, published and pulled back is
+byte-for-byte the page written once. Anything else would be a diff appearing
+from nowhere on a page nobody edited.
+
+It runs where the page is stored, which is the one place all three roads meet:
+the browser's generator, an overnight batch, and a page a connected client wrote
+through `store_page`. It does not touch the outline — the titles there are
+matched byte-for-byte when a structure is applied, and a title quietly rewritten
+is a page quietly deleted and recreated.
+
+**Switching it off.** Each profile decides for itself, under
+**Profiles → Correct the punctuation of a generated page**. What a new profile
+starts with is `app.typography` on the Settings screen, which is on. A profile
+that has never said anything follows the installation, so an administrator can
+change the answer for everything that has not disagreed.
 
 ## 4. The prompt library
 
@@ -1899,14 +1987,18 @@ the MCP tools, which describe and change settings without a second catalogue
 that could disagree. A setting added later appears in all three without a line
 of frontend code.
 
-There are thirty-six of them in eight groups, and the screen documents itself —
+There are sixty-two of them in nine groups, and the screen documents itself —
 each field carries its own description, its range and whether this installation
-has overridden it. What follows is what each group is for, and then the handful
+has overridden it. Twenty-two of the sixty-two are the content details of
+[section 3](#3-content-details), which are generated from that catalogue rather
+than written out here, so a new element ships with its own settings field
+already in place. What follows is what each group is for, and then the handful
 whose consequences are worth stating in prose.
 
 | Group | What it decides |
 |---|---|
 | **General** | The installation's name, the default course language, how many pages the in-tab generator writes at once, the public address, and debug mode |
+| **Course defaults** | What a generated page is made of before any course has said otherwise: every element and every value from [section 3](#3-content-details), one field each. The bottom of the inheritance chain, so changing one moves every course that never disagreed |
 | **Scheduler** | The cron token and how a tick behaves: how long it works for, how many may run side by side, how often a failed page is retried, how long a worker's claim on a page lasts |
 | **Batch and runs** | How rarely a queued batch is polled, how long finished run records are kept, and the output ceiling used where a provider demands an explicit one |
 | **Updates** | Repository, channel, whether to check and install automatically, at what time, how many backups to keep, and a GitHub token |
@@ -2319,8 +2411,9 @@ Seven files, chosen because each covers something whose failure mode is silent:
 | `access.test.php` | Actor versus owner: who reaches whose rows, that a row you may not reach is reported as *missing*, and which listings widen for an administrator |
 | `adapters.test.php` | One case per adapter of a failure arriving at HTTP 200 — a refusal, a safety block, a truncation — each of which must raise rather than store half a page |
 | `batch-deadlines.test.php` | That the two expiry dates stay apart, that a run stored before the second one existed does not read as expired in 1970, and that runs are polled nearest download deadline first |
-| `config.test.php` | The two configuration layers: that writing the shipped default back *removes* the override, and that a 3.x complete document is reduced to overrides on first read |
-| `invite.test.php` | That a wrong code, a spent code, an expired invite and no invite at all are all refused, and refused the same way |
+| `config.test.php` | The two configuration layers: that writing the shipped default back *removes* the override, that a 3.x complete document is reduced to overrides on first read, and that every content detail is offered as a setting whose value really does move the baseline a course inherits |
+| `invite.test.php` | That a wrong code, a spent code, an expired invite and no invite at all are all refused, and refused the same way — and that revoking closes the row, deletes the file, sweeps no file it did not close, and is not mistaken afterwards for a redemption |
+| `typography.test.php` | That the mixed quotation pair a model actually writes comes out as a pair in German, French, Spanish and English; that code, links, addresses, formulas, tables and CourseForge's own markers are never touched; and that setting a page twice changes nothing the second time |
 | `jsonl-chunker.test.php` | That the 200 MB ceiling binds at about 25,000 course prompts rather than at the 50,000-row cap, and that an unsendable row is refused by name |
 | `openrouter-body.test.php` | That the create body serialises as `endpoint`, `model`, `requests`, in that order, because the beta endpoint stream-parses it |
 
@@ -2405,7 +2498,8 @@ first `}}`, so example markers are passed in as data instead.
 ### The editor
 
 Four libraries, none of which is on the critical path. CodeMirror is behind a
-`defineAsyncComponent` and arrives when the Content tab first renders; Shiki
+`defineAsyncComponent` and arrives when the Content tab — or the Details tab,
+which uses it for the research briefing — first renders; Shiki
 fetches one grammar file per language actually shown, out of 232 on disk;
 CodeMirror does the same with its stream modes; Mermaid and MathJax are loaded
 by the first diagram and the first formula on a page. Signing in costs what it

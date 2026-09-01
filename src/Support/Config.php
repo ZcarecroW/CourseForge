@@ -33,6 +33,18 @@ final class Config
     /** @var array<string,mixed>|null */
     private static ?array $overrides = null;
 
+    /**
+     * Bumped every time the merged document is dropped.
+     *
+     * Other things memoise what they read out of the configuration - the
+     * catalogue of content details, the index of settings by key - and a write
+     * in the same request used to leave those holding the answer from before
+     * it. They cannot listen for a flush without Support having to know who
+     * they are, so they ask instead: cache the number alongside the value and
+     * rebuild when it has moved.
+     */
+    private static int $revision = 0;
+
     /** Keys that hold a secret: never handed to anyone who is not an administrator. */
     public const SECRET_PATHS = ['app.cron_token', 'updates.github_token'];
 
@@ -208,6 +220,20 @@ final class Config
         }
     }
 
+    /**
+     * What config/defaults.json ships for a path, whatever this installation
+     * has since made of it.
+     *
+     * get() answers with the merged document, which is the right answer almost
+     * everywhere and the wrong one when the question is "what was this before
+     * anybody touched it" - the Settings screen asks that of every field it
+     * renders, so that Reset knows what it is resetting to.
+     */
+    public static function shipped(string $path, mixed $default = null): mixed
+    {
+        return self::dig(self::defaults(), $path, $default);
+    }
+
     /** True when this installation has changed the value at $path. */
     public static function isOverridden(string $path): bool
     {
@@ -275,6 +301,13 @@ final class Config
         self::$merged = null;
         self::$defaults = null;
         self::$overrides = null;
+        self::$revision++;
+    }
+
+    /** Which generation of the configuration a cached derivative was built from. */
+    public static function revision(): int
+    {
+        return self::$revision;
     }
 
     /* --------------------------------------------------------------- helpers */
