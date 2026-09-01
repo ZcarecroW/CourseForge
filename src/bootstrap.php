@@ -8,7 +8,7 @@
  */
 declare(strict_types=1);
 
-const CF_VERSION = '4.7.0';
+const CF_VERSION = '4.8.0';
 
 /** Absolute path of the installation root (the folder holding index.html). */
 define('CF_ROOT', dirname(__DIR__));
