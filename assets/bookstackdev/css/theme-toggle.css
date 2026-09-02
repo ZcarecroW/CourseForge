@@ -1,0 +1,70 @@
+/* The floating light/dark button. Its corner is a class the script adds from
+   the configuration, and its size and distance from the edges are two custom
+   properties the script sets on the element - so an unset or unreadable value
+   falls back to the numbers here rather than to nowhere. */
+.theme-toggle-fixed {
+  --milelo-toggle-offset: 20px;
+  --milelo-toggle-size: 44px;
+
+  position: fixed;
+  bottom: var(--milelo-toggle-offset);
+  left: var(--milelo-toggle-offset);
+  z-index: 9999;
+  background: var(--color-primary, #206ea7);
+  border: none;
+  border-radius: 50%;
+  width: var(--milelo-toggle-size);
+  height: var(--milelo-toggle-size);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  opacity: 0.7;
+}
+
+.theme-toggle-fixed--bottom-right {
+  left: auto;
+  right: var(--milelo-toggle-offset);
+}
+
+.theme-toggle-fixed--top-left {
+  bottom: auto;
+  top: var(--milelo-toggle-offset);
+}
+
+.theme-toggle-fixed--top-right {
+  bottom: auto;
+  left: auto;
+  top: var(--milelo-toggle-offset);
+  right: var(--milelo-toggle-offset);
+}
+
+.theme-toggle-fixed:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  opacity: 1;
+}
+
+.theme-toggle-fixed:active {
+  transform: scale(0.95);
+}
+
+.theme-toggle-fixed:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+.theme-toggle-fixed svg {
+  width: 50%;
+  height: 50%;
+  fill: #ffffff;
+}
+
+@media print {
+  .theme-toggle-fixed {
+    display: none;
+  }
+}

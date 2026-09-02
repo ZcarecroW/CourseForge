@@ -1,0 +1,588 @@
+/**
+ * shiki-highlight.css
+ * ---------------------------------------------------------------------------
+ * Chrome (toolbar, gutter, collapse bar) for the Shiki code viewer.
+ *
+ * Colour strategy: the block never receives inline background/color. Shiki's
+ * theme colours are lifted onto it as custom properties (--sk-bg-light etc.)
+ * so the dark-mode rules below can always win.
+ *
+ * Line numbers: the gutter width is derived from --sk-digits, which JS sets
+ * per block from the real line count. This prevents 3+ digit numbers from
+ * overlapping the code (the previous fixed 2.3em/3.1em gutter did overlap).
+ *
+ * Row height: every .line must occupy exactly one row. A line whose only
+ * content is an empty <span> is NOT matched by :empty and used to collapse to
+ * zero height, which stacked its line number on top of the next one. The
+ * --sk-line-height driven min-height below makes that impossible.
+ *
+ * Sizing: --sk-font-size / --sk-line-height are the ONLY knobs for how big a
+ * code block renders, and both are set exclusively in the "row geometry"
+ * section below - including the .page-content zoom compensation and every
+ * responsive step. Setting them anywhere more specific (base.css used to)
+ * out-ranks the media queries here and freezes the mobile size at the desktop
+ * value, which is what made code blocks render oversized on phones.
+ * ---------------------------------------------------------------------------
+ */
+
+.shiki-block {
+  --sk-border: rgba(0, 0, 0, .13);
+  --sk-overlay: rgba(0, 0, 0, .045);
+  --sk-num-opacity: .42;
+  --sk-bar-fg: #1f2328;
+  --sk-bar-opacity: .7;
+  --sk-btn-opacity: .72;
+  --sk-radius: 6px;
+
+  /* Row geometry. --sk-line-height is a LENGTH, not a number: a unitless
+     line-height is recomputed per element, so a single italic comment, an
+     emoji or a fallback font could make one line box taller than its
+     neighbours. A length forces every inline box in the line to exactly one
+     row. Whole-pixel values also keep rows identical once the fractional
+     .page-content zoom is neutralised (see the zoom rule below). */
+  --sk-font-size: 14px;
+  --sk-line-height: 21px;
+  --sk-pad-block: .85rem;
+  --sk-pad-inline: 1rem;
+
+  /* Gutter sizing: digits are set by JS (min 2). 1ch == one digit in a
+     monospace font, plus a little breathing room before the code. */
+  --sk-digits: 2;
+  --sk-num-gap: 1.15ch;
+  --sk-num-width: calc(var(--sk-digits) * 1ch);
+  --sk-gutter: calc(var(--sk-num-width) + var(--sk-num-gap));
+
+  position: relative;
+  margin: 1.4em 0;
+  border: 1px solid var(--sk-border);
+  border-radius: var(--sk-radius);
+  overflow: hidden;
+  font-size: var(--sk-font-size);
+  line-height: var(--sk-line-height);
+  background: var(--sk-bg-light, #fff);
+  color: var(--sk-fg-light, inherit);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+}
+
+/* ------------------------------------------------------- row geometry / size
+   base.css puts zoom:1.15 on .page-content - or whatever --milelo-zoom says,
+   which the loader sets from the configuration. 14px * 1.5 * 1.15 = 24.15px
+   per row, which the browser rounds per row and made line heights visibly
+   uneven, so the zoom is undone here and the font is scaled instead: the
+   rendered size is the same but every row is a whole number of pixels. round()
+   keeps that true for any zoom, not only the shipped one.
+
+   Everything below is a plain (0,1,0) or (0,2,0) selector inside a media
+   query, so the narrow-viewport steps actually win. On a phone the surrounding
+   body text does not grow with the viewport, but a 16px monospace column in a
+   ~360px wide layout does read as oversized - hence the step down. Override
+   --sk-font-size / --sk-line-height in your own CSS to taste; keep them whole
+   pixels and keep line-height a length. */
+
+.page-content .shiki-block {
+  zoom: calc(1 / var(--milelo-zoom, 1.15));
+  --sk-font-size: round(nearest, 14px * var(--milelo-zoom, 1.15), 1px); /* 16px at the shipped zoom */
+  --sk-line-height: round(nearest, 21px * var(--milelo-zoom, 1.15), 1px); /* 24px */
+}
+
+/* Mobile browsers are allowed to inflate text inside wide/overflowing blocks
+   ("font boosting"). A code block is the textbook trigger for it, and the
+   inflation is applied on top of everything above - pin it off. */
+.shiki-block,
+.shiki-block pre.shiki,
+.shiki-block pre.shiki code {
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (max-width: 1000px) {
+  .shiki-block {
+    --sk-font-size: 13px;
+    --sk-line-height: 20px;
+  }
+
+  .page-content .shiki-block {
+    --sk-font-size: round(nearest, 13px * var(--milelo-zoom, 1.15), 1px);
+    --sk-line-height: round(nearest, 20px * var(--milelo-zoom, 1.15), 1px);
+  }
+}
+
+@media (max-width: 768px) {
+  .shiki-block {
+    --sk-font-size: 13px;
+    --sk-line-height: 20px;
+    --sk-pad-block: .7rem;
+    --sk-pad-inline: .75rem;
+    margin: 1.1em 0;
+  }
+
+  .page-content .shiki-block {
+    --sk-font-size: round(nearest, 12px * var(--milelo-zoom, 1.15), 1px);
+    --sk-line-height: round(nearest, 18px * var(--milelo-zoom, 1.15), 1px);
+  }
+}
+
+@media (max-width: 480px) {
+  .shiki-block {
+    --sk-font-size: 12px;
+    --sk-line-height: 18px;
+    --sk-pad-block: .6rem;
+    --sk-pad-inline: .6rem;
+    --sk-num-gap: .9ch;
+  }
+
+  .page-content .shiki-block {
+    --sk-font-size: round(nearest, 11px * var(--milelo-zoom, 1.15), 1px);
+    --sk-line-height: round(nearest, 17px * var(--milelo-zoom, 1.15), 1px);
+  }
+}
+
+/* Nothing inside the code area may introduce its own font-size, line-height
+   or baseline shift - that is what made individual rows taller. */
+.shiki-block pre.shiki,
+.shiki-block pre.shiki code,
+.shiki-block .line,
+.shiki-block .line span,
+.shiki-block .line span * {
+  font-size: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
+}
+
+html.dark-mode .shiki-block,
+body.dark-mode .shiki-block,
+html.dark .shiki-block,
+body.dark .shiki-block,
+html[data-theme="dark"] .shiki-block,
+html[data-bs-theme="dark"] .shiki-block {
+  --sk-border: rgba(255, 255, 255, .2);
+  --sk-overlay: rgba(255, 255, 255, .1);
+  --sk-num-opacity: .5;
+  --sk-bar-fg: #e6edf3;
+  --sk-bar-opacity: .85;
+  --sk-btn-opacity: .85;
+  box-shadow: none;
+  background: var(--sk-bg-dark, #1e1e1e) !important;
+  color: var(--sk-fg-dark, #e6edf3) !important;
+}
+
+/* Holds the raw code until Shiki has rendered it, so a slow or unreachable CDN
+   leaves readable text rather than an empty box. */
+.shiki-block--loading {
+  min-height: 2.5rem;
+  padding: var(--sk-pad-block) var(--sk-pad-inline);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* ------------------------------------------------------------------ toolbar */
+
+.shiki-block__bar {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .2rem .35rem .2rem .6rem;
+  background-image: linear-gradient(var(--sk-overlay), var(--sk-overlay));
+  border-bottom: 1px solid var(--sk-border);
+  color: var(--sk-bar-fg);
+  font-family: inherit;
+  font-size: .72rem;
+  line-height: 1;
+}
+
+.shiki-block__lang {
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 600;
+  opacity: var(--sk-bar-opacity);
+  margin-inline-end: auto;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: .4em;
+}
+
+.shiki-block__auto {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  font-size: .92em;
+  opacity: .9;
+  border: 1px solid var(--sk-border);
+  border-radius: 3px;
+  padding: 0 .3em;
+}
+
+.shiki-block__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .3em;
+  border: 0;
+  background: none;
+  color: var(--sk-bar-fg);
+  cursor: pointer;
+  padding: .35em .5em;
+  border-radius: 4px;
+  font: inherit;
+  font-size: .72rem;
+  opacity: var(--sk-btn-opacity);
+  transition: background .15s, opacity .15s;
+}
+
+.shiki-block__btn:hover,
+.shiki-block__btn:focus-visible {
+  background-image: linear-gradient(var(--sk-overlay), var(--sk-overlay));
+  opacity: 1;
+}
+
+.shiki-block__btn:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+.shiki-block__btn[aria-pressed="true"] {
+  opacity: 1;
+  background-image: linear-gradient(var(--sk-overlay), var(--sk-overlay));
+}
+
+.shiki-block__btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex: none;
+}
+
+.shiki-block__btn.is-done {
+  color: #1a7f37;
+  opacity: 1;
+}
+
+html.dark-mode .shiki-block__btn.is-done,
+body.dark-mode .shiki-block__btn.is-done,
+html.dark .shiki-block__btn.is-done,
+body.dark .shiki-block__btn.is-done,
+html[data-theme="dark"] .shiki-block__btn.is-done,
+html[data-bs-theme="dark"] .shiki-block__btn.is-done {
+  /* !important is required: the "never let the dark swap bleed into our own
+     chrome" block further down sets --sk-bar-fg on .shiki-block__btn with
+     !important, which otherwise wins and the confirmation stayed grey. */
+  color: #56d364 !important;
+}
+
+/* --------------------------------------------------------------------- body */
+
+.shiki-block__body {
+  position: relative;
+  overflow: auto;
+  max-height: none;
+}
+
+.shiki-block[data-collapsed="true"] .shiki-block__body {
+  overflow: hidden;
+  max-height: var(--sk-collapse, 560px);
+}
+
+.shiki-block pre.shiki {
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: visible;
+  tab-size: 4;
+  position: static !important;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: inherit;
+  line-height: inherit;
+  padding: var(--sk-pad-block) var(--sk-pad-inline) !important;
+}
+
+.shiki-block pre.shiki code {
+  display: block;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  font: inherit;
+  counter-reset: sk-line;
+}
+
+/* Neutralise theme/plugin pseudo-element decorations and foreign gutters. */
+.shiki-block pre.shiki::before,
+.shiki-block pre.shiki::after,
+.shiki-block pre.shiki > code::before,
+.shiki-block pre.shiki > code::after,
+.shiki-block .shiki-block__body::before,
+.shiki-block .shiki-block__body::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  border: 0 !important;
+  width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.shiki-block .line-number,
+.shiki-block .shiki-line-number,
+.shiki-block .cm-gutters,
+.shiki-block .cm-gutter,
+.shiki-block .gutter {
+  display: none !important;
+}
+
+/* Newline text nodes are stripped in JS, so each .line is exactly one row.
+   min-height guarantees the row still exists when the line renders nothing
+   (empty line, or a line holding only an empty <span>). */
+.shiki-block .line {
+  display: block;
+  position: relative;
+  background: transparent !important;
+  border: 0 !important;
+  margin: 0;
+  padding-inline-start: 0;
+  min-height: var(--sk-line-height);
+}
+
+.shiki-block .line:empty::after {
+  content: "\200B";
+}
+
+/* ------------------------------------------------------------ line numbers */
+
+.shiki-block[data-numbers="true"] .line {
+  /* Hanging indent keeps wrapped rows aligned with the first row. */
+  padding-inline-start: var(--sk-gutter);
+}
+
+.shiki-block[data-numbers="true"] .line::before {
+  counter-increment: sk-line;
+  content: counter(sk-line);
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  height: var(--sk-line-height);
+  line-height: var(--sk-line-height);
+  width: var(--sk-num-width);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  color: var(--sk-bar-fg);
+  opacity: var(--sk-num-opacity);
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Guard: a grammar/transformer that nests .line inside .line must not add a
+   second number (which would land on the same row as its parent's). */
+.shiki-block .line .line {
+  padding-inline-start: 0 !important;
+  min-height: 0;
+}
+
+.shiki-block .line .line::before {
+  content: none !important;
+  counter-increment: none !important;
+}
+
+/* Line numbers OFF -> no gutter, no counter, no reserved space. */
+.shiki-block[data-numbers="false"] pre.shiki {
+  padding-inline-start: var(--sk-pad-inline) !important;
+}
+
+.shiki-block[data-numbers="false"] .line {
+  padding-inline-start: 0 !important;
+}
+
+.shiki-block[data-numbers="false"] .line::before {
+  content: none !important;
+  display: none !important;
+  counter-increment: none !important;
+  width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: none !important;
+}
+
+/* ---------------------------------------------------------------- wrapping */
+
+.shiki-block[data-wrap="true"] pre.shiki,
+.shiki-block[data-wrap="true"] pre.shiki code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.shiki-block[data-wrap="false"] pre.shiki {
+  white-space: pre;
+}
+
+.shiki-block[data-wrap="false"] .shiki-block__body {
+  overflow-x: auto;
+}
+
+/* ---------------------------------------------------------------- collapse */
+
+.shiki-block__expand {
+  display: none;
+  position: relative;
+  z-index: 2;
+  touch-action: manipulation;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--sk-border);
+  background-image: linear-gradient(var(--sk-overlay), var(--sk-overlay));
+  color: var(--sk-bar-fg);
+  font: inherit;
+  font-size: .72rem;
+  padding: .45rem;
+  cursor: pointer;
+  opacity: var(--sk-btn-opacity);
+}
+
+.shiki-block__expand:hover {
+  opacity: 1;
+}
+
+.shiki-block[data-collapsible="true"] .shiki-block__expand {
+  display: block;
+}
+
+/* ------------------------------------------- dual-theme dark colour swap */
+
+html.dark-mode .shiki, html.dark-mode .shiki span,
+body.dark-mode .shiki, body.dark-mode .shiki span,
+html.dark .shiki, html.dark .shiki span,
+body.dark .shiki, body.dark .shiki span,
+html[data-theme="dark"] .shiki, html[data-theme="dark"] .shiki span,
+html[data-bs-theme="dark"] .shiki, html[data-bs-theme="dark"] .shiki span {
+  color: var(--shiki-dark, inherit) !important;
+  background-color: transparent !important;
+  font-style: var(--shiki-dark-font-style, inherit) !important;
+  font-weight: var(--shiki-dark-font-weight, inherit) !important;
+  text-decoration: var(--shiki-dark-text-decoration, inherit) !important;
+}
+
+/* ...but never let that rule bleed into our own chrome. */
+html.dark-mode .shiki-block__bar, html.dark-mode .shiki-block__btn,
+html.dark-mode .shiki-block__expand, html.dark-mode .shiki-block__lang,
+html.dark-mode .shiki-block__auto,
+body.dark-mode .shiki-block__bar, body.dark-mode .shiki-block__btn,
+body.dark-mode .shiki-block__expand, body.dark-mode .shiki-block__lang,
+body.dark-mode .shiki-block__auto,
+html.dark .shiki-block__bar, html.dark .shiki-block__btn,
+html.dark .shiki-block__expand, html.dark .shiki-block__lang,
+html.dark .shiki-block__auto,
+body.dark .shiki-block__bar, body.dark .shiki-block__btn,
+body.dark .shiki-block__expand, body.dark .shiki-block__lang,
+body.dark .shiki-block__auto,
+html[data-theme="dark"] .shiki-block__bar, html[data-theme="dark"] .shiki-block__btn,
+html[data-theme="dark"] .shiki-block__expand, html[data-theme="dark"] .shiki-block__lang,
+html[data-theme="dark"] .shiki-block__auto,
+html[data-bs-theme="dark"] .shiki-block__bar, html[data-bs-theme="dark"] .shiki-block__btn,
+html[data-bs-theme="dark"] .shiki-block__expand, html[data-bs-theme="dark"] .shiki-block__lang,
+html[data-bs-theme="dark"] .shiki-block__auto {
+  color: var(--sk-bar-fg) !important;
+}
+
+.shiki-replaced {
+  display: none !important;
+}
+
+/* --------------------------------------------------------- narrow viewports
+   The bar holds a language label plus three labelled buttons. Below ~560px
+   that no longer fits inside the block, so the button captions collapse to
+   their icons (the accessible name still comes from title=/the hidden span)
+   and the language label is allowed to truncate rather than push them out. */
+
+@media (max-width: 560px) {
+  .shiki-block__bar {
+    gap: .1rem;
+    padding: .15rem .25rem .15rem .5rem;
+  }
+
+  .shiki-block__lang {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: .68rem;
+  }
+
+  .shiki-block__btn {
+    padding: .4em;
+  }
+
+  .shiki-block__btn > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    border: 0;
+    clip-path: inset(50%);
+  }
+
+  .shiki-block__btn svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+@media print {
+  .shiki-block__bar,
+  .shiki-block__expand {
+    display: none !important;
+  }
+
+  .shiki-block[data-collapsed="true"] .shiki-block__body {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* The dark-mode rules above use !important, and printers drop backgrounds by
+     default - printing a page in dark mode produced pale text on white paper,
+     i.e. a blank code block. Force the whole viewer back to ink on paper.
+
+     The selectors are deliberately over-qualified. @media adds no specificity,
+     and these compete with `html.dark-mode .shiki-block` (0,2,1) and
+     `html.dark-mode .shiki span` (0,2,2), which are !important too - so a plain
+     `.shiki-block` here loses on specificity no matter where it sits in the
+     file. Repeating the class lifts each rule one step above its rival. */
+  html .shiki-block.shiki-block {
+    background: #fff !important;
+    color: #111 !important;
+    border-color: #bbb !important;
+    box-shadow: none !important;
+    /* A scroll container is monolithic and cannot be broken across sheets, so a
+       block longer than one page would simply be cut off. */
+    overflow: visible !important;
+  }
+
+  html .shiki-block.shiki-block .shiki,
+  html .shiki-block.shiki-block .shiki span {
+    color: inherit !important;
+    background-color: transparent !important;
+  }
+
+  /* Nothing can be scrolled on paper, so long lines have to wrap. */
+  .shiki-block pre.shiki,
+  .shiki-block pre.shiki code {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .shiki-block__body {
+    overflow: visible !important;
+  }
+
+  .shiki-block[data-numbers="true"] .line::before {
+    color: #666 !important;
+    opacity: 1 !important;
+  }
+}

@@ -61,6 +61,15 @@ const PARITY = [
     'read the scheduler URL without rotating the secret' => 'get_cron_url',
     // Course content.
     'see every detail override in one course' => 'list_detail_overrides',
+    // BookStackDev: the screen with a list of looks and an embed line.
+    'list the looks a BookStack instance can wear' => 'list_bookstackdev_profiles',
+    'read what a look can be told' => 'list_bookstackdev_options',
+    'read a look, its embed line and its conventions check' => 'get_bookstackdev_profile',
+    'create a look' => 'create_bookstackdev_profile',
+    'change a look, or which instances wear it' => 'update_bookstackdev_profile',
+    'delete a look' => 'delete_bookstackdev_profile',
+    'regenerate the link of a look' => 'rotate_bookstackdev_link',
+    'check a look against the prompts' => 'check_bookstackdev_conventions',
 ];
 
 function parityActor(): Actor
@@ -96,10 +105,11 @@ test('every tool the browser needs an equal of is registered', static function (
 test('an argument the browser has, the tool has too', static function (): void {
     // The half of parity that is not a whole tool: a field on one that existed.
     $expected = [
-        'update_profile' => ['ai_name', 'bookstack_name', 'typography', 'preset_key', 'organization', 'cli_path',
-                             'site_url', 'site_name'],
-        'create_profile' => ['preset_key', 'organization', 'cli_path', 'site_url', 'site_name'],
-        'add_ai_account' => ['preset_key', 'organization', 'cli_path', 'site_url', 'site_name'],
+        'update_profile' => ['ai_name', 'bookstack_name', 'typography', 'preset_key', 'organization',
+                             'site_url', 'site_name', 'bookstackdev_id'],
+        'add_bookstack_instance' => ['bookstackdev_id'],
+        'create_profile' => ['preset_key', 'organization', 'site_url', 'site_name'],
+        'add_ai_account' => ['preset_key', 'organization', 'site_url', 'site_name'],
         // The browser writes the page's extra context in the same click that
         // generates it; the tool took feedback and not that.
         'generate_page' => ['extra_context'],

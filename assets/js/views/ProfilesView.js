@@ -29,7 +29,7 @@
  * be closed while it happens.
  */
 import { ref, reactive, computed, watch, onMounted } from 'vue';
-import { state, loadProfiles, loadCatalogue, declareUnsaved, paramByKey } from '@/core/store.js';
+import { state, loadProfiles, loadCatalogue, loadBookStackDev, declareUnsaved, paramByKey, go } from '@/core/store.js';
 import { post, put, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
@@ -95,7 +95,7 @@ const BATCH_SUFFIX = ':batch';
  * catalogue that predates the `group` field. Everything else is grouped by what
  * the entry says about itself.
  */
-const NATIVE_KINDS = new Set(['openai', 'anthropic', 'openrouter', 'claude_cli']);
+const NATIVE_KINDS = new Set(['openai', 'anthropic', 'openrouter']);
 
 /**
  * The headings the provider picker is divided by, in the order they are shown.
@@ -179,7 +179,7 @@ const PROBE_RESULTS = {
 /** A catalogue entry stands in for one that is missing, so nothing renders blank. */
 const UNKNOWN_PROVIDER = {
   id: '', kind: '', label: 'Not chosen yet', base_url: '', needs_key: true, batch: 'probe',
-  batch_note: '', hint: '', docs: '', local: false, beta: false, group: 'custom', preset_key: '',
+  batch_note: '', hint: '', docs: '', local: false, beta: false, group: 'custom', preset_key: '', retired: false,
 };
 
 export const ProfilesView = {
@@ -346,6 +346,9 @@ export const ProfilesView = {
       const result = await attempt(async () => {
         await put(`profiles/${draft.value.id}`, { name: draft.value.name, data: draft.value.data });
         await loadProfiles();
+        // The look each instance wears is read back off the profiles by the
+        // BookStackDev screen, whose list is refreshed quietly here.
+        loadBookStackDev().catch(() => {});
         const fresh = state.profiles.find((p) => p.id === draft.value.id);
         // open(), not select(): this is the same profile being re-read after a
         // successful write, so it must not go through the guard that stops
@@ -435,13 +438,12 @@ export const ProfilesView = {
     /**
      * Whether this provider is reached at an address the user can change.
      *
-     * Everything is, except the Claude subscription: that one drives a CLI
-     * already signed in on the server, so there is no address to type. The
-     * custom endpoint is the other way round - it has no address until
-     * somebody pastes one, which is the whole reason it exists.
+     * Everything is, except a retired kind, which has no endpoint left to
+     * type. The custom endpoint is the other way round - it has no address
+     * until somebody pastes one, which is the whole reason it exists.
      */
     const overHttp = (provider) =>
-      String(provider.base_url ?? '') !== '' || provider.group === 'custom';
+      !provider.retired && (String(provider.base_url ?? '') !== '' || provider.group === 'custom');
 
     /**
      * A server on your own machine answers an unauthenticated request, so a key
@@ -521,13 +523,35 @@ export const ProfilesView = {
 
     const addBookstack = () => draft.value.data.bookstack.push({
       id: uid(), name: 'BookStack', base_url: 'https://', token_id: '', token_secret: '', token_secret_set: false,
+      bookstackdev_id: null,
+    });
+
+    /** The look an instance wears, from the select: '' is plain BookStack. */
+    const setLook = (instance, value) => { instance.bookstackdev_id = value === '' ? null : Number(value); };
+    const lookName = (id) => state.bookstackdev.profiles.find((look) => look.id === id)?.name ?? '';
+
+    /**
+     * Where a look disagrees with this profile's prompts, for the Prompts tab.
+     * Every look's check names the profiles it looked at; this is the slice
+     * about the one open here, with the look named so the fix button can say
+     * whose wording it writes.
+     */
+    const lookIssues = computed(() => {
+      if (!draft.value) return [];
+      const out = [];
+      for (const look of state.bookstackdev.profiles) {
+        for (const issue of look.audit?.issues ?? []) {
+          if (issue.profile_id === draft.value.id && issue.recommended) out.push({ ...issue, bookstackdev_name: look.name });
+        }
+      }
+      return out;
     });
 
     const addAi = () => {
       const first = state.providers[0] ?? UNKNOWN_PROVIDER;
       draft.value.data.ai.push({
         id: uid(), name: first.label, kind: first.kind, preset_key: first.preset_key ?? '',
-        base_url: first.base_url ?? '', api_key: '', organization: '', cli_path: '',
+        base_url: first.base_url ?? '', api_key: '', organization: '',
         site_url: '', site_name: '', api_key_set: false,
       });
     };
@@ -552,10 +576,7 @@ export const ProfilesView = {
      *
      * For an HTTP provider this is the capability probe: a handful of free GETs
      * that decide whether the address is an API at all, whether the key works,
-     * and whether there is a batch queue this key may use. For the Claude
-     * subscription it is the only way to see the three things that can be
-     * wrong: no CLI, not signed in, or an API key in the server environment
-     * quietly taking over the billing.
+     * and whether there is a batch queue this key may use.
      */
     const checkAccount = (accountId) => attempt(async () => {
       if (!await save(true)) return;
@@ -785,6 +806,7 @@ export const ProfilesView = {
       state, tab, draft, selectedId, saving, creating, confirmDelete, listOpen, MODEL_SLOTS, LANGUAGES, TABS,
       languageToken, batchSuffix, profileDetails, patchProfileDetails, detailCount,
       select, create, reload, save, remove, addBookstack, addAi, aiAccounts, modelList, loadModels,
+      setLook, lookName, lookIssues, go,
       providerFor, providerId, overHttp, needsKey, providerGroups, providerSearch,
       picker, openPicker, chooseProvider, isCurrentProvider,
       checks, checkAccount, queueState,
@@ -900,6 +922,19 @@ export const ProfilesView = {
                            :placeholder="instance.token_secret_set ? '•••••••• stored' : 'Token secret'">
                   </div>
                   <p class="hint">Leave the secret empty to keep the stored one.</p>
+                  <div class="form-row">
+                    <label class="row gap-2"><app-icon name="palette" :size="12"/> Look</label>
+                    <select :value="instance.bookstackdev_id ?? ''" @change="setLook(instance, $event.target.value)"
+                            :aria-label="'BookStackDev look for ' + (instance.name || 'this instance')">
+                      <option value="">Plain BookStack - no look</option>
+                      <option v-for="look in state.bookstackdev.profiles" :key="look.id" :value="look.id">{{ look.name }}</option>
+                    </select>
+                    <p class="hint">
+                      A BookStackDev look - code highlighting, diagrams, formulas, embeds - served to this wiki by one line
+                      in its custom head. Looks are made, and the line copied, under
+                      <button class="btn btn--ghost btn--sm" style="padding:0 4px" @click="go('bookstackdev')">BookStackDev</button>.
+                    </p>
+                  </div>
                 </div>
                 <p v-if="!draft.data.bookstack.length" class="hint">
                   Add the BookStack instance a course gets published into.
@@ -968,15 +1003,14 @@ export const ProfilesView = {
                     <input v-model="account.site_name" class="mono" placeholder="App name (optional)">
                   </div>
 
-                  <!-- The subscription account stores no credential at all. -->
-                  <template v-if="account.kind === 'claude_cli'">
-                    <input v-model="account.cli_path" class="mono" placeholder="claude (or the full path to it)">
-                    <p v-if="!state.canSpawn" class="hint c-danger">
-                      This server does not let PHP start other programs, so this account cannot be used here.
-                    </p>
-                  </template>
-
-                  <p class="hint">{{ providerFor(account).hint }}</p>
+                  <!-- An account on a kind this release no longer serves keeps its
+                       row and says so, rather than vanishing with the profile it is
+                       in. The hint carries the reason; the picker above is the way out. -->
+                  <p v-if="providerFor(account).retired" class="note-strip note-strip--warning">
+                    <app-icon name="alert" :size="14" class="c-warning"/>
+                    <span>{{ providerFor(account).hint }} Pick another provider with the button above.</span>
+                  </p>
+                  <p v-else class="hint">{{ providerFor(account).hint }}</p>
 
                   <p v-if="providerFor(account).docs" class="hint">
                     <a :href="providerFor(account).docs" target="_blank" rel="noopener noreferrer">
@@ -990,7 +1024,7 @@ export const ProfilesView = {
                        never the same question as "does the endpoint have one". -->
                   <div class="col gap-2">
                     <div class="row wrap gap-2">
-                      <button class="btn btn--sm none" :disabled="checks[account.id]?.busy"
+                      <button class="btn btn--sm none" :disabled="checks[account.id]?.busy || providerFor(account).retired"
                               @click="checkAccount(account.id)">
                         <app-icon :name="checks[account.id]?.busy ? 'refresh' : 'zap'" :size="13"
                                   :spin="checks[account.id]?.busy"/>
@@ -1202,7 +1236,8 @@ export const ProfilesView = {
           </div>
 
           <prompt-workbench v-else :groups="groups" :slot-list="promptSlotList"
-                            :values="promptValues" :loading="promptsLoading"
+                            :values="promptValues" :loading="promptsLoading" :issues="lookIssues"
+                            @fix="setPrompt($event.key, $event.text)"
                             box-placeholder="Empty → nothing is sent for this slot"
                             empty-title="No prompt selected"
                             empty-hint="Every AI request is built from these slots. One you leave alone follows the installation default; one you edit here applies only to the courses that use this profile."

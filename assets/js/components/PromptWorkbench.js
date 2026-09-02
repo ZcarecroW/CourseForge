@@ -39,6 +39,17 @@ import { useFuzzy } from '@/core/fuzzy.js';
 import AppIcon from '@/components/AppIcon.js';
 import EmptyState from '@/components/EmptyState.js';
 
+/**
+ * The slots a BookStackDev look reads literally: what they ask the model for
+ * is what a wiki wearing a look renders, so the two have to agree. Named here
+ * so both prompt screens mark them the same way.
+ */
+const LOOK_SLOTS = {
+  feature_mathjax_on: 'formula delimiters',
+  feature_mermaid_on: 'diagram blocks',
+  feature_code_examples_on: 'code fences',
+};
+
 /** The glyph each group of prompts is filed under, on both prompt screens. */
 const GROUP_ICONS = { global: 'globe', structure: 'sitemap', page: 'file-text', features: 'list-check' };
 const groupIcon = (key) => GROUP_ICONS[key] ?? 'folder';
@@ -83,8 +94,15 @@ export const PromptWorkbench = {
     boxPlaceholder: { type: String, default: '' },
     emptyTitle: { type: String, default: 'Pick a prompt on the left' },
     emptyHint: { type: String, default: '' },
+    /**
+     * Where a BookStackDev look disagrees with a slot: [{ slot, message,
+     * recommended, bookstackdev_name, ... }]. The caller decides what a fix
+     * writes - an installation slot, a profile override - and hears about it
+     * through `fix`.
+     */
+    issues: { type: Array, default: () => [] },
   },
-  emits: ['edit'],
+  emits: ['edit', 'fix'],
   setup(props, { emit }) {
     const groupKey = ref('');
     const slotKey = ref('');
@@ -195,10 +213,13 @@ export const PromptWorkbench = {
     // the interpolation at the first one — so the example travels as data.
     const tokenExample = `{${'{page_title}'}}`;
 
+    const lookNote = (key) => LOOK_SLOTS[key] ?? '';
+    const issuesFor = (key) => props.issues.filter((issue) => issue.slot === key);
+
     return {
       groupKey, slotKey, search, listOpen, box,
       orderedGroups, visibleSlots, current, currentGroup, searching,
-      inGroup, groupLabel, groupIcon, select, pickGroup, insert, tokenExample,
+      inGroup, groupLabel, groupIcon, select, pickGroup, insert, tokenExample, lookNote, issuesFor,
     };
   },
   template: `
@@ -251,6 +272,10 @@ export const PromptWorkbench = {
                 <span v-if="searching" class="t-2xs faint"> · {{ groupLabel(slot.group) }}</span>
               </span>
               <slot name="mark" :item="slot"/>
+              <app-icon v-if="issuesFor(slot.key).length" name="alert" :size="12" class="c-warning none"
+                        title="A BookStackDev look disagrees with this prompt"/>
+              <app-icon v-else-if="lookNote(slot.key)" name="palette" :size="12" class="faint none"
+                        :title="'A BookStackDev look renders the ' + lookNote(slot.key) + ' this slot asks for'"/>
             </button>
 
             <p v-if="!visibleSlots.length" class="t-xs faint" style="padding:var(--s-4);text-align:center">
@@ -277,6 +302,30 @@ export const PromptWorkbench = {
 
           <div class="pane__body view-pad col gap-3">
             <p v-if="current.description" class="hint">{{ current.description }}</p>
+
+            <!-- A slot a look reads literally says so, and says where a look
+                 disagrees - with the wording that would settle it, one click
+                 away. The caller decides which layer that click writes. -->
+            <div v-if="lookNote(current.key)" class="note-strip" :class="issuesFor(current.key).length ? 'note-strip--warning' : ''">
+              <app-icon :name="issuesFor(current.key).length ? 'alert' : 'palette'" :size="15"
+                        :class="issuesFor(current.key).length ? 'c-warning' : 'c-accent'"/>
+              <div class="col gap-2 grow">
+                <span>
+                  <strong>BookStackDev reads this slot literally.</strong> The {{ lookNote(current.key) }} it asks for are
+                  what a wiki wearing a look renders - change one here and the look has to change with it, or the other way round.
+                  The BookStackDev screen compares the two.
+                </span>
+                <div v-for="(issue, i) in issuesFor(current.key)" :key="i" class="col gap-2">
+                  <span>{{ issue.message }}</span>
+                  <div class="row wrap gap-2">
+                    <button class="btn btn--sm" @click="$emit('fix', { key: current.key, text: issue.recommended, issue })">
+                      <app-icon name="wrench" :size="13"/>
+                      Use the wording the look "{{ issue.bookstackdev_name || '' }}" recommends
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div v-if="current.placeholders.length" class="col gap-1">
               <span class="label row gap-2"><app-icon name="hash" :size="12"/> Placeholders</span>

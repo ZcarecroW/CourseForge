@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../src/bootstrap.php';
 
+use CourseForge\Api\BookStackDevController;
 use CourseForge\Api\ConfigController;
 use CourseForge\Api\ConnectController;
 use CourseForge\Api\PageController;
@@ -83,6 +84,14 @@ $router->add('DELETE', 'profiles/{id}', [ProfileController::class, 'delete']);
 $router->add('POST', 'profiles/{id}/models', [ProfileController::class, 'models']);
 $router->add('POST', 'profiles/{id}/check', [ProfileController::class, 'check']);
 $router->add('POST', 'profiles/{id}/shelves', [ProfileController::class, 'shelves']);
+
+// The looks a BookStack instance wears, and the link that puts one on.
+$router->add('GET', 'bookstackdev', [BookStackDevController::class, 'index']);
+$router->add('GET', 'bookstackdev/audit', [BookStackDevController::class, 'audit']);
+$router->add('POST', 'bookstackdev', [BookStackDevController::class, 'create']);
+$router->add('PUT', 'bookstackdev/{id}', [BookStackDevController::class, 'update']);
+$router->add('DELETE', 'bookstackdev/{id}', [BookStackDevController::class, 'delete']);
+$router->add('POST', 'bookstackdev/{id}/key', [BookStackDevController::class, 'rotateKey']);
 
 $router->add('GET', 'connect', [ConnectController::class, 'index']);
 $router->add('POST', 'connect', [ConnectController::class, 'create']);

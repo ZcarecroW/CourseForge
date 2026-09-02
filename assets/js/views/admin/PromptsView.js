@@ -49,6 +49,21 @@ export const PromptsView = {
     const groups = ref({});
     const slots = ref({});
 
+    /**
+     * Where a BookStackDev look disagrees with the installation's wording.
+     * Only the findings about this layer: a profile that overrides the slot
+     * reads its own text, and its own Prompts tab reports those.
+     */
+    const issues = ref([]);
+    const loadIssues = async () => {
+      try {
+        const data = await get('bookstackdev/audit');
+        issues.value = (data.issues ?? []).filter((issue) => issue.layer === 'installation' && issue.recommended);
+      } catch {
+        issues.value = [];        // a failed check is not a reason to hold the prompts back
+      }
+    };
+
     /** key -> the text in the box, which may not be what the server holds. */
     const draft = reactive({});
 
@@ -65,6 +80,7 @@ export const PromptsView = {
       slots.value = data.slots ?? {};
       seed();
       loading.value = false;
+      loadIssues();
     }, 'Load prompts');
 
     onMounted(load);
@@ -128,6 +144,7 @@ export const PromptsView = {
         groups.value = data.groups ?? groups.value;
         slots.value = data.slots ?? slots.value;
         seed();
+        loadIssues();
         toast.success(`${plural(count, 'prompt')} saved.`);
       } finally {
         saving.value = false;
@@ -146,8 +163,14 @@ export const PromptsView = {
         : 'Back to the text the release ships.');
     };
 
+    /** Stages a look's recommended wording; Save writes it like any other edit. */
+    const useRecommended = ({ key, text }) => {
+      draft[key] = text;
+      toast.info('The recommended wording is in the box. Save changes to write it.');
+    };
+
     return {
-      loading, saving, draft,
+      loading, saving, draft, issues, useRecommended,
       load, save, discard, resetSlot,
       groupList, slotList,
       textOf, differs, isDirty, dirtyCount, customCount, slotCount, customIn,
@@ -173,7 +196,8 @@ export const PromptsView = {
       </template>
     </view-header>
 
-    <prompt-workbench :groups="groupList" :slot-list="slotList" :values="draft" :loading="loading"
+    <prompt-workbench :groups="groupList" :slot-list="slotList" :values="draft" :loading="loading" :issues="issues"
+                      @fix="useRecommended($event)"
                       box-placeholder="Empty puts the shipped text back - it does not send an empty prompt."
                       empty-title="Pick a prompt on the left"
                       empty-hint="Every AI request is built from these slots. Editing one here changes it for every course on this installation that does not override it in its profile."

@@ -168,6 +168,7 @@
 .settings-nav__item.is-active > .icon { color: currentColor; }
 .settings-nav__item > .badge { margin-left: auto; }
 .settings-nav__foot { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--border-soft); }
+.settings-nav__search { margin-bottom: var(--s-2); }
 
 /* Each group is a jump target, and the header must not be hidden under the
    top of the scroller when it is jumped to. */
@@ -179,6 +180,7 @@
   .settings-nav__item { width: auto; padding: 5px 10px; border: 1px solid var(--border); background: var(--surface); font-size: var(--t-xs); }
   .settings-nav__item > .badge { margin-left: 4px; }
   .settings-nav__foot { display: none; }
+  .settings-nav__search { flex: 1 1 100%; margin-bottom: var(--s-1); }
 }
 
 /* -- the danger zone --------------------------------------------------------

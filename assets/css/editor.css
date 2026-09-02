@@ -438,6 +438,76 @@
 .prose mjx-container[display="true"] { margin: 0 !important; }
 .prose mjx-container svg { max-width: 100%; }
 
+/* -- the outline preview ---------------------------------------------------- */
+
+/* What Apply would make of the outline: the book, its description, every
+   chapter as a box with its pages listed, and the pages that would go. Rows
+   rather than prose, because it is a plan being checked, not a page being
+   read - and every row carries its source line for the scroll link. */
+.outline-stats { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-bottom: var(--s-4); }
+
+.outline-book { display: flex; align-items: flex-start; gap: var(--s-3); margin-bottom: var(--s-4); }
+.outline-book__title { font-size: var(--t-xl); font-weight: 650; letter-spacing: -0.015em; line-height: 1.25; }
+
+.outline-desc { max-width: 78ch; margin-bottom: var(--s-5); color: var(--text-muted); font-size: var(--t-sm); line-height: 1.6; }
+.outline-desc p + p { margin-top: 0.6em; }
+
+.outline-chapters { display: flex; flex-direction: column; gap: var(--s-3); margin: 0; padding: 0; list-style: none; }
+.outline-chapter {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.outline-chapter.is-new { border-color: var(--success-line); }
+.outline-chapter__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-soft);
+}
+.outline-chapter__title { font-size: var(--t-sm); font-weight: 600; }
+.outline-chapter__desc {
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: var(--t-xs);
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.outline-chapter__desc summary { cursor: pointer; }
+.outline-chapter__desc summary::marker { color: var(--text-faint); }
+.outline-chapter__desc p { margin-top: 0.5em; }
+.outline-pages { display: flex; flex-direction: column; gap: 1px; margin: 0; padding: var(--s-1) var(--s-2); list-style: none; }
+.outline-page {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  font-size: var(--t-sm);
+  color: var(--text-muted);
+}
+.outline-page.is-new, .outline-page.is-moved { color: var(--text); }
+.outline-page.is-empty { padding-left: 33px; }
+.outline-num {
+  flex: none;
+  width: 18px;
+  font-size: var(--t-2xs);
+  color: var(--text-faint);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.outline-removed {
+  margin-top: var(--s-5);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+}
+.outline-removed ul { margin: var(--s-2) 0 0; padding-left: 20px; font-size: var(--t-sm); line-height: 1.6; }
+
 /* -- the split view --------------------------------------------------------- */
 
 .cf-preview { position: relative; scroll-behavior: auto; }

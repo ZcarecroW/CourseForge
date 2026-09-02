@@ -20,7 +20,6 @@ use CourseForge\Ai\Batch\BatchHandle;
 use CourseForge\Ai\Batch\BatchItemResult;
 use CourseForge\Ai\Batch\BatchStatus;
 use CourseForge\Ai\Prompt;
-use CourseForge\Ai\Provider\ClaudeCliProvider;
 use CourseForge\Ai\Provider\OpenAiCompatibleProvider;
 use CourseForge\Ai\Provider\OpenAiProvider;
 use CourseForge\Ai\Provider\Providers;
@@ -457,23 +456,6 @@ test('gpt-5-chat-latest is a chat model and keeps its temperature', static funct
     $reasoning = $tuner->tune(['temperature' => 0.7, 'max_tokens' => 100], 'gpt-5');
     ok(!isset($reasoning['temperature']), 'a reasoning model still has it stripped');
     same(100, $reasoning['max_completion_tokens'] ?? null, 'and its ceiling renamed');
-});
-
-test('a model id with shell metacharacters never reaches the command line', static function (): void {
-    $provider = new ClaudeCliProvider(['cli_path' => 'claude']);
-    $e = raises(
-        static fn(): string => $provider->chat(new AiRequest('opus" & calc.exe', 'system', 'user')),
-        'a model id carrying cmd.exe metacharacters'
-    );
-    ok(str_contains($e->getMessage(), 'characters a model id never has'), 'is refused for what it is: ' . $e->getMessage());
-
-    foreach (['opus', 'claude-opus-5', 'opus[1m]', 'us.anthropic.claude-opus-5-v1:0'] as $fine) {
-        try {
-            $provider->chat(new AiRequest($fine, 'system', 'user'));
-        } catch (Throwable $t) {
-            ok(!str_contains($t->getMessage(), 'characters a model id never has'), $fine . ' is a model id');
-        }
-    }
 });
 
 /* ------------------------------------------ the development router */

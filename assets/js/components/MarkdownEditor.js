@@ -111,6 +111,13 @@ const crossReferences = marker(/\(\u{1F517}\s*[^()\n]+\)/gu, 'cm-cf-xref');
 const clozeDeletions = marker(/\{\{c\d+::[^{}\n]*\}\}/g, 'cm-cf-cloze');
 
 /**
+ * `{{Vue, Reactivity}}` — a tag marker in an outline, which the apply turns
+ * into real tags. Only switched on for the Structure tab (`outline`): in a
+ * page these braces would be a cloze deletion.
+ */
+const tagMarkers = marker(/\{\{[^{}\n]*\}\}/g, 'cm-cf-token');
+
+/**
  * `{{page_title}}` — a slot the prompt library fills in per request.
  *
  * Only switched on for the prompt screens (`tokens`), because in a page these
@@ -282,6 +289,8 @@ export const MarkdownEditor = {
     markers: { type: Boolean, default: true },
     /** `{{placeholder}}` highlighting, which only means anything in a prompt. */
     tokens: { type: Boolean, default: false },
+    /** `{{Tag, Tag}}` highlighting, which only means anything in an outline. */
+    outline: { type: Boolean, default: false },
     /** What a screen reader calls this box. */
     label: { type: String, default: 'Page content, Markdown' },
     /**
@@ -346,6 +355,7 @@ export const MarkdownEditor = {
       syntaxHighlighting(highlightStyle),
       ...(props.markers ? [crossReferences, clozeDeletions] : []),
       ...(props.tokens ? [placeholderTokens] : []),
+      ...(props.outline ? [tagMarkers] : []),
       cmPlaceholder(props.placeholder),
       darkness.of(EditorView.darkTheme.of(resolvedTheme.value === 'dark')),
       // CodeMirror's own history keymap gives redo Ctrl+Shift+Z on macOS and on

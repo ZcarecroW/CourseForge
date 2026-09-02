@@ -8,7 +8,7 @@
     "ai_models_timeout_seconds": 240,
     "connect_timeout_seconds": 60,
     "bookstack_timeout_seconds": 240,
-    "anthropic_max_tokens": 16000,
+    "anthropic_max_tokens": 32000,
     "batch_poll_seconds": 60,
     "batch_keep_days": 30,
     "cron_token": "",
@@ -18,18 +18,6 @@
     "cron_item_timeout_seconds": 1800,
     "research_default_searches": 8,
     "bookstack_description_max": 2000,
-    "claude_cli_path": "claude",
-    "claude_cli_allowed_paths": [],
-    "claude_cli_models": [
-      "opus",
-      "sonnet",
-      "haiku",
-      "fable",
-      "claude-opus-5",
-      "claude-sonnet-5",
-      "claude-haiku-4-5",
-      "claude-fable-5"
-    ],
     "public_url": ""
   },
   "mcp": {
@@ -166,7 +154,7 @@
         "min": 0,
         "max": 100000,
         "step": 100,
-        "default": 1200
+        "default": 3000
       },
       "max_length": {
         "order": 20,
@@ -177,7 +165,7 @@
         "min": 0,
         "max": 100000,
         "step": 100,
-        "default": 3000
+        "default": 15000
       },
       "diagram_max": {
         "order": 30,
@@ -210,7 +198,7 @@
         "min": 0,
         "max": 100,
         "step": 1,
-        "default": 8
+        "default": 5
       },
       "link_count": {
         "order": 60,
@@ -234,13 +222,13 @@
       "research_max_searches": {
         "order": 80,
         "label": "Searches per page",
-        "description": "Upper bound on web searches while writing one page. 0 leaves it to the provider. Only used where web research is switched on.",
+        "description": "Upper bound on web searches while writing one page. 0 lets the model decide how much to look up. Only used where web research is switched on.",
         "unit": "max",
         "type": "int",
         "min": 0,
         "max": 20,
         "step": 1,
-        "default": 5
+        "default": 0
       }
     }
   },
@@ -354,7 +342,7 @@
       "group": "structure",
       "order": 365,
       "label": "Researched facts",
-      "description": "Inserted into the outline brief and into every page brief, but only when research has been stored on the course - by a client over MCP through store_research, by the Claude Code CLI provider, or by hand. Empty falls back to a built-in block that carries the findings and the date they were established. Keep {{research_block}}, which is the findings with their date already wrapped around them; {{research_findings}} is the same text bare, for a wording of your own.",
+      "description": "Inserted into the outline brief and into every page brief, but only when research has been stored on the course - by a client over MCP through store_research, by a provider with a search tool, or by hand. Empty falls back to a built-in block that carries the findings and the date they were established. Keep {{research_block}}, which is the findings with their date already wrapped around them; {{research_findings}} is the same text bare, for a wording of your own.",
       "placeholders": [
         "research_block",
         "research_findings"

@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace CourseForge\Api;
 
-use CourseForge\Ai\Provider\ClaudeCliProvider;
 use CourseForge\Ai\Provider\Providers;
 use CourseForge\Ai\Run\RunManager;
 use CourseForge\Domain\Details;
@@ -37,9 +36,6 @@ final class ConfigController
             ],
             'profile_defaults' => Profiles::defaults(),
             'providers' => Providers::catalogue(),
-            // A host that forbids proc_open can never reach the Claude CLI, and
-            // the Profiles screen says so rather than offering a dead option.
-            'can_spawn' => ClaudeCliProvider::canSpawn(),
             // Who is asking, in the same shape everything else in 4.0 reports
             // an actor - so the SPA has one description of the signed-in
             // account rather than several that can drift apart.

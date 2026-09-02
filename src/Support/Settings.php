@@ -176,8 +176,11 @@ final class Settings
             [
                 'key' => 'app.anthropic_max_tokens', 'group' => 'batch', 'type' => 'int',
                 'label' => 'Default output ceiling', 'unit' => 'tokens',
-                'description' => 'Used where a provider demands an explicit ceiling and the profile does not set one. Too low truncates a long page mid-sentence.',
-                'default' => 16000, 'min' => 1000, 'max' => 200000,
+                'description' => 'Used where a provider demands an explicit ceiling and the profile does not set one. '
+                    . 'Too low truncates a long page mid-sentence: a page at the shipped maximum length of 15,000 '
+                    . 'words is well over 20,000 tokens, which is why this ships at 32,000. A model whose own '
+                    . 'ceiling is lower is held to that ceiling, never to this number.',
+                'default' => 32000, 'min' => 1000, 'max' => 200000,
             ],
 
             /* ----------------------------------------------------- research */
@@ -197,32 +200,6 @@ final class Settings
                     . 'where it stays whole and is what the pages are written from. Raise it only if your '
                     . 'BookStack raised it too; 0 turns the shortening off entirely.',
                 'default' => 2000, 'min' => 0, 'max' => 100000, 'advanced' => true,
-            ],
-
-            /* ------------------------------------------- claude subscription */
-            [
-                'key' => 'app.claude_cli_path', 'group' => 'claude_cli', 'type' => 'string',
-                'label' => 'Path to the claude binary',
-                'description' => 'Left as "claude" it is looked up on PATH, which is right on a machine where '
-                    . 'you installed it normally. Give a full path when PHP runs with a PATH of its own.',
-                'default' => 'claude', 'admin_only' => true,
-            ],
-            [
-                'key' => 'app.claude_cli_allowed_paths', 'group' => 'claude_cli', 'type' => 'list',
-                'label' => 'Directories the CLI may be started from',
-                'description' => 'Empty means no restriction. Naming directories here refuses to start the '
-                    . 'binary from anywhere else, which is worth doing if anything other than you can write '
-                    . 'to the machine.',
-                'default' => [], 'admin_only' => true, 'advanced' => true,
-            ],
-            [
-                'key' => 'app.claude_cli_models', 'group' => 'claude_cli', 'type' => 'list',
-                'label' => 'Models the subscription offers',
-                'description' => 'The CLI has no endpoint that lists them, so this is the list the Profiles '
-                    . 'screen shows. Add a model here when Anthropic ships one before CourseForge knows about it.',
-                'default' => ['opus', 'sonnet', 'haiku', 'fable',
-                    'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5', 'claude-fable-5'],
-                'admin_only' => true, 'advanced' => true,
             ],
 
             /* ---------------------------------------------------------- mcp */
@@ -325,10 +302,11 @@ final class Settings
             ],
             [
                 'key' => 'updates.timezone', 'group' => 'updates', 'type' => 'string',
+                'suggest' => 'timezones',
                 'label' => 'Time zone for that clock',
-                'description' => 'An IANA name such as Europe/Berlin. CourseForge itself works in UTC; this is only '
-                    . 'for reading the hour above. Leave it empty and the server\'s own time zone is used, which is '
-                    . 'almost always the one you meant.',
+                'description' => 'An IANA name such as Europe/Berlin - fuzzy search the list, or type one. '
+                    . 'CourseForge itself works in UTC; this is only for reading the hour above. Leave it empty '
+                    . 'and the server\'s own time zone is used, which is almost always the one you meant.',
                 'default' => '', 'admin_only' => true, 'advanced' => true,
             ],
             [
@@ -435,7 +413,6 @@ final class Settings
             ['key' => 'batch', 'label' => 'Batch and runs', 'description' => 'How queued generation is polled and how long its records are kept.'],
             ['key' => 'updates', 'label' => 'Updates', 'description' => 'Checking GitHub for a new version, and installing it.'],
             ['key' => 'mcp', 'label' => 'MCP', 'description' => 'The endpoint Claude and other MCP clients connect to.'],
-            ['key' => 'claude_cli', 'label' => 'Claude subscription', 'description' => 'The locally installed Claude Code CLI, for an installation running on your own machine.'],
             ['key' => 'security', 'label' => 'Security', 'description' => 'Sign-in throttling and session lifetime.'],
             ['key' => 'timeouts', 'label' => 'Timeouts', 'description' => 'How long CourseForge waits for somebody else.'],
         ];

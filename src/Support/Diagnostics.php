@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace CourseForge\Support;
 
-use CourseForge\Ai\Provider\ClaudeCliProvider;
 use CourseForge\Ai\Run\RunManager;
 use CourseForge\Domain\Details;
 use CourseForge\Security\Invite;
@@ -71,7 +70,6 @@ final class Diagnostics
             $usable ? self::scheduler() : self::notChecked('scheduler', 'Scheduler'),
             self::updates(),
             $usable ? self::mcp() : self::notChecked('mcp', 'MCP endpoint'),
-            self::claude(),
         ];
 
         return [
@@ -823,43 +821,6 @@ final class Diagnostics
         return self::section('mcp', 'MCP endpoint', $checks);
     }
 
-    /* ------------------------------------------------------ Claude Code CLI */
-
-    private static function claude(): array
-    {
-        $checks = [];
-
-        if (!ClaudeCliProvider::canSpawn()) {
-            $checks[] = self::ok(
-                'proc_open',
-                'proc_open',
-                'disabled - this account type is unavailable, which is normal on a hosted install'
-            );
-            return self::section('claude', 'Claude subscription - local installs only (optional)', $checks);
-        }
-
-        $checks[] = self::ok('proc_open', 'proc_open', 'available');
-
-        try {
-            // An account with no cli_path falls back to app.claude_cli_path.
-            $status = (new ClaudeCliProvider([]))->status();
-            if (!$status['installed']) {
-                // Expected on any hosted install: this account type only works
-                // when CourseForge runs on the same machine you signed in to
-                // Claude Code on. A hosted install uses the MCP connector.
-                $checks[] = self::ok('claude_cli', 'Claude Code CLI', 'not installed here - use Connect instead');
-            } elseif ($status['ok']) {
-                $checks[] = self::ok('claude_cli', 'Claude Code CLI', $status['version'] . ' - ' . $status['detail']);
-            } else {
-                $checks[] = self::warn('claude_cli', 'Claude Code CLI', $status['version'] . ' - ' . $status['detail']);
-            }
-        } catch (Throwable $e) {
-            $checks[] = self::warn('claude_cli', 'Claude Code CLI', $e->getMessage());
-        }
-
-        return self::section('claude', 'Claude subscription - local installs only (optional)', $checks);
-    }
-
     /* -------------------------------------------------------------- helpers */
 
     /**
@@ -937,8 +898,8 @@ final class Diagnostics
      * How many settings this installation has actually changed.
      *
      * A list counts as one value rather than as its members, the same way
-     * Config treats it: an override of app.claude_cli_allowed_paths is one
-     * decision, however many paths it names.
+     * Config treats it: an override of mcp.allowed_origins is one decision,
+     * however many origins it names.
      *
      * @param array<string,mixed> $doc
      */

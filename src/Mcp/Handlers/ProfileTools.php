@@ -4,9 +4,9 @@ declare(strict_types=1);
 namespace CourseForge\Mcp\Handlers;
 
 use CourseForge\Ai\ModelId;
-use CourseForge\Ai\Provider\ClaudeCliProvider;
 use CourseForge\Ai\Provider\Providers;
 use CourseForge\Domain\Details;
+use CourseForge\Domain\BookStackDev;
 use CourseForge\Domain\Profiles;
 use CourseForge\Domain\Projects;
 use CourseForge\Mcp\Args;
@@ -148,10 +148,6 @@ final class ProfileTools
                         'groq'
                     ),
                     'organization' => Schema::string('The OpenAI organization id, for an account that belongs to one.'),
-                    'cli_path' => Schema::string(
-                        'Where the Claude CLI lives on this server, for the subscription account when it is not on '
-                        . 'the PATH.'
-                    ),
                     'site_url' => Schema::string('OpenRouter only: the site this traffic is attributed to.'),
                     'site_name' => Schema::string('OpenRouter only: the name shown beside that attribution.'),
                     'model' => Schema::string(
@@ -220,10 +216,6 @@ final class ProfileTools
                         'groq'
                     ),
                     'organization' => Schema::string('The OpenAI organization id, for an account that belongs to one.'),
-                    'cli_path' => Schema::string(
-                        'Where the Claude CLI lives on this server, for the subscription account when it is not on '
-                        . 'the PATH.'
-                    ),
                     'site_url' => Schema::string('OpenRouter only: the site this traffic is attributed to.'),
                     'site_name' => Schema::string('OpenRouter only: the name shown beside that attribution.'),
                     'model' => Schema::string('The model that writes the pages. Add ":batch" to queue the run at about half price.'),
@@ -242,6 +234,10 @@ final class ProfileTools
                     'bookstack_url' => Schema::string('The BookStack base URL.'),
                     'bookstack_token_id' => Schema::string('The BookStack API token id.'),
                     'bookstack_token_secret' => Schema::string('A new BookStack token secret. Empty or omitted keeps the stored one.'),
+                    'bookstackdev_id' => Schema::int(
+                        'The BookStackDev look this instance wears, by id - list_bookstackdev_profiles has them. '
+                        . '0 takes the look off, back to plain BookStack.'
+                    ),
                     'typography' => Schema::bool(
                         'Whether a page generated with this profile has its punctuation set the way the course '
                         . 'language sets it before it is stored. Omitted leaves the profile as it is; a profile that '
@@ -311,10 +307,6 @@ final class ProfileTools
                         'groq'
                     ),
                     'organization' => Schema::string('The OpenAI organization id, for an account that belongs to one.'),
-                    'cli_path' => Schema::string(
-                        'Where the Claude CLI lives on this server, for the subscription account when it is not on '
-                        . 'the PATH.'
-                    ),
                     'site_url' => Schema::string('OpenRouter only: the site this traffic is attributed to.'),
                     'site_name' => Schema::string('OpenRouter only: the name shown beside that attribution.'),
                 ],
@@ -360,6 +352,9 @@ final class ProfileTools
                     'name' => Schema::string(
                         'A name for this instance, which is how a course names its destination.',
                         'Staging wiki'
+                    ),
+                    'bookstackdev_id' => Schema::int(
+                        'The BookStackDev look this instance should wear, by id. Omit for plain BookStack.'
                     ),
                 ],
                 required: ['profile_id', 'url', 'token_id', 'token_secret'],
@@ -733,7 +728,6 @@ final class ProfileTools
             'base_url' => self::normaliseUrl($args->has('base_url') ? $args->str('base_url') : self::defaultUrl($catalogue)),
             'api_key' => $apiKey,
             'organization' => '',
-            'cli_path' => '',
             'site_url' => '',
             'site_name' => '',
         ])];
@@ -845,7 +839,6 @@ final class ProfileTools
                     'base_url' => self::normaliseUrl($args->has('base_url') ? $args->str('base_url') : self::defaultUrl($catalogue)),
                     'api_key' => $args->str('api_key'),
                     'organization' => '',
-                    'cli_path' => '',
                     'site_url' => '',
                     'site_name' => '',
                 ]);
@@ -943,6 +936,7 @@ final class ProfileTools
             || $args->has('bookstack_name')
             || $args->has('bookstack_token_id')
             || $args->str('bookstack_token_secret') !== ''
+            || $args->has('bookstackdev_id')
             || self::givenInstanceId($args) !== '';
 
         if ($touchesBookStack) {
@@ -952,7 +946,11 @@ final class ProfileTools
                         'This profile has no BookStack instance yet, so bookstack_url is required to add one.'
                     );
                 }
-                $instances[] = self::newInstance($args);
+                $fresh = self::newInstance($args);
+                if ($args->has('bookstackdev_id')) {
+                    $fresh['bookstackdev_id'] = self::lookId($owner, $args);
+                }
+                $instances[] = $fresh;
                 $changed[] = 'bookstack_added';
             } else {
                 $index = self::instanceIndex($instances, $args);
@@ -973,6 +971,10 @@ final class ProfileTools
                     $instance['name'] = $args->requiredStr('bookstack_name');
                     $changed[] = 'bookstack_name';
                 }
+                if ($args->has('bookstackdev_id')) {
+                    $instance['bookstackdev_id'] = self::lookId($owner, $args);
+                    $changed[] = 'bookstackdev_id';
+                }
                 $instances[$index] = $instance;
             }
             $data['bookstack'] = $instances;
@@ -986,8 +988,8 @@ final class ProfileTools
         if ($changed === []) {
             throw HttpException::unprocessable(
                 'Nothing to change. Give at least one field - name, ai_kind, ai_name, api_key, base_url, model, '
-                . 'structure_model, language, temperature, max_tokens, concurrency, typography or one of the '
-                . 'bookstack_ fields. An empty api_key is treated as "keep the stored one", not as a change.'
+                . 'structure_model, language, temperature, max_tokens, concurrency, typography, bookstackdev_id or '
+                . 'one of the bookstack_ fields. An empty api_key is treated as "keep the stored one", not as a change.'
             );
         }
 
@@ -1046,7 +1048,6 @@ final class ProfileTools
             'base_url' => self::normaliseUrl($args->has('base_url') ? $args->str('base_url') : self::defaultUrl($catalogue)),
             'api_key' => $args->str('api_key'),
             'organization' => '',
-            'cli_path' => '',
             'site_url' => '',
             'site_name' => '',
         ]);
@@ -1146,6 +1147,7 @@ final class ProfileTools
             'base_url' => $url,
             'token_id' => $args->requiredStr('token_id'),
             'token_secret' => $args->requiredStr('token_secret'),
+            'bookstackdev_id' => $args->has('bookstackdev_id') ? self::lookId($owner, $args) : null,
         ];
         $data['bookstack'] = $instances;
 
@@ -1565,7 +1567,24 @@ final class ProfileTools
             'base_url' => (string)($instance['base_url'] ?? ''),
             'token_id' => (string)($instance['token_id'] ?? ''),
             'token_secret_set' => (bool)($entry['token_secret_set'] ?? false),
+            'bookstackdev_id' => is_numeric($instance['bookstackdev_id'] ?? null) && (int)$instance['bookstackdev_id'] > 0
+                ? (int)$instance['bookstackdev_id'] : null,
         ];
+    }
+
+    /**
+     * The look an instance is told to wear, checked to exist on the same
+     * account. 0 - and only 0 - takes a look off; an id nobody owns is refused
+     * rather than stored, because a link that points at nothing loads nothing.
+     */
+    private static function lookId(string $owner, Args $args): ?int
+    {
+        $id = $args->int('bookstackdev_id', 0);
+        if ($id <= 0) {
+            return null;
+        }
+        BookStackDev::require($owner, $id);
+        return $id;
     }
 
     /** @return array<string,mixed> */
@@ -1660,24 +1679,6 @@ final class ProfileTools
         $provider = Providers::fromAccount($account);
 
         Runtime::beginLongRequest();
-
-        if ($provider instanceof ClaudeCliProvider) {
-            // The subscription account is the one with three separate ways to
-            // be broken, so it reports them itself rather than being reduced
-            // to a yes or a no.
-            $status = $provider->status();
-            return [
-                'profile_id' => (int)$row['id'],
-                'ai_id' => $accountId,
-                'kind' => $provider->kind(),
-                'provider' => $provider->label(),
-                'ok' => (bool)($status['ok'] ?? false),
-                'check' => $status,
-                'next' => ($status['ok'] ?? false)
-                    ? 'The account works. Call list_models to choose one, then update_profile.'
-                    : 'Fix what the check reports, then call check_profile again.',
-            ];
-        }
 
         $models = $provider->models();
 
@@ -1934,7 +1935,7 @@ final class ProfileTools
     }
 
     /** The per-kind fields an account may carry beside its key and its endpoint. */
-    private const ACCOUNT_EXTRAS = ['organization', 'cli_path', 'site_url', 'site_name'];
+    private const ACCOUNT_EXTRAS = ['organization', 'site_url', 'site_name'];
 
     private static function hasExtras(Args $args): bool
     {

@@ -274,7 +274,7 @@ final class AdminTools
                 properties: [
                     // Listed from the catalogue rather than by hand. The
                     // written-out list had already gone stale once - it never
-                    // learned about claude_cli - and a description an LLM reads
+                    // learned about a group added later - and a description an LLM reads
                     // to decide what to send is exactly the wrong place for a
                     // list that drifts.
                     'group' => Schema::string(

@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace CourseForge\Api;
 
-use CourseForge\Ai\Provider\ClaudeCliProvider;
 use CourseForge\Ai\Provider\OpenAiCompatibleProvider;
 use CourseForge\Ai\Provider\Probe;
 use CourseForge\Ai\Provider\Providers;
@@ -114,10 +113,6 @@ final class ProfileController
     /**
      * Whether one account is actually usable, before a whole course depends on it.
      *
-     * For the subscription account this is the only way to see the three things
-     * that can be wrong: the CLI is missing, it is not signed in, or an API key
-     * in the server's environment has quietly taken over the billing.
-     *
      * For an OpenAI-compatible endpoint this route is also the capability
      * probe, and the only place it ever runs. Three free GETs and, when they
      * get that far, one POST that every real queue rejects decide whether there
@@ -146,10 +141,6 @@ final class ProfileController
         $account = Providers::account($profile, $aiId);
         $provider = Providers::fromAccount($account);
         Runtime::beginLongRequest();
-
-        if ($provider instanceof ClaudeCliProvider) {
-            return ['check' => ['kind' => $provider->kind(), 'label' => $provider->label()] + $provider->status()];
-        }
 
         // Everywhere else, fetching the model list is the cheapest proof that
         // the base URL and the key are both right - but only when the list came

@@ -57,6 +57,45 @@ models, language), create a **Course**, generate the **Structure**, write the
 Full documentation, including the nginx configuration and the technical
 background, is in [docs.md](docs.md).
 
+## What is new in 5.1
+
+**BookStackDev lives in CourseForge.** The BookStack enhancements — Shiki code
+highlighting in every language it ships, Mermaid diagrams, MathJax formulas,
+link embeds, an audio player, external-link marks, a light/dark toggle, page
+styling — are configured on a new **BookStackDev** screen as *looks*: every
+value a card, every feature a switch, defaults exactly as the standalone script
+ships them. A look gives you one line for BookStack's custom head, served by
+`bs.php`, and that line works only on the wikis the look allows: the instances
+in your profiles that wear it, plus any origin you add by hand. One look serves
+any number of wikis. A conventions check compares each look with the prompts of
+the profiles using it and offers the wording that keeps them in agreement — on
+the look, in the profile's prompts and in the administration prompts.
+
+**The Structure tab is a split view.** The outline is edited in the Markdown
+editor with its markers highlighted, and beside it is what Apply would make of
+it, parsed as you type: chapters, pages, what is new, moved or removed. The
+halves scroll together. The AI moved to a panel on the right, so the outline
+has the width.
+
+**Defaults you can start with.** New courses ask for 3,000 to 15,000 words a
+page, five Anki cards and as many searches as the model sees fit; the Anthropic
+output ceiling is 32,000 tokens so a long page is not cut short. The time-zone
+setting is a fuzzy search over the whole list, and the Settings screen itself
+has a search box.
+
+**The Claude subscription provider is retired.** CourseForge runs on ordinary
+web servers, which cannot hold a desktop sign-in. An account of that kind is
+kept and shown as retired so nothing referring to it breaks; give the profile
+an API account to write with.
+
+**Libraries current.** Shiki 4, highlight.js 11, Mermaid 11, MathJax 4 and
+Font Awesome 7 on the wiki side, and an unlabelled code block is recognised by
+CourseForge's own detector before highlight.js is asked — which stops six lines
+of Python being coloured as a DNS zone file.
+
+Upgrading from 5.0 is a normal update: the database gains one table on first
+start, and nothing else changes shape.
+
 ## What is new in 5.0
 
 A release about the interface: what it looks like, how it is organised, and

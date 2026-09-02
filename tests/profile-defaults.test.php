@@ -175,7 +175,8 @@ test('set_profile_details decides, reads back, refuses nonsense and resets', sta
     ok(str_contains($error->getMessage(), 'no content detail'), 'an unknown feature is refused, not dropped');
 
     $error = raises(
-        static fn() => houseCall('set_profile_details', ['profile_id' => $profileId, 'values' => ['min_length' => 5000]]),
+        // 15,000 is the shipped maximum since 5.1; anything above it crosses.
+        static fn() => houseCall('set_profile_details', ['profile_id' => $profileId, 'values' => ['min_length' => 20000]]),
         'a minimum above the maximum'
     );
     ok(str_contains($error->getMessage(), 'above Maximum length'), 'a crossed length pair is refused with the numbers');

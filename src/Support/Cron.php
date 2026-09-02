@@ -6,7 +6,6 @@ namespace CourseForge\Support;
 use CourseForge\Ai\Run\LiveDriver;
 use CourseForge\Ai\Run\RunManager;
 use CourseForge\Domain\Runs;
-use CourseForge\Security\Session;
 use CourseForge\Update\Updater;
 use Throwable;
 
@@ -143,19 +142,7 @@ final class Cron
      */
     public static function publicUrl(string $token): string
     {
-        $base = trim(Config::str('app.public_url', ''));
-
-        if ($base === '' && isset($_SERVER['HTTP_HOST'])) {
-            $scheme = Session::isHttps() ? 'https' : 'http';
-            $dir = rtrim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
-            $dir = (string)preg_replace('#/api$#', '', $dir);
-            $base = $scheme . '://' . $_SERVER['HTTP_HOST'] . $dir;
-        }
-        if ($base === '') {
-            $base = 'https://your-install';
-        }
-
-        return rtrim($base, '/') . '/cron.php?token=' . rawurlencode($token);
+        return PublicUrl::file('cron.php') . '?token=' . rawurlencode($token);
     }
 
     /**

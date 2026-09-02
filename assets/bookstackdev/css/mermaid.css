@@ -1,0 +1,29 @@
+/* rx/ry are SVG geometry *properties* here, so they need a length - the
+   unitless "5" was invalid CSS and dropped, leaving square corners. polygon
+   has no corner radius at all and is not worth a selector. */
+.mermaid .node rect {
+  rx: 5px;
+  ry: 5px;
+}
+
+.mermaid .nodeLabel {
+  white-space: normal !important;
+  max-width: 250px;
+  word-wrap: break-word;
+}
+
+.mermaid-container {
+  border: 1px dashed #4238ff !important;
+}
+
+.mermaid {
+  margin: 1em auto;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+  display: inline-block;
+}

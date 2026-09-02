@@ -87,6 +87,9 @@ const UsersView = adminScreen('Accounts', () => import('@/views/admin/UsersView.
 const SettingsView = adminScreen('Settings', () => import('@/views/admin/SettingsView.js'));
 const PromptsView = adminScreen('Prompts', () => import('@/views/admin/PromptsView.js'));
 const UpdatesView = adminScreen('Updates', () => import('@/views/admin/UpdatesView.js'));
+// Not an administrator screen, but deferred for the same reason: most
+// sessions never open it, and it is one of the larger views.
+const BookStackDevView = adminScreen('BookStackDev', () => import('@/views/BookStackDevView.js'));
 
 /* -------------------------------------------------------------- navigation */
 
@@ -97,6 +100,8 @@ const NAV = [
     hint: 'The tags a course carries into BookStack' },
   { view: 'profiles', label: 'Profiles', icon: 'sliders', count: () => state.profiles.length,
     hint: 'AI accounts, BookStack instances, models, language, content defaults and prompts' },
+  { view: 'bookstackdev', label: 'BookStackDev', icon: 'palette', count: () => state.bookstackdev.profiles.length,
+    hint: 'The look your BookStack instances wear - highlighting, diagrams, formulas, embeds - and the line that switches it on' },
   { view: 'connect', label: 'Connect', icon: 'plug', count: null,
     hint: 'Hand an AI client a key to this installation over MCP' },
 ];
@@ -124,6 +129,9 @@ const COMPONENT_FOR = {
   projects: 'projects-view',
   tags: 'tags-view',
   profiles: 'profiles-view',
+  // Vue hyphenates a registered name at its capitals, so the tag is
+  // book-stack-dev-view, however the view is spelled in a sentence.
+  bookstackdev: 'book-stack-dev-view',
   connect: 'connect-view',
   users: 'users-view',
   settings: 'settings-view',
@@ -142,7 +150,7 @@ export const App = {
   name: 'CourseForge',
   components: {
     AppIcon, AppModal, LoginView, SetupView,
-    ProjectsView, ProjectView, TagsView, ProfilesView, ConnectView,
+    ProjectsView, ProjectView, TagsView, ProfilesView, ConnectView, BookStackDevView,
     UsersView, SettingsView, PromptsView, UpdatesView,
   },
   setup() {

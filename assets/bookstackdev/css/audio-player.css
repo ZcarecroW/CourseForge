@@ -1,0 +1,77 @@
+/* Player chrome for audio-player.js. Previously injected as a hardcoded
+   <style> block from JS, which meant the light-mode gradient stayed put in
+   dark mode. */
+
+.audio-player-wrapper {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.audio-player-container {
+  --ap-bg-a: #f5f7fa;
+  --ap-bg-b: #e4e8ec;
+  --ap-border: #d0d5dd;
+  --ap-fg: #374151;
+  --ap-muted: #6b7280;
+  --ap-shadow: rgba(0, 0, 0, .05);
+
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, var(--ap-bg-a) 0%, var(--ap-bg-b) 100%);
+  border: 1px solid var(--ap-border);
+  border-radius: 10px;
+  margin: 8px 0;
+  box-shadow: 0 2px 4px var(--ap-shadow);
+}
+
+html.dark-mode .audio-player-container,
+body.dark-mode .audio-player-container,
+html[data-theme="dark"] .audio-player-container,
+html[data-bs-theme="dark"] .audio-player-container {
+  --ap-bg-a: #2b3038;
+  --ap-bg-b: #22262d;
+  --ap-border: rgba(255, 255, 255, .18);
+  --ap-fg: #e6edf3;
+  --ap-muted: #9aa4b2;
+  --ap-shadow: transparent;
+}
+
+.audio-player-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ap-fg);
+  /* Long file names wrap instead of forcing the card wider than the column. */
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.audio-element {
+  width: 250px;
+  max-width: 100%;
+  height: 40px;
+}
+
+.audio-player-fallback {
+  font-size: 12px;
+  color: var(--ap-muted);
+}
+
+@media (max-width: 480px) {
+  .audio-player-wrapper,
+  .audio-player-container {
+    display: flex;
+    width: 100%;
+  }
+
+  .audio-player-container {
+    padding: 10px 12px;
+  }
+
+  .audio-element {
+    width: 100%;
+  }
+}

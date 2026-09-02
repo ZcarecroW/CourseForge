@@ -1,0 +1,28 @@
+/* Inline SVG icon keeps this feature request-free; set externalLinks.fontAwesome
+   to true in the loader config to use the Font Awesome glyph instead. */
+.external-link--css-icon::after {
+  content: "";
+  display: inline-block;
+  width: .72em;
+  height: .72em;
+  margin-inline-start: .3em;
+  vertical-align: -.02em;
+  background-color: currentColor;
+  opacity: .65;
+  -webkit-mask: var(--external-link-icon) center / contain no-repeat;
+  mask: var(--external-link-icon) center / contain no-repeat;
+}
+
+:root {
+  --external-link-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3zM5 5h5v2H7v10h10v-3h2v5H5V5z'/%3E%3C/svg%3E");
+}
+
+.external-link-icon {
+  font-size: .78em;
+  opacity: .65;
+}
+
+.external-link:hover.external-link--css-icon::after,
+.external-link:hover .external-link-icon {
+  opacity: 1;
+}

@@ -416,6 +416,16 @@
   .workspace--stack .pane__body { overflow: visible; }
 }
 
+/* -- the Structure tab ------------------------------------------------------
+   The outline takes the width and the AI panel is the inspector column on
+   the right - and below 1280px it is the same drawer the Content tab's
+   inspector becomes, which the .pane--right rules above already draw. */
+.workspace--editor-aside { grid-template-columns: minmax(0, 1fr) var(--inspector-w); }
+
+@media (max-width: 1279px) {
+  .workspace--editor-aside { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* -- content-specific grids ------------------------------------------------ */
 .grid-model   { grid-template-columns: 1.1fr 1.6fr 0.7fr 0.8fr; align-items: end; }
 .grid-publish { grid-template-columns: minmax(0, 420px) minmax(0, 1fr); align-items: start; }

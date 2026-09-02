@@ -5,6 +5,7 @@ namespace CourseForge\Mcp;
 
 use CourseForge\Mcp\Handlers\AccountTools;
 use CourseForge\Mcp\Handlers\AdminTools;
+use CourseForge\Mcp\Handlers\BookStackDevTools;
 use CourseForge\Mcp\Handlers\CourseTools;
 use CourseForge\Mcp\Handlers\DetailTools;
 use CourseForge\Mcp\Handlers\GuideTools;
@@ -75,6 +76,7 @@ final class Tools
             ...TagTools::tools(),
             ...RunTools::tools(),
             ...ProfileTools::tools(),
+            ...BookStackDevTools::tools(),
             ...PublishTools::tools(),
             ...AdminTools::tools(),
         ];

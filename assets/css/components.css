@@ -784,6 +784,37 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .btn-group > button > .icon { color: var(--text-faint); }
 .btn-group > button.is-active > .icon { color: currentColor; }
 
+/* -- feature cards (BookStackDev) --------------------------------------------
+   One card per feature of a look: a tile, a title, one line on what it does,
+   and the switch that turns it on - with its options underneath only while it
+   is on, so a look with three features off is three quiet rows. */
+.look-grid {
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+  align-items: start;
+}
+.look-card { transition: border-color var(--speed) var(--ease); }
+.look-card.is-on { border-color: var(--accent-line); }
+.look-card .card__head .switch { margin-left: auto; }
+.look-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 220px);
+  gap: var(--s-2) var(--s-4);
+  align-items: start;
+  padding: var(--s-2) 0;
+  border-top: 1px solid var(--border-soft);
+}
+.look-field:first-of-type { border-top: 0; }
+.look-field--switch { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.look-field__text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.look-field__label { font-size: var(--t-sm); font-weight: 550; }
+.look-field__desc { font-size: var(--t-xs); color: var(--text-dim); line-height: 1.45; }
+.look-field__control { min-width: 0; }
+@media (max-width: 640px) {
+  .look-field { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* -- one line of key: value inside a card body ------------------------------ */
 .kv { display: flex; align-items: center; gap: var(--s-3); padding: 7px 0; border-bottom: 1px solid var(--border-soft); font-size: var(--t-sm); }
 .kv:last-child { border-bottom: 0; }

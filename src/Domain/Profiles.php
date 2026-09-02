@@ -391,6 +391,11 @@ final class Profiles
                 'base_url' => rtrim(trim((string)($entry['base_url'] ?? '')), '/'),
                 'token_id' => trim((string)($entry['token_id'] ?? '')),
                 'token_secret' => (string)($entry['token_secret'] ?? ''),
+                // The BookStackDev look this instance wears, by id, or null for
+                // plain BookStack. Whether the row still exists is the look's
+                // business - a deleted one clears itself off every instance.
+                'bookstackdev_id' => is_numeric($entry['bookstackdev_id'] ?? null) && (int)$entry['bookstackdev_id'] > 0
+                    ? (int)$entry['bookstackdev_id'] : null,
             ];
         }
 
@@ -421,7 +426,6 @@ final class Profiles
                 'base_url' => $baseUrl,
                 'api_key' => $apiKey,
                 'organization' => trim((string)($entry['organization'] ?? '')),
-                'cli_path' => trim((string)($entry['cli_path'] ?? '')),
                 'site_url' => trim((string)($entry['site_url'] ?? '')),
                 'site_name' => trim((string)($entry['site_name'] ?? '')),
                 // What the capability probe last concluded, kept only while it

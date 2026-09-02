@@ -52,7 +52,6 @@ final class Providers
     public const OPENAI = 'openai';
     public const ANTHROPIC = 'anthropic';
     public const OPENROUTER = 'openrouter';
-    public const CLAUDE_CLI = 'claude_cli';
 
     /* The two 4.0 adds, taken from the class that answers to them so that
        kindOf() and $provider->kind() cannot drift apart. */
@@ -72,7 +71,6 @@ final class Providers
         self::ANTHROPIC => AnthropicProvider::class,
         self::GEMINI => GeminiProvider::class,
         self::OPENROUTER => OpenRouterProvider::class,
-        self::CLAUDE_CLI => ClaudeCliProvider::class,
         self::OAI_COMPAT => OpenAiCompatibleProvider::class,
     ];
 
@@ -80,10 +78,10 @@ final class Providers
      * Spellings that mean a kind above without being it.
      *
      * Each one is a real disagreement rather than a courtesy: the design brief
-     * writes the preset lane as `oai_compat` and the CLI as `claude-cli`, the
-     * classes spell both the other way round, and an account saved from either
-     * vocabulary has to open. Accepting both costs one array lookup and removes
-     * a class of bug that only ever shows up in somebody else's stored profile.
+     * writes the preset lane as `oai_compat`, the class spells it the other
+     * way round, and an account saved from either vocabulary has to open.
+     * Accepting both costs one array lookup and removes a class of bug that
+     * only ever shows up in somebody else's stored profile.
      *
      * @var array<string,string>
      */
@@ -91,8 +89,31 @@ final class Providers
         'oai_compat' => self::OAI_COMPAT,
         'oai-compat' => self::OAI_COMPAT,
         'openai_compatible' => self::OAI_COMPAT,
-        'claude-cli' => self::CLAUDE_CLI,
         'google' => self::GEMINI,
+    ];
+
+    /**
+     * Kinds a previous release served and this one does not, with the reason.
+     *
+     * The Claude subscription account drove a Claude Code CLI installed on the
+     * same machine as CourseForge, which a web host does not have - so 5.1
+     * retired it. A profile written under an earlier release may still carry
+     * such an account, and the profile is a record of somebody's credentials
+     * and settings: losing all of it over one account would be a poor answer
+     * to an upgrade. So the row keeps its kind and opens, nothing can be
+     * generated with it, and fromAccount() says why in these words.
+     *
+     * @var array<string,string>
+     */
+    public const RETIRED = [
+        'claude_cli' => 'The Claude subscription account type was retired in CourseForge 5.1: it ran a Claude '
+            . 'Code CLI on the same machine as CourseForge, which a web host does not have. Point this account '
+            . 'at an API provider instead.',
+    ];
+
+    /** What a retired kind is called where it is still shown. @var array<string,string> */
+    private const RETIRED_LABELS = [
+        'claude_cli' => 'Claude subscription (retired)',
     ];
 
     /** PresetSpec's own section names, in this file's vocabulary. */
@@ -137,7 +158,7 @@ final class Providers
      *
      * @return array<int,array{kind:string,id:string,preset_key:string,label:string,base_url:string,
      *     needs_key:bool,batch:bool|string,batch_note:string,hint:string,docs:string,local:bool,
-     *     verified:bool,beta:bool,group:string}>
+     *     verified:bool,beta:bool,group:string,retired:bool}>
      */
     public static function catalogue(): array
     {
@@ -178,6 +199,17 @@ final class Providers
             $fallback ??= $entry;
         }
 
+        if ($fallback === null && isset(self::RETIRED[$kind])) {
+            return self::entry([
+                'kind' => $kind,
+                'label' => self::RETIRED_LABELS[$kind] ?? $kind,
+                'hint' => self::RETIRED[$kind],
+                'needs_key' => false,
+                'batch' => false,
+                'retired' => true,
+                'group' => self::GROUP_CUSTOM,
+            ]);
+        }
         return $fallback ?? self::entry(['kind' => $kind, 'label' => $kind]);
     }
 
@@ -208,7 +240,7 @@ final class Providers
         $kind = self::kindOf($account);
         $class = self::CLASSES[$kind] ?? null;
         if ($class === null) {
-            throw HttpException::unprocessable('Unknown AI account type "' . $kind . '".');
+            throw HttpException::unprocessable(self::RETIRED[$kind] ?? 'Unknown AI account type "' . $kind . '".');
         }
         return new $class($account);
     }
@@ -270,6 +302,12 @@ final class Providers
         if ($kind !== '') {
             return $kind;
         }
+        // A kind this release has retired keeps its name, so the profile
+        // holding it still opens; see RETIRED for what happens when it is used.
+        $retired = self::retiredKind($stated);
+        if ($retired !== '') {
+            return $retired;
+        }
 
         // The guess below is for accounts written before 3.2, which carry no
         // kind at all. It must not also swallow a kind that WAS stated and is
@@ -287,6 +325,13 @@ final class Providers
             return self::OAI_COMPAT;
         }
         return self::inferKind((string)($account['base_url'] ?? ''));
+    }
+
+    /** The retired kind a stored spelling names, or '' when it names none. */
+    public static function retiredKind(string $kind): string
+    {
+        $kind = str_replace('-', '_', strtolower(trim($kind)));
+        return isset(self::RETIRED[$kind]) ? $kind : '';
     }
 
     /**
@@ -485,7 +530,7 @@ final class Providers
     }
 
     /**
-     * The five adapters that have a class of their own.
+     * The four adapters that have a class of their own.
      *
      * @return array<int,array<string,mixed>>
      */
@@ -545,22 +590,6 @@ final class Providers
                     . 'rather than picked from the list.',
                 'batch_note' => 'The queue is a beta API with no published size limits and no documented way to '
                     . 'cancel, so a batch is designed to run to completion or expiry.',
-            ]),
-            self::entry([
-                'kind' => self::CLAUDE_CLI,
-                'label' => 'Claude subscription (Pro / Max)',
-                'base_url' => '',
-                'needs_key' => false,
-                'batch' => false,
-                // Local in the sense the account form cares about: it runs on
-                // this server and there is no key to store. It is not free - the
-                // work bills against the subscription the CLI is signed in with
-                // - which is why the hint says so rather than the flag.
-                'local' => true,
-                'verified' => true,
-                'hint' => 'Uses the Claude Code CLI already signed in on this server, so generation is billed '
-                    . 'against a Claude Pro or Max plan instead of an API key. No key is stored by CourseForge, '
-                    . 'and there is no queue to batch into.',
             ]),
         ];
     }
@@ -657,6 +686,10 @@ final class Providers
             'verified' => (bool)($row['verified'] ?? false),
             'beta' => (bool)($row['beta'] ?? false),
             'group' => (string)($row['group'] ?? self::GROUP_NATIVE),
+            // A kind this release no longer serves. Only ever true of the entry
+            // entryFor() makes up for a stored account; nothing in catalogue()
+            // carries it, so the picker never offers one.
+            'retired' => (bool)($row['retired'] ?? false),
         ];
     }
 }

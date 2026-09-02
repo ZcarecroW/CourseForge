@@ -77,7 +77,9 @@ export const state = reactive({
   baseline: { features: {}, params: {} },
   profileDefaults: null,
   providers: [],
-  canSpawn: false,
+
+  /** BookStackDev: the looks, what they can be told, and the instances they can be put on. */
+  bookstackdev: { profiles: [], catalogue: [], themes: [], instances: [] },
 
   /* data */
   profiles: [],
@@ -231,13 +233,27 @@ export async function loadCatalogue() {
   state.baseline = data.details?.baseline ?? { features: {}, params: {} };
   state.profileDefaults = data.profile_defaults ?? null;
   state.providers = data.providers ?? [];
-  state.canSpawn = data.can_spawn === true;
 }
 
 
 export const loadProfiles = async () => { state.profiles = (await get('profiles')).profiles ?? []; };
 export const loadProjects = async () => { state.projects = (await get('projects')).projects ?? []; };
 export const loadTags = async () => { state.tags = (await get('tags')).tags ?? []; };
+
+/** The looks, with the catalogue that draws them and the instances they can go on. */
+export async function loadBookStackDev() {
+  return applyBookStackDev(await get('bookstackdev'));
+}
+
+/** Applies a BookStackDev response, which carries the whole list after every write. */
+export function applyBookStackDev(payload) {
+  const box = state.bookstackdev;
+  if (Array.isArray(payload?.profiles)) box.profiles = payload.profiles;
+  if (Array.isArray(payload?.instances)) box.instances = payload.instances;
+  if (Array.isArray(payload?.catalogue)) box.catalogue = payload.catalogue;
+  if (Array.isArray(payload?.themes)) box.themes = payload.themes;
+  return payload;
+}
 
 /**
  * Everything a signed-in account needs before a screen can be drawn.
@@ -254,7 +270,7 @@ export const loadTags = async () => { state.tags = (await get('tags')).tags ?? [
 export async function loadWorkspace() {
   if (mustChangePassword.value) return;
   await loadCatalogue();
-  await Promise.all([loadProfiles(), loadProjects(), loadTags()]);
+  await Promise.all([loadProfiles(), loadProjects(), loadTags(), loadBookStackDev()]);
 }
 
 /* ----------------------------------------------------------- administration
@@ -425,7 +441,11 @@ export const ADMIN_VIEWS = new Set(['users', 'settings', 'prompts', 'updates']);
 const VIEW_DATA = {
   projects: () => loadProjects(),
   tags: () => loadTags(),
-  profiles: () => loadProfiles(),
+  // The Profiles screen names the look each instance wears, so both lists
+  // are fetched together; the BookStackDev screen reads the assignment
+  // back off the profiles the same way.
+  profiles: () => Promise.all([loadProfiles(), loadBookStackDev()]),
+  bookstackdev: () => Promise.all([loadBookStackDev(), loadProfiles()]),
 };
 
 /**
@@ -553,6 +573,7 @@ function resetSession() {
   state.projects = [];
   state.profiles = [];
   state.tags = [];
+  state.bookstackdev = { profiles: [], catalogue: [], themes: [], instances: [] };
   state.view = 'projects';
 
   // Administration is somebody's data too: the next account to sign in here

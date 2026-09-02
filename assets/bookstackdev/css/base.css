@@ -1,0 +1,85 @@
+/* Page styling. Every number here is a custom property the loader sets on the
+   root from the configuration before this file arrives; the values in the
+   var() fallbacks are what the shipped configuration says, so the stylesheet
+   reads the same on its own as it does under CourseForge. */
+
+/* Fixed low-opacity background image behind all content. None by default. */
+body {
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background-image: var(--milelo-bg-image, none);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  opacity: var(--milelo-bg-opacity, 0.05);
+  pointer-events: none;
+}
+
+.page-content details > *:last-child {
+  margin-bottom: .2em;
+}
+
+.content-wrap blockquote > :last-child {
+  margin-bottom: .3em;
+}
+
+.content-wrap blockquote > :first-child {
+  margin-top: .3em;
+}
+
+.content-wrap blockquote {
+  overflow: visible;
+  overflow-x: visible;
+  overflow-y: visible;
+}
+
+/* Global content zoom with headings scaled back down */
+.page-content {
+  zoom: var(--milelo-zoom, 1.15);
+}
+
+.page-content :is(h1, h2, h3, h4, h5, h6) {
+  zoom: var(--milelo-heading-zoom, .9);
+}
+
+/* Code blocks undo the zoom above and scale their own font instead. That rule
+   lives in the "row geometry" section of shiki-highlight.css together with the
+   responsive steps, so every code block size is defined in one place and at one
+   specificity - defining --sk-font-size here as well would out-rank the media
+   queries there and pin the mobile size to the desktop value. */
+
+/* Text colours, a step softer than BookStack's own. Opt-in through a class the
+   loader adds when the configuration asks for it, so switching the tint off
+   really leaves BookStack's colours alone. */
+html.milelo-tint .page-content {
+  color: hsl(0 0% 10%);
+}
+
+html.milelo-tint .page-content :is(h1, h2, h3, h4, h5, h6) {
+  color: hsl(0 0% 30%);
+}
+
+html.milelo-tint.dark-mode .page-content {
+  color: hsl(0 0% 90%);
+}
+
+html.milelo-tint.dark-mode .page-content :is(h1, h2, h3, h4, h5, h6) {
+  color: hsl(0 0% 70%);
+}
+
+html.dark-mode .ͼo .cm-gutters {
+  color: hsl(0 0% 33%);
+}
+
+.page-content .cm-editor {
+  border-radius: 0;
+}

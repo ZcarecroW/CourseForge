@@ -40,6 +40,12 @@ final class Access
     }
 
     /** @return array<string,mixed> */
+    public static function look(Actor $actor, int $id): array
+    {
+        return self::row($actor, 'bookstackdev_profiles', $id, 'BookStackDev profile not found.');
+    }
+
+    /** @return array<string,mixed> */
     public static function tag(Actor $actor, int $id): array
     {
         return self::row($actor, 'tags', $id, 'Tag not found.');

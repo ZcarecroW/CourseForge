@@ -27,6 +27,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'v
 import { state, loadSettings, applySettings, declareUnsaved } from '@/core/store.js';
 import { get, put, post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
+import { useFuzzy } from '@/core/fuzzy.js';
 import { relativeTime, formatDateTime, plural, LANGUAGES } from '@/core/format.js';
 
 import AppIcon from '@/components/AppIcon.js';
@@ -45,7 +46,6 @@ const GROUP_ICONS = {
   batch: 'queue',
   updates: 'download',
   mcp: 'plug',
-  claude_cli: 'terminal',
   security: 'shield',
   timeouts: 'hourglass',
   _other: 'help-circle',
@@ -74,7 +74,6 @@ const FIELD_ICONS = [
   [/auto_install|update/, 'download'],
   [/attempts|lockout|login|security/, 'shield'],
   [/mcp/, 'plug'],
-  [/claude_cli_path|cli/, 'terminal'],
   [/models/, 'cpu'],
   [/search/, 'search'],
   [/max_tokens|description_max|_max$/, 'hash'],
@@ -101,6 +100,25 @@ const iconFor = (field) => {
  * the one case that needs it - pasting a token chosen somewhere else.
  */
 const CRON_TOKEN = 'app.cron_token';
+
+/**
+ * Every time zone this browser knows, for the update clock's field.
+ *
+ * The list comes from the browser rather than from the server, because the
+ * browser has one and the server would have to ship four hundred names down
+ * with every settings read for a field almost nobody touches. It is a
+ * suggestion list: the field stays free text, and PHP's own list is what the
+ * server checks a name against. UTC is added because some engines leave it
+ * out, and it is the one name people actually type.
+ */
+const TIMEZONES = (() => {
+  try {
+    const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+    return zones.includes('UTC') ? zones : ['UTC', ...zones];
+  } catch {
+    return ['UTC'];
+  }
+})();
 
 /** How a diagnostics status is drawn. Distinct glyphs, not only colour. */
 const STATUS = {
@@ -199,6 +217,20 @@ export const SettingsView = {
 
     const groupsOf = (key) => state.settings.filter((field) => field.group === key && field.key !== CRON_TOKEN);
 
+    /* ------------------------------------------------------------ search */
+
+    /**
+     * A hundred settings is a page nobody reads top to bottom. The box in
+     * the index searches labels, descriptions and keys across every group,
+     * fuzzily, and the page narrows to the rows that match - advanced ones
+     * included, because "where is the thing about backups" does not know
+     * that backups are advanced.
+     */
+    const settingSearch = ref('');
+    const searching = computed(() => settingSearch.value.trim() !== '');
+    const hits = useFuzzy(computed(() => state.settings), settingSearch, { keys: ['label', 'description', 'key'] });
+    const hitKeys = computed(() => new Set(hits.value.map((field) => field.key)));
+
     const groups = computed(() => {
       const declared = state.settingGroups.map((group) => ({ ...group, fields: groupsOf(group.key) }));
 
@@ -225,7 +257,8 @@ export const SettingsView = {
           changed: group.fields.filter((field) => field.is_overridden).length,
           unsaved: group.fields.filter(isDirty).length,
         }))
-        .filter((group) => group.fields.length || group.key === 'scheduler');
+        .filter((group) => group.fields.length || group.key === 'scheduler')
+        .filter((group) => !searching.value || group.fields.some((field) => hitKeys.value.has(field.key)));
     });
 
     /* ---------------------------------------------------------- the index */
@@ -276,7 +309,10 @@ export const SettingsView = {
     const advancedShown = (group) => showAdvanced[group.key] === true || group.advanced.some(isDirty);
     const toggleAdvanced = (group) => { showAdvanced[group.key] = !advancedShown(group); };
 
-    const fieldsOf = (group) => (advancedShown(group) ? [...group.plain, ...group.advanced] : group.plain);
+    const fieldsOf = (group) => {
+      if (searching.value) return group.fields.filter((field) => hitKeys.value.has(field.key));
+      return advancedShown(group) ? [...group.plain, ...group.advanced] : group.plain;
+    };
 
     /* -------------------------------------------------------------- values */
 
@@ -296,7 +332,7 @@ export const SettingsView = {
      * nobody has a list for is simply not suggested, so a later release can
      * add `suggest` to a field before this screen knows about it.
      */
-    const SUGGESTIONS = { languages: LANGUAGES };
+    const SUGGESTIONS = { languages: LANGUAGES, timezones: TIMEZONES };
     const suggestionsFor = (field) => SUGGESTIONS[field.suggest] ?? null;
 
     /** What the release ships, in words, so "reset" is never a leap of faith. */
@@ -559,7 +595,7 @@ export const SettingsView = {
 
     return {
       state, loading, saving, busy, draft, load, save, discard,
-      groups, fieldsOf, advancedShown, toggleAdvanced, iconFor,
+      groups, fieldsOf, advancedShown, toggleAdvanced, iconFor, settingSearch, searching,
       scroller, activeGroup, INDEX_EXTRAS, sectionId, onScroll, jumpTo,
       isDirty, dirtyCount, overridden, defaultText, hasRange, suggestionsFor, resetField, resetEverything,
       scheduler, schedulerHealth, cronLine, cronCurlLine, cronUrlShown, copyCronUrl, revealedCronUrl,
@@ -592,6 +628,11 @@ export const SettingsView = {
 
         <!-- the index ------------------------------------------------------ -->
         <nav class="settings-nav" aria-label="Groups of settings">
+          <div class="input-icon settings-nav__search">
+            <app-icon name="search" :size="13"/>
+            <input v-model="settingSearch" placeholder="Find a setting…" spellcheck="false" aria-label="Find a setting"
+                   style="font-size:var(--t-xs)">
+          </div>
           <button v-for="group in groups" :key="group.key" type="button" class="settings-nav__item"
                   :class="{ 'is-active': activeGroup === group.key }" :aria-current="activeGroup === group.key ? 'true' : null"
                   :title="group.description" @click="jumpTo(group.key)">
@@ -659,7 +700,7 @@ export const SettingsView = {
           </div>
 
           <!-- ================================================= scheduler -->
-          <div v-if="group.key === 'scheduler'" class="card__body col gap-4"
+          <div v-if="group.key === 'scheduler' && !searching" class="card__body col gap-4"
                style="border-bottom:1px solid var(--border-soft)">
             <div class="row-top gap-3">
               <span class="tile tile--accent"><app-icon name="zap" :size="17"/></span>
@@ -798,7 +839,7 @@ export const SettingsView = {
                 <strong>Content defaults</strong> tab, for the courses written with it.
               </span>
             </div>
-            <baseline-editor :fields="group.fields" :draft="draft" :dirty="isDirty" :reset="resetField" :busy="busy"/>
+            <baseline-editor :fields="searching ? fieldsOf(group) : group.fields" :draft="draft" :dirty="isDirty" :reset="resetField" :busy="busy"/>
           </div>
 
           <!-- ============================================ the generic list -->
@@ -901,7 +942,7 @@ export const SettingsView = {
             </div>
           </div>
 
-          <div v-if="group.advanced.length" class="card__foot">
+          <div v-if="group.advanced.length && !searching" class="card__foot">
             <button class="btn btn--ghost btn--sm" @click="toggleAdvanced(group)">
               <app-icon :name="advancedShown(group) ? 'chevron-up' : 'chevron-down'" :size="13"/>
               {{ advancedShown(group)
@@ -913,6 +954,9 @@ export const SettingsView = {
             </span>
           </div>
         </section>
+
+        <empty-state v-if="searching && !groups.length" icon="search" title="No setting matches that"
+                     hint="Labels, descriptions and keys are searched, across every group. Try another word, or clear the box."/>
 
         <empty-state v-if="!loading && !state.settings.length" icon="cog" title="No settings came back"
                      hint="The server answered without a catalogue. Reload the page; if it keeps happening, the installation is incomplete."/>
@@ -1011,7 +1055,7 @@ export const SettingsView = {
               <span class="strong">Installation check</span>
               <span class="t-xs dim">
                 Everything CourseForge can verify about this server, without a shell: PHP, file permissions,
-                the database, the scheduler, and whether Claude can be reached.
+                the database, the scheduler, the update channel and the MCP endpoint.
               </span>
             </span>
             <span v-if="report" class="row gap-2 none">
@@ -1033,8 +1077,7 @@ export const SettingsView = {
             </div>
 
             <p v-if="diagBusy && !report" class="hint">
-              Working through the checks. The last one starts the Claude command-line tool, which can take a
-              few seconds.
+              Working through the checks. The update check asks GitHub, which can take a few seconds.
             </p>
 
             <div v-for="section in (report ? report.sections : [])" :key="section.key" class="col gap-2">

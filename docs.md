@@ -67,7 +67,6 @@ change with it:
 | OpenRouter | One key for every vendor OpenRouter fronts. Model ids carry a vendor prefix, as in `anthropic/claude-opus-5`. |
 | One of sixteen presets | A gateway that speaks `/chat/completions`: Groq, DeepSeek, Together, Fireworks, xAI, Mistral, Cerebras, DeepInfra, Nebius, Moonshot, Z.ai, a LiteLLM proxy, and the local servers Ollama, LM Studio, vLLM and llama.cpp. Picking one fills in the base URL and the quirks; the local ones ask for no key at all. |
 | Custom OpenAI-compatible endpoint | A base URL you type, with nothing assumed about it. CourseForge probes it for a model list and a batch queue without spending anything. |
-| Claude subscription (Pro / Max) | Nothing, but it only works when CourseForge runs on the same machine you signed in to Claude Code on. On a hosted install use **Connect** instead — see [section 6](#6-providers-runs-and-the-claude-app). |
 
 **Test this account** proves an account works before a course depends on it: for
 the API types it fetches the model list, and for the subscription it reports
@@ -110,6 +109,11 @@ installation's defaults straight through. See [section 3](#3-content-details).
 overridable *for this profile only* — on top of whatever an administrator has set
 for the whole installation. See [section 4](#4-the-prompt-library).
 
+**Look.** Each BookStack instance on the Accounts tab can wear a *look* — the
+BookStackDev configuration that decides how that wiki renders code, diagrams
+and formulas, and the one line to paste into its head. See
+[section 10](#10-bookstackdev).
+
 ### Step 2 — Create a course
 
 In **Courses**, click **New course** and describe what should be taught, to whom
@@ -118,17 +122,29 @@ tabs.
 
 #### Structure
 
-Click **Generate structure**. The AI returns a strict-Markdown outline — one book
-title, ordered chapters with descriptions, nested pages — which you can edit
-directly in the left pane. The **Request changes** box on the right asks the AI to
-revise the existing outline instead of designing a new one; it is told to
-reproduce every untouched title character for character, which is what keeps
-already-written content attached.
+The tab is a split view, like the editor on the Content tab. On the left, the
+outline in a Markdown editor, highlighted as Markdown with the `{{Tag, Tag}}`
+markers picked out. On the right, what **Apply** would make of it, parsed as
+you type: the book title and its tags, the description, one box per chapter
+with its pages numbered, and a count of what is *new*, *moved* and kept. A page
+the outline no longer names is listed underneath in red, because applying
+deletes it with its text. The two halves scroll together, passage for passage,
+and the link in the toolbar unlinks them; *edit* and *preview* give either half
+the whole width.
+
+The AI sits in the panel on the right — a drawer behind the sparkle button on a
+narrower screen. **Design a new outline** sends the course prompt, the same one
+the Settings tab shows. **Request changes** asks the AI to revise the existing
+outline instead of designing a new one; it is told to reproduce every untouched
+title character for character, which is what keeps already-written content
+attached.
 
 **Apply** parses the Markdown into chapters and pages. Matching happens **by
 title**, so applying a revised outline preserves the content, the tags and the
 content details of everything whose title did not change. A rename detaches the
-content deliberately. If the answer cannot be parsed at all, nothing is changed.
+content deliberately — the preview shows the renamed page as new and the old
+one as removed, which is the moment to notice. If the outline cannot be parsed
+at all, nothing is changed.
 
 #### Content
 
@@ -638,14 +654,14 @@ habits when a topic is simply unmentioned.
 
 | Value | Default | Placeholder | Used by |
 |---|---|---|---|
-| Minimum length | 1200 words | `{{min_length}}` | the length contract |
-| **Maximum length** | 3000 words | `{{max_length}}` | the length contract |
+| Minimum length | 3000 words | `{{min_length}}` | the length contract |
+| **Maximum length** | 15000 words | `{{max_length}}` | the length contract |
 | Diagrams per page | 2 | `{{diagram_max}}` | Mermaid diagrams |
 | Exercises per page | 3 | `{{exercise_count}}` | Practice exercises |
-| Anki cards per page | 8 | `{{anki_cards}}` | Anki cloze cards |
+| Anki cards per page | 5 | `{{anki_cards}}` | Anki cloze cards |
 | Auto links per page | 5 | `{{link_count}}` | Auto links |
 | Audience | — | `{{audience}}` | the audience instruction |
-| Searches per page | 5 | `{{research_max_searches}}` | Web research |
+| Searches per page | 0 — the model decides | `{{research_max_searches}}` | Web research |
 
 A value box shows your own number, or nothing plus the inherited number as a
 greyed placeholder; the ✕ next to it goes back to inheriting. A value whose
@@ -684,7 +700,6 @@ apart:
 | Who | How |
 |---|---|
 | An MCP client — Claude Code most usefully | `get_research_brief` → it searches with its own tools → `store_research` |
-| The Claude Code CLI provider | Runs on your own subscription, with `WebSearch` and `WebFetch` handed to the child process |
 | A provider with a server-side search tool | Anthropic, Gemini, OpenRouter, and the OpenAI models that have one |
 | A person | Course → **Details** → **Research** |
 
@@ -1010,12 +1025,12 @@ header and Publish tab show *resolved / written* for the whole course.
 
 ## 6. Providers, runs and the Claude app
 
-CourseForge reaches a model in one of six ways, offers three ways of writing a
+CourseForge reaches a model in one of five ways, offers three ways of writing a
 course with one, and can also be turned around entirely so that Claude does the
 writing and CourseForge only stores it. This section is about choosing between
 them.
 
-### The six account types
+### The five account types
 
 | Type | Endpoint | Batch queue | Credential | Works on a hosted install |
 |------|----------|-------------|------------|---------------------------|
@@ -1024,7 +1039,6 @@ them.
 | Google Gemini | `POST /v1beta/models/{model}:generateContent` | yes, paid tier only | Gemini API key | yes |
 | OpenRouter | `POST /api/v1/chat/completions` | yes, `/api/beta/batches` | OpenRouter key | yes |
 | A preset, or a custom endpoint | `POST {base}/chat/completions` | if the endpoint has one, which is asked rather than assumed | API key, or none for a local server | yes |
-| Claude subscription | the local `claude` CLI | no | none | **no — local installs only** |
 
 The first four have a class of their own. Everything else that speaks
 `/chat/completions` shares one class and a table.
@@ -1392,43 +1406,21 @@ that says the provider has a queue nobody is using.
   4.0's preset table does not, and the table is what the code reads.
 - **Lifting the OAuth token out of `~/.claude`.** See below.
 
-### Using a Claude subscription on a local install
+### The Claude subscription account, and why it is gone
 
-If CourseForge runs on your own machine — the laptop you use Claude Code on —
-there is an AI account of type **Claude subscription (Pro / Max)**, which runs the
-`claude` CLI you have already signed in to.
+Releases 4.0 to 5.0 offered an AI account of type *Claude subscription (Pro /
+Max)*, which ran the `claude` CLI already signed in on the same machine as
+CourseForge. It only ever worked on a laptop: a web host has no Claude Code
+installed, usually forbids `proc_open`, and bills whoever signed in on the
+server rather than the person generating. CourseForge is written for a web
+host, so 5.1 retired the account type together with the three settings that
+configured it.
 
-There is no HTTP endpoint that bills a subscription. `api.anthropic.com` bills an
-API key or a Console workspace, and the only sanctioned subscription-backed
-programmatic surface is Claude Code itself, run locally by the subscriber. So
-CourseForge runs `claude -p` as a child process. It never reads, stores, forwards
-or displays a credential of any kind: the sign-in already happened, in the CLI,
-under your own account. The alternative — lifting the OAuth token out of
-`~/.claude` and posting it directly — is **not implemented, on purpose**.
-Anthropic's terms are explicit that OAuth credentials are for ordinary use of
-Claude's own applications and that third-party products must use API keys.
-
-The consequence is that this provider is for one person running their own copy.
-It bills whoever is signed in on the server, so a multi-user install has to stay
-on API keys.
-
-Four things go wrong often enough to be worth naming:
-
-- **`ANTHROPIC_API_KEY` in the environment silently wins.** The CLI uses it
-  instead of the subscription, with no warning, and the bill lands on the API
-  account. CourseForge builds the child environment from scratch and removes it —
-  along with a dozen relatives, including the variables that would redirect the
-  CLI to Bedrock, Vertex or Foundry — so its own calls are safe. *Test this
-  account* will still tell you the key is there, because everything else on the
-  machine is still affected by it.
-- **`proc_open` is disabled** on many hosts. Without it PHP cannot start the CLI.
-- **The binary is not free text.** The path on the account is ordinary profile
-  data, editable by anyone who can sign in, so treating it as a command to
-  execute would turn an authenticated session into arbitrary execution on the
-  server. The file name has to be the Claude CLI, and an absolute path is honoured
-  only when `app.claude_cli_allowed_paths` lists it.
-- **No batch queue and no background runs.** Half-price bulk generation exists
-  only on the API surfaces, and the cron worker cannot use this account either.
+A profile written under an earlier release that still carries such an account
+keeps it: the row opens, the Profiles screen marks it as retired and says why,
+and nothing can be generated with it until it is pointed at an API provider.
+The way to use a Claude subscription today is the other direction, below -
+connect the Claude app to CourseForge over MCP and let it do the writing.
 
 ### Connecting Claude to CourseForge
 
@@ -1531,9 +1523,9 @@ redeeming an invite and first-run setup all create or resume the very credential
 a tool call needs before it can happen at all. `revoke_my_connection` is the
 nearest thing to signing out, and it is permanent rather than resumable.
 
-### The eleven tool groups
+### The twelve tool groups
 
-There are ninety-seven tools. They are not listed here, because `tools/list`
+There are one hundred and six tools. They are not listed here, because `tools/list`
 lists them and every one carries its own description, its arguments and an
 annotation saying whether it reads, writes, destroys or spends money. What is
 worth knowing is the shape.
@@ -1545,17 +1537,18 @@ to be told it twice.
 
 | Group | Tools | What it is for | Spends |
 |---|---|---|---|
-| **account** | 6 | Who you are connected as, your own display name and password, your own connections. Never anybody else's. | no |
+| **account** | 9 | Who you are connected as, your own display name and password, your own connections. Never anybody else's. | no |
 | **courses** | 6 | List, read, create, rename and delete courses, and `get_next_step`, which says what to do next | no |
 | **research** | 3 | The briefing for the subject: what to look up, and where to store what was found | no |
 | **structure** | 5 | The outline: read the brief, write one, preview it, or have CourseForge design it | yes |
-| **pages** | 7 | Read a writing brief, store a finished page, edit a page or a chapter, or have CourseForge write one | yes |
-| **details** | 4 | The thirteen switchable elements and seven values, at course, chapter or page level | no |
+| **pages** | 8 | Read a writing brief, store a finished page, edit a page or a chapter, or have CourseForge write one | yes |
+| **details** | 5 | The thirteen switchable elements and seven values, at course, chapter or page level | no |
 | **tags** | 8 | The tag library and what is tagged with what | no |
 | **runs** | 8 | Start, estimate, watch and cancel background and batch runs. **This is the group that spends money at scale.** | yes |
-| **profiles** | 9 | AI accounts, models and BookStack instances. Keys are never readable, but they can be replaced. | no |
+| **profiles** | 17 | AI accounts, models and BookStack instances, and which look each instance wears. Keys are never readable, but they can be replaced. | no |
+| **bookstackdev** | 8 | Looks: what a wiki renders, the line for its head, the wikis allowed to load it, and whether the prompts agree with it. Under the `profiles` scope. | no |
 | **publish** | 5 | Say which BookStack instances a course goes into, push into them, and resolve cross references | no |
-| **admin** | 22 | Accounts, settings, the cron token, prompts, diagnostics, the audit log, every connection, updates, and `set_up_php`. Administrators only. | no |
+| **admin** | 24 | Accounts, settings, the cron token, prompts, diagnostics, the audit log, every connection, updates, and `set_up_php`. Administrators only. | no |
 
 The ten or so that matter:
 
@@ -2199,9 +2192,9 @@ the MCP tools, which describe and change settings without a second catalogue
 that could disagree. A setting added later appears in all three without a line
 of frontend code.
 
-There are sixty-two of them in nine groups, and the screen documents itself —
+There are fifty-nine of them in eight groups, and the screen documents itself —
 each field carries its own description, its range and whether this installation
-has overridden it. Twenty-two of the sixty-two are the content details of
+has overridden it. Twenty-two of the fifty-nine are the content details of
 [section 3](#3-content-details), which are generated from that catalogue rather
 than written out here, so a new element ships with its own settings field
 already in place. What follows is what each group is for, and then the handful
@@ -2215,7 +2208,6 @@ whose consequences are worth stating in prose.
 | **Batch and runs** | How rarely a queued batch is polled, how long finished run records are kept, and the output ceiling used where a provider demands an explicit one |
 | **Updates** | Repository, channel, whether to check and install automatically, at what time, how many backups to keep, and a GitHub token |
 | **MCP** | Whether the endpoint answers at all, the public URL to hand a client, and which browser origins may connect |
-| **Claude subscription** | Where the `claude` binary is, which directories it may be started from, and which models the Profiles screen offers for it |
 | **Security** | Sign-in throttling and session lifetime |
 | **Timeouts** | How long CourseForge waits for a provider, a model list, a connection, or BookStack |
 
@@ -2526,8 +2518,8 @@ fastcgi_param COURSEFORGE_DATA_DIR /var/lib/courseforge;     # nginx
 
 The invite code then goes there too, since the install root is generally not
 writable in that arrangement. `config/` still has to be readable by PHP and not
-by the web, and only `index.html`, `assets/`, `api/` and `cron.php` need to be
-public at all.
+by the web, and only `index.html`, `assets/`, `api/`, `cron.php` and `bs.php`
+need to be public at all.
 
 ### Hardening applied regardless of the server
 
@@ -2563,6 +2555,8 @@ assets/css/           tokens → base → layout → components → admin → pr
 assets/js/            main → App → core/ + components/ + views/ + views/admin/
 assets/vendor/        Vue, marked, DOMPurify, Fuse, CodeMirror, Shiki,
                       Mermaid, MathJax (pinned, see VENDOR.md)
+assets/bookstackdev/  the BookStackDev files as a wiki receives them - the
+                      standalone folder, unchanged
 
 config/defaults.json  the shipped configuration: settings, the detail
                       catalogue, the whole prompt library. Replaced by an update
@@ -2572,21 +2566,22 @@ data/                 config.json (overrides only), app.sqlite, backups/,
 api/index.php         the browser front controller: every route, in one list
 api/mcp.php           the MCP front door: bearer token, no cookie session
 cron.php              the scheduler, over HTTP, for hosts without a crontab
+bs.php                the BookStackDev endpoint: a look's loader and assets,
+                      to the wikis that look allows (section 10)
 
 src/Support/          Config, Settings, Db, Http, HttpResult, HttpException,
                       Json, Lock, Meta, Request, Response, Router, Runtime,
-                      Markdown, Text, Audit, Cron, Diagnostics
+                      Markdown, Text, Audit, Cron, Diagnostics, PublicUrl
 src/Security/         Actor, Access, Auth, Users, Invite, Session, LoginThrottle
 src/Domain/           Projects, Chapters, Pages, Tags, Profiles, Details,
                       Structure, AutoLinker, LinkIndex, Runs, McpClients,
-                      Transfers
+                      Transfers, BookStackDev
 src/Ai/               Completion, Prompt, AiRequest, ModelId,
                       StructureGenerator, PageGenerator
 src/Ai/Provider/      the Provider and BatchCapable interfaces, the Providers
                       factory, HttpProvider, one adapter each for Anthropic,
-                      OpenAI, Gemini, OpenRouter, the OpenAI-compatible
-                      catch-all and the Claude CLI, plus Presets, PresetSpec
-                      and Probe
+                      OpenAI, Gemini, OpenRouter and the OpenAI-compatible
+                      catch-all, plus Presets, PresetSpec and Probe
 src/Ai/Batch/         the value objects a provider queue is described with,
                       and JsonlChunker
 src/Ai/Batch/Driver/  one driver per queue shape: AnthropicInlineBatch,
@@ -2595,11 +2590,12 @@ src/Ai/Run/           RunManager, BatchDriver, LiveDriver
 src/Mcp/              Server (dual-era transport), Tools (the registry), Tool,
                       Scopes, Resolve, Args, Schema
 src/Mcp/Handlers/     one class per tool group: Account, Course, Structure,
-                      Page, Detail, Tag, Run, Profile, Publish, Admin
+                      Page, Detail, Tag, Run, Profile, BookStackDev,
+                      Publish, Admin
 src/Update/           GitHub, Release, Archive, Updater
 src/Publish/          BookStackClient, Publisher
 src/Api/              one controller per resource, plus Setup, User, Settings,
-                      Config, Update and Connect
+                      Config, Update, Connect and BookStackDev
 
 tools/diagnose.php    installation check, printed
 tools/cron.php        the scheduler, on the command line
@@ -2607,6 +2603,9 @@ tools/update.php      check, install and roll back from a shell
 tools/deploy.php      an FTP deploy that uploads only what changed
 tools/router-dev.php  makes `php -S` behave roughly like the .htaccess
 tools/detect-test.mjs the corpus behind the language detector
+tools/outline-test.mjs
+                      the JavaScript outline parser against the fixtures
+                      tools/outline-fixtures.php writes from the PHP one
 tests/run.php         the test runner, plus one *.test.php file per subject
 ```
 
@@ -3065,3 +3064,107 @@ staged update, the invite code). An update writes only the first group.
   generations self-heal into an `error` state, an unparsable AI answer is
   refused rather than allowed to destroy existing work, and an update that
   cannot prove it works is put back.
+
+## 10. BookStackDev
+
+BookStack renders a page well, and a course better with a little help: code
+that is highlighted, a fenced `mermaid` block that becomes a diagram, `\( … \)`
+that becomes a formula, a YouTube link on its own line that becomes the video.
+BookStackDev is that help — one loader script plus the CSS and JavaScript
+modules it fetches, pasted into BookStack as a single line under **Settings →
+Customization → Custom HTML head content**. CourseForge's prompts write for a
+wiki wearing it, which is why it is managed here rather than beside it.
+
+### What a look is
+
+A **look** is one BookStackDev configuration, kept in CourseForge and served to
+every wiki allowed to load it. The screen is **BookStackDev** in the sidebar,
+and a look has three tabs.
+
+**Features** is BookStackDev's configuration object as cards — every value in
+the standalone `CONFIG` block has a field, and the defaults are the ones the
+standalone file ships with, so a new look renders a wiki exactly as BookStackDev
+itself would. Nine cards, each with its switch:
+
+| Feature | What it does | Worth knowing |
+|---|---|---|
+| **Code blocks** | Shiki highlighting in every language it ships — about 220 grammars, each fetched the first time a block in that language appears — with line numbers, wrapping, a copy button and a collapse for tall blocks | The light and dark themes are any Shiki bundles; the fields fuzzy-search the list. A block naming no language is recognised by CourseForge's own evidence-based detector first, and by highlight.js only where that declines |
+| **Mermaid diagrams** | A fenced `mermaid` block rendered as a diagram, following the wiki's light or dark mode | A theme per mode |
+| **MathJax formulas** | TeX typeset in the page | Which delimiters count: `\( … \)` and `$$ … $$` by default, `$ … $` off so that a price stays a price. This is the setting the conventions check watches most closely |
+| **Light and dark toggle** | The floating button | Corner, distance from the edges, size |
+| **Page styling** | Zoom, softer text, an optional background image | |
+| **Link embeds** | A link alone in its paragraph becomes the video, the track or the pen it points at | Only on a page view, and only a real link, by default |
+| **Audio player** | An `.mp3` or `.m4a` link becomes an inline player | |
+| **External links** | Marked with an arrow and opened in a new tab | Hosts to treat as internal |
+| **Markdown editor** | A single newline becomes a line break in BookStack's editor preview | |
+
+A card's advanced fields — module URLs, selectors, the debug switch — are folded
+away, and exist for the wiki that is unusual.
+
+### The line, and why it works only where it should
+
+**Link & wikis** shows the one line to paste into BookStack:
+
+```html
+<script src="https://your-install/bs.php?k=<key>" crossorigin="anonymous"></script>
+```
+
+`bs.php` serves the loader with the look's settings written in front of it, and
+every module and stylesheet the loader then fetches comes back through the same
+endpoint. Each of those requests carries the origin of the page that made it —
+that is what `crossorigin="anonymous"` is for — and the endpoint answers only an
+origin the look allows. Any other gets a 403 naming the wiki, and a browser that
+sees no permission in the answer refuses to run what it did not get. The key is
+therefore not a secret; it sits in the head of every page. What keeps the line
+honest is the list of wikis under it, which is the difference between this and
+a CDN.
+
+The allowed wikis are of two kinds. **Your BookStack instances** are the ones
+in your profiles: each instance card on the Profiles screen has a **Look**
+select, and an instance wearing a look is allowed by its base URL. **Other
+wikis** are origins typed in by hand — `https://docs.partner.example` — for a
+wiki CourseForge holds no credentials for. One look serves any number of
+either, and there is nothing to copy per wiki but the line.
+
+**Regenerate the link** issues a new key and retires the old one, for the day a
+line was pasted somewhere it should not have been. The wikis keep their
+permission; they get the new line.
+
+### The conventions check
+
+Every prompt in the library that mentions a formula, a diagram or a code fence
+is written for BookStackDev's defaults: formulas as `\( … \)` and `$$ … $$`,
+diagrams as fenced `mermaid`, code in fenced blocks. Change those in a look and
+the wiki renders one thing while the prompts ask for another. **Conventions**
+compares the look with the prompts of every profile whose instance wears it —
+the profile's own override where there is one, the installation's prompt
+otherwise — and lists each disagreement with the wording that would resolve it.
+The same note appears in the profile's Prompts tab, on the slot concerned, and
+on the administration Prompts screen, each with a button that applies the
+recommended text where it belongs. Switching formulas off in a look is a reason
+to stop the prompts asking for them, and the check says so.
+
+### Serving it
+
+`bs.php` is the third public PHP file, beside `api/index.php` and `cron.php`;
+the nginx and Caddy configurations in section 8 already hand every `.php` to
+PHP, and `.htaccess` needs nothing. Assets are answered with a long cache life
+and an `ETag`, and the version in every asset URL changes with each CourseForge
+release, so a wiki picks up an update the next time a page loads. The files
+served are the ones in `assets/bookstackdev/` — the standalone BookStackDev
+folder, unchanged, which is what lets the two be maintained as one: the loader
+reads its configuration from the boot object CourseForge writes in front of it
+when there is one, and from its own `CONFIG` when there is not.
+
+Shiki, highlight.js, Mermaid, MathJax and the optional Font Awesome glyph are
+fetched by the browser from CDNs, as the standalone script does, on the versions
+current at this release: Shiki 4, highlight.js 11, Mermaid 11, MathJax 4,
+Font Awesome 7. The module URLs are advanced fields on the cards, for a wiki
+that must not reach a CDN and hosts its own copies.
+
+From an MCP client the same things are tools: `list_bookstackdev_profiles`,
+`list_bookstackdev_options`, `get_bookstackdev_profile`,
+`create_bookstackdev_profile`, `update_bookstackdev_profile`,
+`delete_bookstackdev_profile`, `rotate_bookstackdev_link` and
+`check_bookstackdev_conventions`, plus `bookstackdev_id` on `update_profile`
+and `add_bookstack_instance`.

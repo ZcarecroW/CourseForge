@@ -8,9 +8,8 @@ use CourseForge\Ai\AiRequest;
 /**
  * One way of reaching a language model.
  *
- * Six kinds implement it: OpenAI, the Anthropic Messages API, the Gemini
- * Developer API, OpenRouter, the locally installed Claude CLI (which bills a
- * Claude Pro/Max subscription rather than an API key), and the preset lane -
+ * Five kinds implement it: OpenAI, the Anthropic Messages API, the Gemini
+ * Developer API, OpenRouter, and the preset lane -
  * one class serving every gateway that speaks OpenAI's /chat/completions, told
  * apart by the preset each account is on. Everything above this layer - the
  * generators, the prompt library, the batch runner - is written against this
@@ -28,7 +27,7 @@ interface Provider
     /**
      * The stable key stored in the profile, and the same string
      * Providers::kindOf() returns for the account this instance was built from:
-     * openai | anthropic | gemini | openrouter | claude_cli | oai-compat.
+     * openai | anthropic | gemini | openrouter | oai-compat.
      */
     public function kind(): string;
 
@@ -58,8 +57,8 @@ interface Provider
     /**
      * Whether `model:batch` will work here.
      *
-     * A provider may answer false even when it implements BatchCapable - the
-     * Claude CLI, for instance, has no queue to submit to. This is the
+     * A provider may answer false even when it implements BatchCapable - a
+     * server on your own machine, for instance, has no queue to submit to. This is the
      * endpoint's answer; whether a particular account can queue right now also
      * depends on its key and its model, which is what
      * Providers::batchReadiness() puts together.

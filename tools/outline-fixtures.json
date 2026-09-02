@@ -1,0 +1,440 @@
+[
+    {
+        "name": "the strict shape",
+        "markdown": "# Vue 3 from the ground up\n\nA course for developers who know JavaScript.\n\nIt starts with the reactivity system and ends with a deployed application.\n\n1. Getting started\n   What the learner can do after it: install the toolchain and run a project.\n\n   The second paragraph of the description.\n   1. Installing Node and the CLI\n   2. The project layout\n2. Reactivity\n   1. ref and reactive\n   2. computed and watch\n",
+        "expected": {
+            "title": "Vue 3 from the ground up",
+            "description": "A course for developers who know JavaScript.\n\nIt starts with the reactivity system and ends with a deployed application.",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Getting started",
+                    "description": "What the learner can do after it: install the toolchain and run a project.\n\nThe second paragraph of the description.",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Installing Node and the CLI",
+                            "tags": []
+                        },
+                        {
+                            "title": "The project layout",
+                            "tags": []
+                        }
+                    ]
+                },
+                {
+                    "title": "Reactivity",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "ref and reactive",
+                            "tags": []
+                        },
+                        {
+                            "title": "computed and watch",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "bullets and parentheses",
+        "markdown": "# Title\n\n- First chapter\n   - Page one\n   - Page two\n- Second chapter\n   1) Page three\n",
+        "expected": {
+            "title": "Title",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "First chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page one",
+                            "tags": []
+                        },
+                        {
+                            "title": "Page two",
+                            "tags": []
+                        }
+                    ]
+                },
+                {
+                    "title": "Second chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page three",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "bold titles and a heading strip",
+        "markdown": "# **The Book**\n\n1. **Chapter one**\n   1. __Page one__\n   2. ## Page two\n",
+        "expected": {
+            "title": "The Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter one",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page one",
+                            "tags": []
+                        },
+                        {
+                            "title": "Page two",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "tags inline and on their own lines",
+        "markdown": "# Book {{Vue, Reactivity}}\n{{Tooling}}\n\n1. Chapter {{Setup}}\n   {{Beginner, setup}}\n   1. Page {{Node, node}}\n   {{CLI}}\n   2. Another page\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [
+                "Vue",
+                "Reactivity",
+                "Tooling"
+            ],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "",
+                    "tags": [
+                        "Setup",
+                        "Beginner"
+                    ],
+                    "pages": [
+                        {
+                            "title": "Page",
+                            "tags": [
+                                "Node",
+                                "CLI"
+                            ]
+                        },
+                        {
+                            "title": "Another page",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "a description that starts like a list",
+        "markdown": "# Book\n\n1. Chapter\n   \\1. Install the toolchain before you start, because every example assumes it is present and working.\n   \\- Not a page either.\n   1. Real page\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "1. Install the toolchain before you start, because every example assumes it is present and working. - Not a page either.",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Real page",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "a numbered sentence is prose, a numbered title is a page",
+        "markdown": "# Book\n\n1. Chapter\n   1. Install the toolchain before you start, because every example assumes it is present.\n   2. Reactive state with ref\n   3. a very long title that goes on a very long title that goes on a very long title that goes on a very long title that goes on a very long title that goes on a very long title that goes on a very long title that goes on a very long title that goes on \n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "1. Install the toolchain before you start, because every example assumes it is present. 3. a very long title that goes on a very long title that goes on a very long title that goes on a very long title that goes on a very long title that goes on a very long title that goes on a very long title that goes on a very long title that goes on",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Reactive state with ref",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "the whole answer in a fence",
+        "markdown": "```markdown\n# Fenced\n\nDescription.\n\n1. Chapter\n   1. Page\n```\n",
+        "expected": {
+            "title": "Fenced",
+            "description": "Description.",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "windows line endings and tabs",
+        "markdown": "# Book\r\n\r\n1. Chapter\r\n\t1. Tabbed page\r\n\t2. Second\r\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Tabbed page",
+                            "tags": []
+                        },
+                        {
+                            "title": "Second",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "an empty chapter title keeps the previous chapter open",
+        "markdown": "# Book\n\n1. Real chapter\n   1. Page A\n2. ****\n   2. Page B\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Real chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page A",
+                            "tags": []
+                        },
+                        {
+                            "title": "Page B",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "a page before any chapter",
+        "markdown": "# Book\n\n   1. Orphan page\n1. Chapter\n   1. Page\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter 1",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Orphan page",
+                            "tags": []
+                        }
+                    ]
+                },
+                {
+                    "title": "Chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "no title line at all",
+        "markdown": "1. Chapter\n   1. Page\n",
+        "expected": {
+            "title": "",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "chapter description with a blank line and a marker line",
+        "markdown": "# Book\n\n1. Chapter\n   First paragraph.\n\n   Second paragraph {{Tag}}\n   1. Page\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "First paragraph.\n\nSecond paragraph",
+                    "tags": [
+                        "Tag"
+                    ],
+                    "pages": [
+                        {
+                            "title": "Page",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "a chapter with no pages, then one with",
+        "markdown": "# Book\n\n1. Empty chapter\n2. Full chapter\n   1. Page\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Empty chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": []
+                },
+                {
+                    "title": "Full chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "cjk prose is counted by character",
+        "markdown": "# 本\n\n1. 章\n   1. これは十分に長い文章であり、タイトルではなく説明文として読まれるべきです。本当にそうです。\n   2. ページ\n",
+        "expected": {
+            "title": "本",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "章",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "これは十分に長い文章であり、タイトルではなく説明文として読まれるべきです。本当にそうです。",
+                            "tags": []
+                        },
+                        {
+                            "title": "ページ",
+                            "tags": []
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "dashes and colons after a title with tags",
+        "markdown": "# Book\n\n1. Chapter - {{A}}\n   1. Page: {{B, C}}\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "",
+                    "tags": [
+                        "A"
+                    ],
+                    "pages": [
+                        {
+                            "title": "Page",
+                            "tags": [
+                                "B",
+                                "C"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "only a title and prose",
+        "markdown": "# Book\n\nJust a description, nothing else.\n",
+        "expected": {
+            "title": "Book",
+            "description": "Just a description, nothing else.",
+            "tags": [],
+            "chapters": []
+        }
+    },
+    {
+        "name": "nothing at all",
+        "markdown": "\n\n",
+        "expected": {
+            "title": "",
+            "description": "",
+            "tags": [],
+            "chapters": []
+        }
+    }
+]

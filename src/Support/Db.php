@@ -16,7 +16,7 @@ use RuntimeException;
  */
 final class Db
 {
-    public const SCHEMA_VERSION = 8;
+    public const SCHEMA_VERSION = 9;
 
     private static ?PDO $pdo = null;
 
@@ -290,6 +290,24 @@ final class Db
             CREATE INDEX IF NOT EXISTS idx_publish_items_target ON publish_items(target_id);
             CREATE INDEX IF NOT EXISTS idx_publish_items_by_chapter ON publish_items(chapter_id);
             CREATE INDEX IF NOT EXISTS idx_publish_items_by_page ON publish_items(page_id);
+
+            -- The looks a BookStack instance can be given: the configuration of
+            -- BookStackDev, the key in the link a wiki loads it with, and the
+            -- origins that link answers for beyond the instances wearing it.
+            -- The key is public - it sits in the head of every page of the wiki
+            -- - and is not what keeps the link honest; the origin check is.
+            CREATE TABLE IF NOT EXISTS bookstackdev_profiles (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                username   TEXT NOT NULL,
+                name       TEXT NOT NULL,
+                key        TEXT NOT NULL,
+                settings   TEXT NOT NULL DEFAULT '{}',
+                origins    TEXT NOT NULL DEFAULT '[]',
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_bookstackdev_key ON bookstackdev_profiles(key);
+            CREATE INDEX IF NOT EXISTS idx_bookstackdev_user ON bookstackdev_profiles(username);
 
             CREATE TABLE IF NOT EXISTS tags (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -586,6 +604,7 @@ final class Db
         if (self::schemaVersion($pdo) < 8) {
             self::upgradeToV8($pdo);
         }
+        // Version 9 adds bookstackdev_profiles, made above; nothing to move.
         if (self::schemaVersion($pdo) < self::SCHEMA_VERSION) {
             self::setMeta($pdo, 'schema_version', (string)self::SCHEMA_VERSION);
         }
