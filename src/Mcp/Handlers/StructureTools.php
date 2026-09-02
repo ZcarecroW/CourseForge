@@ -234,7 +234,7 @@ final class StructureTools
         // the subject that no longer exists. So the client is told to look
         // before it designs, and told what is already known so it does not go
         // and find it a second time.
-        $details = Details::resolve(Projects::settings($project));
+        $details = Details::resolve(...Projects::chain($project));
         $research = (bool)($details['features']['web_research'] ?? false);
         $searches = Research::searchBudget($details['params']);
         $stored = Research::of($project);
@@ -718,7 +718,7 @@ final class StructureTools
      */
     private static function vars(array $profile, array $project): array
     {
-        $details = Details::resolve(Projects::settings($project));
+        $details = Details::resolve(...Projects::chain($project));
         $pool = Text::splitList((string)$project['tag_pool']);
         $strictPool = (int)$project['tag_pool_strict'] === 1 && $pool !== [];
 

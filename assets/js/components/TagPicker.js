@@ -107,10 +107,12 @@ export const TagPicker = {
 
       <div class="row gap-2" style="position:relative">
         <input v-model="name" @focus="open = true" @keydown.enter.prevent="submit" @keydown.esc="open = false"
-               class="grow" placeholder="Add or search a tag…" spellcheck="false" autocomplete="off">
+               class="grow" placeholder="Add or search a tag…" spellcheck="false" autocomplete="off"
+               aria-label="Tag name">
         <input v-model="value" @keydown.enter.prevent="submit" placeholder="Value"
-               style="width:96px;flex:none" title="Optional BookStack tag value">
-        <button class="btn btn--primary btn--icon none" :disabled="busy || !name.trim()" @click="submit" title="Attach">
+               style="width:96px;flex:none" title="Optional BookStack tag value" aria-label="Tag value">
+        <button class="btn btn--primary btn--icon none" :disabled="busy || !name.trim()" @click="submit"
+                title="Attach" aria-label="Attach this tag">
           <app-icon name="plus" :size="14"/>
         </button>
 

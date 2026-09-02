@@ -1,6 +1,7 @@
 import { computed } from 'vue';
 import { state, openCourse, currentProfile, closeProject, refreshProject } from '@/core/store.js';
 import { attempt } from '@/core/toast.js';
+import { plural } from '@/core/format.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import ViewHeader from '@/components/ViewHeader.js';
@@ -11,11 +12,11 @@ import PublishTab from '@/views/project/PublishTab.js';
 import SettingsTab from '@/views/project/SettingsTab.js';
 
 const TABS = [
-  { key: 'structure', label: 'Structure', icon: 'sitemap' },
-  { key: 'content', label: 'Content', icon: 'file-text' },
-  { key: 'details', label: 'Details', icon: 'sliders' },
-  { key: 'publish', label: 'Publish', icon: 'upload' },
-  { key: 'settings', label: 'Settings', icon: 'cog' },
+  { key: 'structure', label: 'Structure', icon: 'sitemap', hint: 'The outline: chapters and pages' },
+  { key: 'content', label: 'Content', icon: 'file-text', hint: 'Write, edit and generate the pages' },
+  { key: 'details', label: 'Details', icon: 'list-check', hint: 'What every page of this course is made of' },
+  { key: 'publish', label: 'Publish', icon: 'upload', hint: 'Where this course goes, and sending it there' },
+  { key: 'settings', label: 'Settings', icon: 'cog', hint: 'Name, prompt, profile, tags and punctuation' },
 ];
 
 export const ProjectView = {
@@ -40,21 +41,22 @@ export const ProjectView = {
     const activeTab = computed(() => `${state.projectTab}-tab`);
 
     return {
-      state, stats, title, tabs, activeTab, currentProfile,
+      state, stats, title, tabs, activeTab, currentProfile, plural,
       closeProject,
       refresh: () => attempt(refreshProject, 'Reload'),
     };
   },
   template: `
-    <view-header :title="title">
+    <view-header :title="title" icon="book" :subtitle="stats.chapters ? plural(stats.chapters, 'chapter') + ', ' + plural(stats.pages, 'page') : 'No outline yet'">
       <template #lead>
-        <button class="btn btn--ghost btn--icon" title="Back to all courses" @click="closeProject">
+        <button class="btn btn--ghost btn--icon" title="Back to all courses" aria-label="Back to all courses"
+                @click="closeProject">
           <app-icon name="arrow-left" :size="17"/>
         </button>
       </template>
 
       <template #actions>
-        <div class="row gap-3 t-xs dim hide-sm nums">
+        <div class="row gap-3 t-xs dim hide-sm nums" aria-label="Where this course stands">
           <span :title="stats.generated + ' of ' + stats.pages + ' pages written'">
             <app-icon name="file-text" :size="12"/>
             {{ stats.generated }}/{{ stats.pages }}
@@ -74,18 +76,21 @@ export const ProjectView = {
           </span>
         </div>
         <span class="divider hide-sm" style="width:1px;height:20px"></span>
-        <span class="badge hide-sm">{{ currentProfile ? currentProfile.name : 'no profile' }}</span>
-        <button class="btn btn--ghost btn--icon" title="Reload this course" @click="refresh">
+        <span class="badge hide-sm" :title="currentProfile ? 'Written with the profile ' + currentProfile.name : 'This course has no profile, so nothing can be generated'">
+          <app-icon name="sliders" :size="10"/> {{ currentProfile ? currentProfile.name : 'no profile' }}
+        </span>
+        <button class="btn btn--ghost btn--icon" title="Reload this course" aria-label="Reload this course" @click="refresh">
           <app-icon name="refresh" :size="15"/>
         </button>
       </template>
     </view-header>
 
-    <nav class="tabbar">
+    <nav class="tabbar" role="tablist" aria-label="Course">
       <button v-for="tab in tabs" :key="tab.key" class="tab" :class="{ 'is-active': state.projectTab === tab.key }"
+              role="tab" :aria-selected="state.projectTab === tab.key" :title="tab.hint"
               @click="state.projectTab = tab.key">
         <app-icon :name="tab.icon" :size="14"/>{{ tab.label }}
-        <span v-if="tab.badge" class="badge badge--danger">{{ tab.badge }}</span>
+        <span v-if="tab.badge" class="badge badge--danger" :title="tab.badge + ' pages failed'">{{ tab.badge }}</span>
       </button>
     </nav>
 

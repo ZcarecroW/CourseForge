@@ -39,6 +39,10 @@ import { useFuzzy } from '@/core/fuzzy.js';
 import AppIcon from '@/components/AppIcon.js';
 import EmptyState from '@/components/EmptyState.js';
 
+/** The glyph each group of prompts is filed under, on both prompt screens. */
+const GROUP_ICONS = { global: 'globe', structure: 'sitemap', page: 'file-text', features: 'list-check' };
+const groupIcon = (key) => GROUP_ICONS[key] ?? 'folder';
+
 /**
  * A prompt is a Markdown-ish template — headings, bullets, fenced examples and
  * `{{placeholder}}` slots — so it is edited in the same CodeMirror a page is,
@@ -194,7 +198,7 @@ export const PromptWorkbench = {
     return {
       groupKey, slotKey, search, listOpen, box,
       orderedGroups, visibleSlots, current, currentGroup, searching,
-      inGroup, groupLabel, select, pickGroup, insert, tokenExample,
+      inGroup, groupLabel, groupIcon, select, pickGroup, insert, tokenExample,
     };
   },
   template: `
@@ -202,10 +206,11 @@ export const PromptWorkbench = {
       <slot name="note"/>
     </div>
 
-    <nav class="tabbar">
+    <nav class="tabbar" role="tablist" aria-label="Groups of prompts">
       <button v-for="group in orderedGroups" :key="group.key" class="tab"
+              role="tab" :aria-selected="!searching && groupKey === group.key"
               :class="{ 'is-active': !searching && groupKey === group.key }" @click="pickGroup(group.key)">
-        {{ group.label }}
+        <app-icon :name="groupIcon(group.key)" :size="14"/>{{ group.label }}
         <slot name="group-badge" :group="group" :slotsIn="inGroup(group.key)"/>
       </button>
     </nav>
@@ -227,11 +232,9 @@ export const PromptWorkbench = {
 
         <div class="pane__body">
           <div style="padding:var(--s-3) var(--s-3) 0">
-            <div style="position:relative">
-              <app-icon name="search" :size="13"
-                        style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
-              <input v-model="search" placeholder="Find a prompt…" spellcheck="false"
-                     style="padding-left:28px">
+            <div class="input-icon">
+              <app-icon name="search" :size="13"/>
+              <input v-model="search" placeholder="Find a prompt…" spellcheck="false" aria-label="Find a prompt">
             </div>
             <p v-if="!searching && currentGroup" class="hint mt-2">{{ currentGroup.description }}</p>
             <p v-else-if="searching" class="hint mt-2">
@@ -264,6 +267,7 @@ export const PromptWorkbench = {
             <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show the other prompts"
                     aria-label="Show the other prompts"
                     @click="listOpen = true"><app-icon name="menu" :size="15"/></button>
+            <span class="tile tile--sm tile--accent none hide-sm"><app-icon :name="groupIcon(current.group)" :size="14"/></span>
             <div class="col grow" style="min-width:0;gap:1px">
               <span class="strong truncate">{{ current.label }}</span>
               <code class="t-2xs faint truncate">{{ current.key }}</code>
@@ -275,7 +279,7 @@ export const PromptWorkbench = {
             <p v-if="current.description" class="hint">{{ current.description }}</p>
 
             <div v-if="current.placeholders.length" class="col gap-1">
-              <span class="label">Placeholders</span>
+              <span class="label row gap-2"><app-icon name="hash" :size="12"/> Placeholders</span>
               <div class="row wrap gap-1">
                 <button v-for="placeholder in current.placeholders" :key="placeholder"
                         class="placeholder-token" title="Insert this at the cursor"

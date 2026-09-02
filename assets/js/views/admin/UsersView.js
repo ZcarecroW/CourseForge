@@ -391,7 +391,7 @@ export const UsersView = {
     };
   },
   template: `
-    <view-header title="Accounts" icon="users">
+    <view-header title="Accounts" icon="users" subtitle="Who may sign in, and what happens to their work when they no longer may">
       <template #actions>
         <span class="badge hide-sm">{{ plural(state.users.length, 'account') }}</span>
         <button class="btn btn--ghost btn--icon" title="Reload" aria-label="Reload the accounts"
@@ -406,8 +406,8 @@ export const UsersView = {
 
         <!-- the generated password, once ------------------------------------ -->
         <section v-if="fresh.password" class="card card--pad col gap-3" style="border-color:var(--success)">
-          <div class="row gap-2">
-            <app-icon name="check-circle" :size="16" class="c-success none"/>
+          <div class="row gap-3">
+            <span class="tile tile--success"><app-icon name="key" :size="17"/></span>
             <h2 class="t-md grow">"{{ fresh.password.username }}" has been created</h2>
           </div>
           <p class="hint c-warning">
@@ -436,8 +436,8 @@ export const UsersView = {
 
         <!-- the invite code, once ------------------------------------------- -->
         <section v-if="fresh.invite" class="card card--pad col gap-3" style="border-color:var(--accent)">
-          <div class="row gap-2">
-            <app-icon name="check-circle" :size="16" class="c-accent none"/>
+          <div class="row gap-3">
+            <span class="tile tile--accent"><app-icon name="ticket" :size="17"/></span>
             <h2 class="t-md grow">An invite is open</h2>
           </div>
           <p class="hint c-warning">
@@ -485,9 +485,15 @@ export const UsersView = {
         <!-- who can sign in --------------------------------------------------- -->
         <section class="card" style="overflow:hidden">
           <div class="card__head">
-            <h2 class="card__title grow">Who can sign in</h2>
-            <input v-if="state.users.length > 6" v-model="search" class="none" style="max-width:220px"
-                   placeholder="Search accounts…" spellcheck="false">
+            <span class="tile tile--accent"><app-icon name="users" :size="17"/></span>
+            <div class="card__heading">
+              <h2 class="card__title">Who can sign in</h2>
+              <span class="card__desc">Every account on this installation, its role, and what it owns.</span>
+            </div>
+            <div v-if="state.users.length > 6" class="input-icon none" style="max-width:220px">
+              <app-icon name="search" :size="13"/>
+              <input v-model="search" placeholder="Search accounts…" spellcheck="false" aria-label="Search accounts">
+            </div>
           </div>
 
           <div v-if="visible.length" class="scroll-x">
@@ -495,21 +501,29 @@ export const UsersView = {
               <thead>
                 <tr>
                   <th>Account</th>
-                  <th style="width:160px">Role</th>
-                  <th style="width:150px">State</th>
-                  <th style="width:150px">Last signed in</th>
+                  <th style="width:150px">Role</th>
+                  <th style="width:120px">State</th>
+                  <th style="width:130px">Last signed in</th>
                   <th>Owns</th>
-                  <th style="width:150px"></th>
+                  <th style="width:130px"></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="user in visible" :key="user.id">
                   <td>
                     <div class="row gap-2">
-                      <span class="strong truncate">{{ user.display_name }}</span>
-                      <span v-if="user.is_you" class="badge badge--accent none">you</span>
+                      <span class="tile tile--sm none" :class="user.role === 'admin' ? 'tile--accent' : ''"
+                            :title="roleLabel(user.role)">
+                        <app-icon :name="user.role === 'admin' ? 'shield' : 'user'" :size="13"/>
+                      </span>
+                      <div style="min-width:0">
+                        <div class="row gap-2">
+                          <span class="strong truncate">{{ user.display_name }}</span>
+                          <span v-if="user.is_you" class="badge badge--accent none">you</span>
+                        </div>
+                        <p class="t-xs faint mono truncate">{{ user.username }}</p>
+                      </div>
                     </div>
-                    <p class="t-xs faint mono truncate">{{ user.username }}</p>
                   </td>
 
                   <td>
@@ -541,7 +555,11 @@ export const UsersView = {
                     </span>
                   </td>
 
-                  <td class="t-xs dim">
+                  <!-- One line, whatever the width: a phrase per kind of thing owned
+                       reads as a sentence, and a sentence broken into a tall cell
+                       over five rows does not. The table scrolls sideways in its
+                       own box on a narrow screen, as it already does. -->
+                  <td class="t-xs dim" style="white-space:nowrap">
                     <span v-if="owns(user).length">{{ owns(user).join(' · ') }}</span>
                     <span v-else class="faint">nothing yet</span>
                   </td>
@@ -556,7 +574,7 @@ export const UsersView = {
                       <button class="btn btn--ghost btn--sm btn--icon" title="Set a password for this account"
                               :aria-label="'Set a password for ' + user.username"
                               :disabled="busy" @click="openPassword(user)">
-                        <app-icon name="cog" :size="13"/>
+                        <app-icon name="key" :size="13"/>
                       </button>
                       <button v-if="user.disabled" class="btn btn--ghost btn--sm btn--icon"
                               title="Let this account sign in again"
@@ -593,12 +611,15 @@ export const UsersView = {
 
         <!-- add somebody ------------------------------------------------------ -->
         <section class="card card--pad col gap-4">
-          <div>
-            <h2 class="t-md">Add an account</h2>
-            <p class="hint mt-1">
-              Creates the account straight away and gives you a password to pass on. If you would rather the
-              person chose their own password without it ever going through you, send them an invite instead.
-            </p>
+          <div class="row-top gap-3">
+            <span class="tile tile--accent"><app-icon name="user-plus" :size="17"/></span>
+            <div>
+              <h2 class="t-md">Add an account</h2>
+              <p class="hint mt-1">
+                Creates the account straight away and gives you a password to pass on. If you would rather the
+                person chose their own password without it ever going through you, send them an invite instead.
+              </p>
+            </div>
           </div>
 
           <div class="grid grid-2 gap-3">
@@ -666,7 +687,9 @@ export const UsersView = {
 
         <!-- invite ------------------------------------------------------------- -->
         <section class="card card--pad col gap-4">
-          <div>
+          <div class="row-top gap-3">
+            <span class="tile tile--accent"><app-icon name="ticket" :size="17"/></span>
+            <div>
             <h2 class="t-md">Invite somebody</h2>
             <p class="hint mt-1">
               An invite is a one-off code that lets a person create their own account, choosing their own
@@ -685,6 +708,7 @@ export const UsersView = {
               what is missing then. That case is repaired from the database - delete the rows in the
               <span class="mono">users</span> table, and the first-run screen and a fresh code come back.
             </p>
+            </div>
           </div>
 
           <div v-if="state.invite && state.invite.open" class="card card--flat card--pad col gap-2">
@@ -738,7 +762,7 @@ export const UsersView = {
             <button class="btn none push" :disabled="busy || fresh.invite"
                     :title="fresh.invite ? 'Pass on the open invite above first - issuing another replaces it.' : ''"
                     @click="issueInvite">
-              <app-icon name="link" :size="14"/> Issue an invite
+              <app-icon name="ticket" :size="14"/> Issue an invite
             </button>
           </div>
           <p v-if="fresh.invite" class="hint">
@@ -758,7 +782,7 @@ export const UsersView = {
     </div>
 
     <!-- set somebody's password ------------------------------------------------ -->
-    <app-modal v-if="passwordFor" :title="'Set a password for ' + passwordFor.username" icon="user"
+    <app-modal v-if="passwordFor" :title="'Set a password for ' + passwordFor.username" icon="key"
                @close="passwordFor = null">
       <div class="col gap-4">
         <p class="t-sm">
@@ -804,7 +828,7 @@ export const UsersView = {
         <button class="btn" @click="passwordFor = null">Cancel</button>
         <button class="btn btn--primary" :disabled="busy || passwordDraft.value.length < minPassword"
                 @click="savePassword">
-          Set password
+          <app-icon name="key" :size="14"/> Set password
         </button>
       </template>
     </app-modal>

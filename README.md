@@ -1,4 +1,4 @@
-# CourseForge 4
+# CourseForge 5
 
 A self-hosted tool that turns a one-line brief into a complete course — outline,
 chapters, written pages, flashcards — and publishes it into a
@@ -57,7 +57,98 @@ models, language), create a **Course**, generate the **Structure**, write the
 Full documentation, including the nginx configuration and the technical
 background, is in [docs.md](docs.md).
 
-## What is new in 4.10
+## What is new in 5.0
+
+A release about the interface: what it looks like, how it is organised, and
+whether it can be used without a mouse. No pipeline changes and no schema
+change - but a profile can now decide what every course written with it
+starts from, which is the one new thing under the surface.
+
+### An interface that can be read before it is read
+
+Every screen, every card, every setting and every tab now carries a glyph
+from the Nucleo icon set, drawn to one grid and one stroke, so a list is
+skimmed by its pictures before a single label is read. A hundred icons, each
+named in `assets/js/components/AppIcon.js` by the Nucleo id it came from,
+inlined as SVG that takes the text colour around it - no font, no CDN, no
+flash of missing glyphs.
+
+The sidebar is divided into **Workspace** and **Administration**, each
+destination has a hint, and the account entry at the foot shows who is signed
+in, as an avatar, a name and a role. The theme control has three positions -
+light, dark and **Auto**, which follows the system and keeps following it -
+instead of a toggle that took the choice away. Every screen opens with a line
+saying what it is for.
+
+**Settings** gained an index down its side that follows the scroll, marks the
+group on screen, and counts what this installation has changed in each - so an
+inherited installation can be surveyed without reading a single row. Every
+setting has a glyph that says what kind of thing it is, and every switch is a
+switch rather than a checkbox that had to be read to be understood.
+
+**Courses** cards carry a tile that says where each course stands - being
+written, written but not published, published, a run open, a page failed -
+and an empty course list explains the whole application in five steps. The
+course header says how big the course is; the Details tab says what its
+"inherit" position points at, and can take you there.
+
+### Course defaults look like the Details tab, because they are the same list
+
+The fourteen elements and eight values a course can decide were drawn on the
+Settings screen as a plain list of settings rows - a checkbox called "Learning
+objectives" with no glyph, a number box called "Minimum length" - that looked
+nothing like the Details tab the same fourteen elements are switched on a
+course with. They are now drawn as that tab draws them: the same rows, the same
+tiles, the same order, the same words. What differs is the control, and it
+differs for a reason: every other level has three answers - on, off, or follow
+the level above - and this level has nothing above it, so its switch has two.
+
+### A profile decides what every course on it starts from
+
+Until now the only way to give twenty courses the same house style -
+objectives on, 1,500 words, a standing audience of working developers - was
+twenty Details tabs. The profile is what those courses already share, so it is
+where a default belongs. A profile has a fourth tab, **Content defaults**, with
+the same editor as a course, one level up; the chain is now
+
+```
+installation  →  profile  →  course  →  chapter  →  page
+```
+
+and the value that wins is the one closest to the page. Only deviations are
+stored at every level, so a course that never disagreed with its profile
+follows it when it changes, a profile that never disagreed with the
+installation follows that, and a course whose profile is deleted goes back to
+the installation. A course's Details tab says which of the two its "inherit"
+position points at, and one button opens the profile on the right tab.
+
+Over MCP the same thing is `set_profile_details`: features as 1, -1 or 0,
+values as numbers or text, `reset_all` to drop what the profile decided, and
+the crossed-lengths refusal every other door to that pair has. `get_profile`
+reports the decisions, and `get_details` on a course names the profile as
+where an inherited answer comes from.
+
+### Usable without a mouse, and readable without sight
+
+Every icon-only button has a name. Every tab bar is a tab list, every
+segmented control a radio group, every switch a switch, and the current
+navigation entry says so. Progress bars carry their numbers. A skip link
+takes the keyboard past the navigation to the page. Error strips are
+announced. A decorative icon is hidden from assistive technology; one that
+stands for something on its own is named.
+
+### Upgrading
+
+Nothing to do, and no schema change. A profile gains its content-defaults
+layer the first time it is saved, and an empty layer means exactly what no
+layer meant: whatever the installation says.
+
+383 tests pass, 4 of them new in `tests/profile-defaults.test.php`. Every
+Vue template was compiled with the shipped Vue before release, and every
+screen was driven in a browser against a scratch installation - dark and
+light, desktop and phone width.
+
+## What was new in 4.10
 
 Eleven readers went over the whole application with one instruction — find
 what is actually wrong, not what could be tidier — and this release is what

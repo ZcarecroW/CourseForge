@@ -401,7 +401,7 @@ export const UpdatesView = {
     };
   },
   template: `
-    <view-header title="Updates" icon="download">
+    <view-header title="Updates" icon="download" subtitle="Is this installation current, and what happens if it is not">
       <template #actions>
         <span class="badge hide-sm">v{{ currentVersion }}</span>
         <button class="btn btn--sm" :disabled="checking || info.running" @click="checkNow">
@@ -472,6 +472,7 @@ export const UpdatesView = {
         <!-- what changed ---------------------------------------------------- -->
         <section v-if="latest" class="card">
           <div class="card__head">
+            <span class="tile tile--accent"><app-icon name="file-text" :size="17"/></span>
             <h2 class="card__title grow">{{ latest.name || latest.version }}</h2>
             <span v-if="latest.prerelease" class="badge badge--warning none">pre-release</span>
             <span class="badge badge--outline none">{{ latest.tag }}</span>
@@ -491,6 +492,9 @@ export const UpdatesView = {
         <!-- can it run ------------------------------------------------------ -->
         <section class="card">
           <div class="card__head">
+            <span class="tile" :class="blocking.length ? 'tile--danger' : (warnings.length ? 'tile--warning' : 'tile--success')">
+              <app-icon name="shield-check" :size="17"/>
+            </span>
             <h2 class="card__title grow">Before an update can run</h2>
             <span v-if="blocking.length" class="badge badge--danger none">
               {{ plural(blocking.length, 'problem') }}
@@ -526,8 +530,8 @@ export const UpdatesView = {
 
         <!-- automatic ------------------------------------------------------- -->
         <section class="card card--pad col gap-3">
-          <div class="row gap-2">
-            <app-icon name="zap" :size="16" class="c-accent none"/>
+          <div class="row gap-3">
+            <span class="tile tile--accent"><app-icon name="zap" :size="17"/></span>
             <h2 class="t-md grow">On its own</h2>
             <button class="btn btn--ghost btn--sm none" @click="go('settings')">
               <app-icon name="cog" :size="13"/> Change this in Settings
@@ -557,6 +561,7 @@ export const UpdatesView = {
         <!-- history --------------------------------------------------------- -->
         <section class="card" style="overflow:hidden">
           <div class="card__head">
+            <span class="tile"><app-icon name="history" :size="17"/></span>
             <h2 class="card__title grow">Every update this installation has attempted</h2>
           </div>
 
@@ -611,7 +616,7 @@ export const UpdatesView = {
 
         <!-- going back ------------------------------------------------------ -->
         <div class="danger-zone">
-          <p class="danger-zone__title">Go back to the previous version</p>
+          <p class="danger-zone__title row gap-2"><app-icon name="undo" :size="16"/> Go back to the previous version</p>
           <p class="t-sm">
             Every update copies the files it is about to replace into a backup first. Rolling back unpacks the
             most recent of those over the installation, which puts the code back as it was - your courses,
@@ -639,7 +644,7 @@ export const UpdatesView = {
           <div class="row end">
             <button class="btn btn--danger none" :disabled="!backups.length || info.running"
                     @click="askRollback">
-              <app-icon name="arrow-left" :size="14"/> Restore the previous version
+              <app-icon name="undo" :size="14"/> Restore the previous version
             </button>
           </div>
         </div>
@@ -648,7 +653,7 @@ export const UpdatesView = {
 
     <!-- install / rollback ------------------------------------------------------ -->
     <app-modal v-if="job.phase" wide :title="jobTitle"
-               :icon="job.kind === 'install' ? 'download' : 'alert'"
+               :icon="job.kind === 'install' ? 'download' : 'undo'"
                @close="closeJob">
 
       <!-- ask ------------------------------------------------------------- -->
@@ -747,7 +752,7 @@ export const UpdatesView = {
           <button class="btn" @click="closeJob">Cancel</button>
           <button class="btn" :class="job.kind === 'install' ? 'btn--primary' : 'btn--danger'"
                   @click="startJob">
-            <app-icon :name="job.kind === 'install' ? 'download' : 'arrow-left'" :size="14"/>
+            <app-icon :name="job.kind === 'install' ? 'download' : 'undo'" :size="14"/>
             {{ job.kind === 'install'
               ? 'Install ' + (latest ? latest.version : 'it')
               : 'Restore the backup' }}

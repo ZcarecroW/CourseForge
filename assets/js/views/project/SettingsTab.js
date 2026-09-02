@@ -114,18 +114,23 @@ export const SettingsTab = {
       <div class="view-pad container-narrow col gap-5">
 
         <section class="card">
-          <div class="card__head"><span class="card__title grow">Course</span>
-            <span v-if="changed" class="badge badge--warning">unsaved</span>
+          <div class="card__head">
+            <span class="tile tile--accent"><app-icon name="book" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">Course</span>
+              <span class="card__desc">What it is called, what it is about, and the profile it is written with.</span>
+            </div>
+            <span v-if="changed" class="badge badge--warning none">unsaved</span>
           </div>
           <div class="card__body col gap-4">
             <div class="form-row">
-              <label>Course name</label>
-              <input v-model="form.name">
+              <label for="course-name" class="row gap-2"><app-icon name="pencil" :size="13"/> Course name</label>
+              <input id="course-name" v-model="form.name">
               <p class="hint">Shown in CourseForge. The published book uses the title from the outline.</p>
             </div>
             <div class="form-row">
-              <label>Course prompt</label>
-              <textarea v-model="form.topic" rows="3"></textarea>
+              <label for="course-topic" class="row gap-2"><app-icon name="sparkles" :size="13"/> Course prompt</label>
+              <textarea id="course-topic" v-model="form.topic" rows="3"></textarea>
               <p class="hint">
                 The brief the outline is designed from, and the same box the <strong>Structure</strong> tab shows
                 beside the outline. Editing it does not regenerate anything by itself.
@@ -133,15 +138,15 @@ export const SettingsTab = {
             </div>
             <div class="grid grid-2">
               <div class="form-row">
-                <label>Profile</label>
-                <select v-model="form.profile_id">
+                <label for="course-profile" class="row gap-2"><app-icon name="sliders" :size="13"/> Profile</label>
+                <select id="course-profile" v-model="form.profile_id">
                   <option :value="null">— none —</option>
                   <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
                 </select>
-                <p class="hint">Supplies the AI account, the models, the language and the prompt overrides.</p>
+                <p class="hint">Supplies the AI account, the models, the language, the content defaults and the prompt overrides.</p>
               </div>
               <div class="form-row">
-                <label>Publishes to</label>
+                <label class="row gap-2"><app-icon name="server" :size="13"/> Publishes to</label>
                 <div class="row wrap gap-2" style="min-height:32px;align-items:center">
                   <span v-for="target in destinations" :key="target.id" class="badge"
                         :class="target.enabled ? '' : 'badge--outline'">
@@ -167,9 +172,12 @@ export const SettingsTab = {
 
         <section class="card">
           <div class="card__head">
-            <app-icon name="sparkles" :size="16" class="c-magic"/>
-            <span class="card__title grow">AI tagging</span>
-            <span class="badge" :class="form.auto_tags ? 'badge--magic' : ''">{{ form.auto_tags ? 'on' : 'off' }}</span>
+            <span class="tile tile--magic"><app-icon name="sparkles" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">AI tagging</span>
+              <span class="card__desc">Let the AI tag the book, the chapters and the pages while it designs the structure.</span>
+            </div>
+            <span class="badge none" :class="form.auto_tags ? 'badge--magic' : ''">{{ form.auto_tags ? 'on' : 'off' }}</span>
           </div>
           <div class="card__body col gap-4">
             <label class="check">
@@ -208,8 +216,11 @@ export const SettingsTab = {
 
         <section class="card">
           <div class="card__head">
-            <app-icon name="tag" :size="16" class="c-accent"/>
-            <span class="card__title grow">Course tags</span>
+            <span class="tile tile--accent"><app-icon name="tag" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">Course tags</span>
+              <span class="card__desc">Attached to the book itself, and passed down to every chapter and page when marked to inherit.</span>
+            </div>
           </div>
           <div class="card__body">
             <tag-picker label="Attached to the book itself" :tags="project.tags" :inherited="[]" :busy="busy"
@@ -225,8 +236,11 @@ export const SettingsTab = {
 
         <section class="card">
           <div class="card__head">
-            <app-icon name="quote" :size="16"/>
-            <span class="card__title grow">Punctuation</span>
+            <span class="tile"><app-icon name="quote" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">Punctuation</span>
+              <span class="card__desc">Quotation marks, apostrophes, dashes and spacing, set the way this course's language sets them.</span>
+            </div>
           </div>
           <div class="card__body col gap-3">
             <p class="hint">
@@ -248,23 +262,30 @@ export const SettingsTab = {
         </section>
 
         <section class="card">
-          <div class="card__head"><span class="card__title grow">Facts</span></div>
-          <div class="card__body grid grid-2 t-sm">
-            <div class="row between"><span class="dim">Chapters</span><span class="nums">{{ project.stats.chapters }}</span></div>
-            <div class="row between"><span class="dim">Pages</span><span class="nums">{{ project.stats.pages }}</span></div>
-            <div class="row between"><span class="dim">Book</span>
-              <span class="nums">{{ project.book_id ? '#' + project.book_id : 'not created yet' }}</span></div>
-            <div class="row between"><span class="dim">Destinations</span>
-              <span class="nums">{{ destinations.length }}</span></div>
-            <div class="row between"><span class="dim">Created</span><span>{{ formatDateTime(project.created_at) }}</span></div>
-            <div class="row between"><span class="dim">Updated</span><span>{{ formatDateTime(project.updated_at) }}</span></div>
+          <div class="card__head">
+            <span class="tile"><app-icon name="activity" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">At a glance</span>
+              <span class="card__desc">What this course is made of, and when it was last touched.</span>
+            </div>
+          </div>
+          <div class="card__body facts">
+            <div class="fact"><app-icon name="sitemap" :size="15" class="dim none"/><div class="fact__text"><div class="fact__label">Chapters</div><div class="fact__value nums">{{ project.stats.chapters }}</div></div></div>
+            <div class="fact"><app-icon name="file-text" :size="15" class="dim none"/><div class="fact__text"><div class="fact__label">Pages</div><div class="fact__value nums">{{ project.stats.pages }}</div></div></div>
+            <div class="fact"><app-icon name="book-open" :size="15" class="dim none"/><div class="fact__text"><div class="fact__label">Book</div><div class="fact__value nums">{{ project.book_id ? '#' + project.book_id : 'not created yet' }}</div></div></div>
+            <div class="fact"><app-icon name="server" :size="15" class="dim none"/><div class="fact__text"><div class="fact__label">Destinations</div><div class="fact__value nums">{{ destinations.length }}</div></div></div>
+            <div class="fact"><app-icon name="calendar" :size="15" class="dim none"/><div class="fact__text"><div class="fact__label">Created</div><div class="fact__value">{{ formatDateTime(project.created_at) }}</div></div></div>
+            <div class="fact"><app-icon name="clock" :size="15" class="dim none"/><div class="fact__text"><div class="fact__label">Updated</div><div class="fact__value">{{ formatDateTime(project.updated_at) }}</div></div></div>
           </div>
         </section>
 
         <section class="card" style="border-color:var(--danger-line)">
           <div class="card__head">
-            <app-icon name="alert" :size="16" class="c-danger"/>
-            <span class="card__title grow">Danger zone</span>
+            <span class="tile tile--danger"><app-icon name="alert" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">Danger zone</span>
+              <span class="card__desc">The one thing here that cannot be undone.</span>
+            </div>
           </div>
           <div class="card__body row wrap between gap-3">
             <p class="hint grow">

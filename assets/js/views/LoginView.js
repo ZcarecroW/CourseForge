@@ -83,8 +83,8 @@ export const LoginView = {
 
       <form class="card card--pad" style="width:100%;max-width:400px" @submit.prevent="submit">
         <div class="col gap-2 center" style="align-items:center;text-align:center;margin-bottom:var(--s-6)">
-          <span class="sidebar__mark" style="width:42px;height:42px;border-radius:var(--r-lg)">
-            <app-icon name="book" :size="22"/>
+          <span class="tile tile--lg tile--brand">
+            <app-icon name="graduation-cap" :size="24"/>
           </span>
           <h1 style="font-size:var(--t-xl);margin-top:var(--s-2)">{{ state.app.name }}</h1>
           <p class="t-sm dim">AI course generation for BookStack</p>
@@ -92,22 +92,23 @@ export const LoginView = {
 
         <div class="col gap-4">
           <div class="form-row">
-            <label for="login-user">Username</label>
+            <label for="login-user" class="row gap-2"><app-icon name="user" :size="13"/> Username</label>
             <input id="login-user" ref="userField" v-model="username" autocomplete="username" required>
           </div>
           <div class="form-row">
-            <label for="login-pass">Password</label>
+            <label for="login-pass" class="row gap-2"><app-icon name="key" :size="13"/> Password</label>
             <input id="login-pass" v-model="password" type="password" autocomplete="current-password" required>
           </div>
 
-          <p v-if="error" class="card card--flat t-sm c-danger"
-             style="padding:9px 12px;border-color:var(--danger-line)">{{ error }}</p>
+          <p v-if="error" class="note-strip note-strip--danger" role="alert">
+            <app-icon name="alert-circle" :size="14" class="c-danger"/><span>{{ error }}</span>
+          </p>
           <p v-if="locked > 0" class="t-xs c-warning" style="text-align:center">
             Locked for {{ locked }} more second(s).
           </p>
 
           <button type="submit" class="btn btn--primary btn--block" :disabled="busy || locked > 0">
-            <app-icon v-if="busy" name="refresh" :size="14" spin/>
+            <app-icon :name="busy ? 'refresh' : 'log-in'" :size="14" :spin="busy"/>
             {{ busy ? 'Signing in…' : 'Sign in' }}
           </button>
 
@@ -120,7 +121,7 @@ export const LoginView = {
                 Been sent an invite code? It makes your account here, and you choose the password yourself.
               </p>
               <button type="button" class="btn btn--block" @click="state.redeeming = true">
-                <app-icon name="link" :size="14"/> I have an invite code
+                <app-icon name="ticket" :size="14"/> I have an invite code
               </button>
             </div>
           </template>

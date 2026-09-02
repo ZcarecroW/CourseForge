@@ -295,6 +295,29 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   border-radius: var(--r-md);
 }
 .param-row:hover { background: var(--surface-2); }
+
+/* The two lists of a detail editor - elements, values - side by side where
+   there is room for both to keep their labels whole, and one under the other
+   where there is not: a profile's pane and a phone are both narrower than the
+   Details tab of a course. `min(100%, 380px)` is what stops the minimum from
+   forcing a horizontal scroll on a screen narrower than the minimum itself. */
+.detail-grid {
+  display: grid;
+  gap: var(--s-6);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+}
+.detail-grid--one { grid-template-columns: minmax(0, 1fr); }
+
+/* A value row that carries the same tile as an element row, so the two lists
+   line up and a value can be told from the next by its glyph. */
+.param-row--iconed { grid-template-columns: 28px minmax(0, 1fr) 156px; }
+.param-row.is-changed .detail-row__icon,
+.detail-row.is-changed .detail-row__icon { background: var(--accent-soft); color: var(--accent); }
+
+/* The two levels of a detail row that has decided something: a rule down the
+   left that the Settings screen draws for a changed setting, borrowed here so
+   a level that stores an override is marked the same way everywhere. */
+.detail-row.is-own, .param-row.is-own { box-shadow: inset 2px 0 0 var(--accent); }
 .param-input { position: relative; display: flex; align-items: center; gap: 4px; }
 .param-input input { min-width: 0; text-align: right; padding-inline: 6px; }
 .param-input__unit { font-size: var(--t-2xs); color: var(--text-faint); width: 42px; flex: none; }
@@ -538,3 +561,231 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
   cursor: pointer;
 }
 .placeholder-token:hover { background: var(--accent-line); }
+
+/* -- icon tiles --------------------------------------------------------------
+   A glyph on a soft square, so a section, a setting or a navigation entry can
+   be told apart at a glance before its label is read. The tone says what kind
+   of thing it is - accent for the ordinary, success for the healthy, warning
+   for the thing to look at, danger for the destructive, magic for the AI. */
+.tile {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+.tile--sm { width: 26px; height: 26px; border-radius: var(--r-sm); }
+.tile--lg { width: 42px; height: 42px; border-radius: var(--r-lg); }
+.tile--accent  { background: var(--accent-soft);  color: var(--accent); }
+.tile--success { background: var(--success-soft); color: var(--success); }
+.tile--warning { background: var(--warning-soft); color: var(--warning); }
+.tile--danger  { background: var(--danger-soft);  color: var(--danger); }
+.tile--magic   { background: var(--magic-soft);   color: var(--magic); }
+.tile--brand {
+  background: linear-gradient(140deg, var(--accent), var(--accent-strong));
+  color: var(--accent-ink);
+}
+
+/* A card head that opens with a tile: the title and, under it, one line on
+   what the card is for, so the card explains itself before it is read. */
+.card__heading { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.card__desc { font-size: var(--t-xs); color: var(--text-dim); line-height: 1.45; }
+
+/* -- switch ----------------------------------------------------------------
+   A two-state control that reads as one: on is filled, off is hollow, and the
+   knob moves. `role="switch"` with `aria-checked` is what a screen reader
+   announces it as, and the state is carried on that attribute rather than on a
+   class so the two can never disagree. */
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  width: 38px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  cursor: pointer;
+  transition: background var(--speed) var(--ease), border-color var(--speed) var(--ease);
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-pill);
+  background: var(--text-muted);
+  transition: transform var(--speed) var(--ease), background var(--speed) var(--ease);
+}
+.switch:hover:not(:disabled) { border-color: var(--accent); }
+.switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.switch[aria-checked="true"]::after { transform: translateX(16px); background: var(--accent-ink); }
+.switch--success[aria-checked="true"] { background: var(--success); border-color: var(--success); }
+.switch--success[aria-checked="true"]::after { background: var(--success-ink); }
+.switch:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* A switch with its words: the label to the left, the control to the right,
+   the whole row clickable. */
+.switch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  padding: 9px var(--s-3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--speed) var(--ease);
+}
+.switch-row:hover { background: var(--surface-2); }
+
+/* -- a text field with a glyph in it ---------------------------------------
+   Search boxes, mostly. The glyph says what the box is for without a label
+   taking a line of its own. */
+.input-icon { position: relative; min-width: 0; }
+.input-icon > .icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  pointer-events: none;
+}
+/* The same deny-list base.css selects text fields by, so this outranks the
+   padding it sets there - a plain `.input-icon > input` would lose to it. */
+.input-icon > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]) {
+  padding-left: 32px;
+}
+
+/* -- the legend under a control ---------------------------------------------
+   Three states of the tri-toggle, or the four colours of a tag chip, named in
+   words next to a swatch of what they look like. */
+.legend { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); font-size: var(--t-xs); color: var(--text-dim); }
+.legend__item { display: inline-flex; align-items: center; gap: 6px; }
+.legend__swatch {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--r-xs);
+  font-size: var(--t-2xs);
+  font-weight: 700;
+}
+.legend__swatch--on { background: var(--success); color: var(--success-ink); }
+.legend__swatch--off { background: var(--danger); color: var(--danger-ink); }
+.legend__swatch--inherit { background: var(--surface-hover); color: var(--text); border: 1px solid var(--border-strong); }
+
+/* -- facts -------------------------------------------------------------------
+   A row of labelled numbers or words, each with its glyph: what a course is
+   made of, when it was created, where it publishes. */
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s-2); }
+.fact {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.fact__text { min-width: 0; }
+.fact__label { font-size: var(--t-2xs); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+.fact__value { font-size: var(--t-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* -- the steps a thing is done in --------------------------------------------
+   Numbered, each with a glyph, read left to right. On the empty course list it
+   is the whole story of the application in one strip. */
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--s-3); }
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  text-align: left;
+}
+.step__num { font-size: var(--t-2xs); font-weight: 700; letter-spacing: 0.08em; color: var(--text-faint); }
+.step__title { font-size: var(--t-sm); font-weight: 600; }
+.step__text { font-size: var(--t-xs); color: var(--text-dim); line-height: 1.5; }
+
+/* -- a strip that tells you which layer you are on --------------------------
+   The same shape the prompt screens use, generalised: an accent wash under a
+   sentence that frames everything below it. */
+.note-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+  line-height: 1.55;
+}
+.note-strip--warning { border-color: var(--warning-line); background: var(--warning-soft); }
+.note-strip--success { border-color: var(--success-line); background: var(--success-soft); }
+.note-strip--danger { border-color: var(--danger-line); background: var(--danger-soft); }
+.note-strip > .icon { flex: none; margin-top: 1px; }
+
+/* -- avatar ------------------------------------------------------------------
+   Initials on a disc, for the account entry in the sidebar and the header of
+   the account dialog. */
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.avatar--lg { width: 42px; height: 42px; font-size: var(--t-md); }
+
+/* -- the tri-toggle's inherit glyph ---------------------------------------- */
+.tri__opt { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+
+/* -- tabs and navigation carry their glyphs a step quieter than the words --- */
+.tab > .icon { color: var(--text-faint); transition: color var(--speed) var(--ease); }
+.tab:hover > .icon, .tab.is-active > .icon { color: currentColor; }
+.tab[aria-selected="true"] { color: var(--accent); }
+.tab[aria-selected="true"]::after { background: var(--accent); }
+
+/* A tab count, drawn as a pill so it never looks like part of the label. */
+.tab__count {
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--neutral-soft);
+  color: var(--text-dim);
+  font-size: var(--t-2xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tab.is-active .tab__count, .tab[aria-selected="true"] .tab__count { background: var(--accent-soft); color: var(--accent); }
+
+/* -- a button group that is a set of tabs inside a pane -------------------- */
+.btn-group > button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.btn-group > button > .icon { color: var(--text-faint); }
+.btn-group > button.is-active > .icon { color: currentColor; }
+
+/* -- one line of key: value inside a card body ------------------------------ */
+.kv { display: flex; align-items: center; gap: var(--s-3); padding: 7px 0; border-bottom: 1px solid var(--border-soft); font-size: var(--t-sm); }
+.kv:last-child { border-bottom: 0; }
+.kv__key { display: inline-flex; align-items: center; gap: 8px; color: var(--text-dim); min-width: 0; }
+.kv__value { margin-left: auto; font-variant-numeric: tabular-nums; text-align: right; }

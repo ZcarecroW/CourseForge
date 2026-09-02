@@ -262,9 +262,13 @@ export const PublishTab = {
         <div class="col gap-4">
           <section class="card">
             <div class="card__head">
-              <span class="card__title grow">Destinations</span>
-              <span v-if="changed" class="badge badge--warning">unsaved</span>
-              <span v-else-if="targets.length > 1" class="badge">{{ targets.length }} wikis</span>
+              <span class="tile tile--accent"><app-icon name="server" :size="17"/></span>
+              <div class="card__heading">
+                <span class="card__title">Destinations</span>
+                <span class="card__desc">The BookStack instances this course publishes into, each with its own shelf and its own book.</span>
+              </div>
+              <span v-if="changed" class="badge badge--warning none">unsaved</span>
+              <span v-else-if="targets.length > 1" class="badge none">{{ targets.length }} wikis</span>
             </div>
             <div class="card__body col gap-4">
               <p v-if="!bookstackInstances.length" class="hint c-warning">
@@ -289,10 +293,12 @@ export const PublishTab = {
                       </span>
                     </span>
                   </label>
-                  <a v-if="row.book_url" :href="row.book_url" target="_blank" rel="noopener" class="btn btn--ghost btn--sm">
+                  <a v-if="row.book_url" :href="row.book_url" target="_blank" rel="noopener" class="btn btn--ghost btn--sm"
+                     :aria-label="'Open the book in ' + nameOf(row)" title="Open the book in BookStack">
                     <app-icon name="external" :size="12"/>
                   </a>
-                  <button class="btn btn--ghost btn--sm" :disabled="busy" @click="removing = row">
+                  <button class="btn btn--ghost btn--sm" :disabled="busy" @click="removing = row"
+                          :aria-label="'Remove ' + nameOf(row) + ' as a destination'" title="Remove this destination">
                     <app-icon name="trash" :size="12"/>
                   </button>
                 </div>
@@ -356,21 +362,26 @@ export const PublishTab = {
           </section>
 
           <section class="card">
-            <div class="card__head"><span class="card__title grow">Publish</span>
-              <span v-if="project.dirty" class="badge badge--warning">book metadata changed</span>
+            <div class="card__head">
+              <span class="tile tile--success"><app-icon name="upload" :size="17"/></span>
+              <div class="card__heading">
+                <span class="card__title">Publish</span>
+                <span class="card__desc">Send the book, its chapters and every written page to every destination that is on.</span>
+              </div>
+              <span v-if="project.dirty" class="badge badge--warning none">book metadata changed</span>
             </div>
             <div class="card__body col gap-4">
               <div class="grid grid-3">
                 <div class="stat">
-                  <div class="stat__value nums">{{ stats.generated }}/{{ stats.pages }}</div>
+                  <div class="stat__value nums"><app-icon name="file-text" :size="14" class="dim"/> {{ stats.generated }}/{{ stats.pages }}</div>
                   <div class="stat__label">written</div>
                 </div>
                 <div class="stat">
-                  <div class="stat__value c-success nums">{{ stats.pushed }}</div>
+                  <div class="stat__value c-success nums"><app-icon name="check-circle" :size="14"/> {{ stats.pushed }}</div>
                   <div class="stat__label">published</div>
                 </div>
                 <div class="stat">
-                  <div class="stat__value nums" :class="stats.dirty ? 'c-warning' : ''">{{ stats.dirty }}</div>
+                  <div class="stat__value nums" :class="stats.dirty ? 'c-warning' : ''"><app-icon name="alert-circle" :size="14"/> {{ stats.dirty }}</div>
                   <div class="stat__label">out of sync</div>
                 </div>
               </div>
@@ -389,7 +400,7 @@ export const PublishTab = {
                   {{ running ? 'Publishing…' : (live.length > 1 ? 'Publish everything to ' + live.length + ' wikis' : 'Publish everything') }}
                 </button>
                 <button class="btn btn--block" :disabled="running || !ready" @click="push('book')">
-                  Book metadata only
+                  <app-icon name="book-open" :size="14"/> Book metadata only
                 </button>
               </div>
 
@@ -406,8 +417,11 @@ export const PublishTab = {
 
           <section class="card" :class="links.markers ? '' : 'card--flat'">
             <div class="card__head">
-              <app-icon name="link" :size="16" :class="links.markers ? 'c-accent' : 'dim'"/>
-              <span class="card__title grow">Auto links</span>
+              <span class="tile" :class="links.markers ? 'tile--accent' : ''"><app-icon name="link" :size="17"/></span>
+              <div class="card__heading">
+                <span class="card__title">Auto links</span>
+                <span class="card__desc">Cross references become real BookStack links once every target has a URL.</span>
+              </div>
             </div>
             <div class="card__body col gap-3">
               <div class="row gap-3 t-sm">
@@ -437,8 +451,14 @@ export const PublishTab = {
         <!-- right column ------------------------------------------------ -->
         <section class="card">
           <div class="card__head">
-            <span class="card__title grow">Publish log</span>
-            <button class="btn btn--ghost btn--sm" :disabled="!log.length" @click="log = []">Clear</button>
+            <span class="tile"><app-icon name="history" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">Publish log</span>
+              <span class="card__desc">Every created, updated and skipped item, as it happens.</span>
+            </div>
+            <button class="btn btn--ghost btn--sm none" :disabled="!log.length" @click="log = []">
+              <app-icon name="trash" :size="12"/> Clear
+            </button>
           </div>
           <div class="card__body">
             <div v-if="log.length" class="log">

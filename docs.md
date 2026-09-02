@@ -1,4 +1,4 @@
-# CourseForge 4 — Documentation
+# CourseForge 5 — Documentation
 
 CourseForge is a self-hosted single-page application that uses AI — Anthropic,
 OpenAI, Google Gemini, OpenRouter, sixteen more gateways that speak OpenAI's API,
@@ -38,15 +38,20 @@ A password needs at least ten characters and must differ from the old one. Your
 *user name* is the key every row you own is filed under and cannot be changed,
 by you or by an administrator; a new name means a new account and a transfer.
 
-The sidebar holds the four areas — **Courses**, **Tags**, **Profiles**,
-**Connect** — plus the theme switch, the account entry and sign out. An
-administrator gets a second group below the first: **Accounts**, **Settings**,
-**Prompts** and **Updates**. On screens narrower than 1024 px the whole thing
-collapses into a drawer behind the ☰ button.
+The sidebar holds the **Workspace** — **Courses**, **Tags**, **Profiles**,
+**Connect** — and, for an administrator, an **Administration** group below it:
+**Accounts**, **Settings**, **Prompts** and **Updates**. Every entry carries its
+glyph, and the same glyph marks the same thing everywhere else in the
+application: the book is always a course, the sliders are always a profile,
+the plug is always a connection. At the foot are the theme control — light,
+dark, or **Auto**, which follows the system and keeps following it — the
+account entry, and sign out. On screens narrower than 1024 px the whole thing
+collapses into a drawer behind the ☰ button. Pressing Tab on a fresh page
+offers a skip link past the navigation.
 
 ### Step 1 — Create a profile
 
-Open **Profiles** and create one. A profile has three tabs.
+Open **Profiles** and create one. A profile has four tabs.
 
 **Accounts.** Add one or more *BookStack instances* (base URL, API token id and
 secret) and one or more *AI accounts*. More than one BookStack instance is worth
@@ -95,6 +100,11 @@ for it — and it is disabled, with the reason underneath, when this account can
 queue. Where the provider names the models its queue accepts, those are listed
 beside it with the chosen one highlighted; where it does not, the box says so,
 because then a model can only be found unacceptable at submission time.
+
+**Content defaults.** What every course written with this profile starts
+from: the same elements and values the Details tab of a course decides, one
+level up, in the same editor. A profile that decides nothing passes the
+installation's defaults straight through. See [section 3](#3-content-details).
 
 **Prompts.** Every prompt CourseForge sends, in four groups, each documented and
 overridable *for this profile only* — on top of whatever an administrator has set
@@ -550,21 +560,38 @@ the morning should leave a trace somewhere a person will actually look.
 ## 3. Content details
 
 Every page is assembled from *elements* that can be switched on or off, and
-*values* that size them. Both are set at three levels and inherited downwards:
+*values* that size them. Both are set at four levels and inherited downwards:
 
 ```
-catalogue defaults  →  course  →  chapter  →  page
+catalogue defaults  →  profile  →  course  →  chapter  →  page
 ```
 
 The catalogue is the merge of `config/defaults.json`, which ships with the
 release, and whatever this installation has overridden in `data/config.json` —
-see [section 8](#8-installation). Everything below it is per course.
+see [section 8](#8-installation). The profile is what a set of courses already
+share, so it is where a house style lives; everything below it is per course.
+
+**A profile decides what every course on it starts from.** The **Content
+defaults** tab of a profile is the same editor as the Details tab of a course,
+one level up. Only deviations are stored, so a course that never disagreed
+with its profile follows it when it changes, a profile that never disagreed
+with the installation follows that, and a course whose profile is deleted
+goes back to the installation. A course's Details tab says which of the two
+its "inherit" position points at — *the profile "House style"* or *the
+installation defaults* — and one button opens the profile on the right tab.
+Over MCP the same thing is `set_profile_details` (features as 1, -1 or 0,
+values as numbers or text, `reset_all`), `get_profile` reports what a profile
+decided, and `get_details` on a course names `profile` as where an inherited
+answer comes from.
 
 **The catalogue end of that chain is editable too.** Every element and every
-value appears on **Administration → Settings** under **Course defaults**, one
-field each, so an installation that teaches one subject to one audience can set
-the baseline every course starts from — learning objectives on, a house minimum
-length, a standing *Audience* — without opening the shipped file. They behave
+value appears on **Administration → Settings** under **Course defaults**, drawn
+as the Details tab draws them — the same rows, tiles and order, with a two-way
+switch where every other level has a three-way one, because there is nothing
+above the installation to inherit from — so an installation that teaches one
+subject to one audience can set the baseline every course starts from —
+learning objectives on, a house minimum length, a standing *Audience* — without
+opening the shipped file. They behave
 like every other setting: only what you change is written to `data/config.json`,
 Reset drops the override and hands the decision back to the release, and
 `set_settings` over MCP reaches them by the same keys
@@ -631,9 +658,9 @@ ships with the release, an update may add elements to it, and anything a course
 had already decided survives that, since only deviations are stored.
 
 The Settings screen offers the catalogue too, under **Course defaults**: one
-field per element and per value, generated from the catalogue rather than
-written out, so the fifteenth element arrives with its own field already in
-place. Changing one there writes an override into `data/config.json` and leaves
+row per element and per value, generated from the catalogue rather than
+written out, so the fifteenth element arrives with its own row and its own
+glyph already in place. Changing one there writes an override into `data/config.json` and leaves
 `config/defaults.json` — which the next update replaces wholesale — alone,
 which is the same arrangement every other setting has.
 

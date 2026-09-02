@@ -130,7 +130,7 @@ final class ResearchTools
 
         // No profile is resolved and no model is touched: an assignment is
         // instructions, the same as get_structure_brief and get_page_brief.
-        $params = Details::resolve(Projects::settings($project))['params'];
+        $params = Details::resolve(...Projects::chain($project))['params'];
         $searches = Research::searchBudget($params);
         $existing = Research::of($project);
 

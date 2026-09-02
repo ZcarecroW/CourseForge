@@ -29,7 +29,7 @@
  * be closed while it happens.
  */
 import { ref, reactive, computed, watch, onMounted } from 'vue';
-import { state, loadProfiles, loadCatalogue, declareUnsaved } from '@/core/store.js';
+import { state, loadProfiles, loadCatalogue, declareUnsaved, paramByKey } from '@/core/store.js';
 import { post, put, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
@@ -38,6 +38,7 @@ import { clone, uid, plural, relativeTime, LANGUAGES } from '@/core/format.js';
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';
 import ComboBox from '@/components/ComboBox.js';
+import DetailEditor from '@/components/DetailEditor.js';
 import EmptyState from '@/components/EmptyState.js';
 import PromptWorkbench from '@/components/PromptWorkbench.js';
 import ViewHeader from '@/components/ViewHeader.js';
@@ -46,16 +47,46 @@ const MODEL_SLOTS = [
   {
     key: 'overview',
     label: 'Course outline',
+    icon: 'sitemap',
     hint: 'Designs and revises the chapter and page structure. One call per course.',
     batchable: false,
   },
   {
     key: 'page',
     label: 'Course pages',
+    icon: 'file-text',
     hint: 'Writes the actual teaching content. One call per page - this is where the budget goes.',
     batchable: true,
   },
 ];
+
+/** The four tabs of a profile, each with the glyph the rest of the application uses for the same thing. */
+const TABS = [
+  { key: 'accounts', label: 'Accounts', icon: 'key', hint: 'BookStack instances and AI accounts, with their credentials' },
+  { key: 'models', label: 'Models & output', icon: 'cpu', hint: 'Which model writes what, the language, and how many pages at once' },
+  { key: 'content', label: 'Content defaults', icon: 'list-check', hint: 'What every course on this profile starts from' },
+  { key: 'prompts', label: 'Prompts', icon: 'file-text', hint: 'The wording this profile says differently from the installation' },
+];
+
+/** The shape a profile's content-details layer has when there is nothing in it. */
+const emptyDetails = () => ({ features: {}, params: {} });
+
+/**
+ * The details layer as the editor needs it: objects, never arrays.
+ *
+ * The server stores an empty map as `{}` for exactly this reason, but a
+ * profile written by an older release carries no layer at all, and a
+ * hand-edited one might carry `[]` - an array, which drops the first key
+ * written into it on its way back to JSON.
+ */
+const shapeDetails = (raw) => {
+  const out = emptyDetails();
+  for (const group of ['features', 'params']) {
+    const value = raw?.[group];
+    if (value && typeof value === 'object' && !Array.isArray(value)) out[group] = { ...value };
+  }
+  return out;
+};
 
 const BATCH_SUFFIX = ':batch';
 
@@ -153,7 +184,7 @@ const UNKNOWN_PROVIDER = {
 
 export const ProfilesView = {
   name: 'ProfilesView',
-  components: { AppIcon, AppModal, ComboBox, EmptyState, PromptWorkbench, ViewHeader },
+  components: { AppIcon, AppModal, ComboBox, DetailEditor, EmptyState, PromptWorkbench, ViewHeader },
   setup() {
     const tab = ref('accounts');
     const selectedId = ref(null);
@@ -185,6 +216,7 @@ export const ProfilesView = {
       selectedId.value = profile.id;
       draft.value = { id: profile.id, name: profile.name, data: clone(profile.data) };
       if (!draft.value.data.prompts || Array.isArray(draft.value.data.prompts)) draft.value.data.prompts = {};
+      draft.value.data.details = shapeDetails(draft.value.data.details);
       pristine.value = JSON.stringify(draft.value);
       listOpen.value = false;
     };
@@ -214,9 +246,67 @@ export const ProfilesView = {
     // The same guard the admin screens use, so leaving the screen asks first.
     declareUnsaved(() => (isDirty.value ? 'unsaved changes to this profile' : ''));
 
+    /* Somebody sent here from a course's Details tab arrives on the profile
+       that course inherits from, on its Content defaults tab, rather than on
+       whichever profile happens to be first. The request is read once and
+       cleared, so the next visit starts where it always did. */
     watch(() => state.profiles.length, () => {
+      const focus = state.profileFocus;
+      if (focus) {
+        const wanted = state.profiles.find((profile) => profile.id === focus.id);
+        if (wanted) {
+          open(wanted);
+          tab.value = TABS.some((entry) => entry.key === focus.tab) ? focus.tab : 'accounts';
+          state.profileFocus = null;
+          return;
+        }
+      }
       if (!draft.value && state.profiles.length) open(state.profiles[0]);
     }, { immediate: true });
+
+    /* ------------------------------------------------- content defaults */
+
+    /**
+     * The three views the detail editor draws from, computed here rather
+     * than fetched: a profile sits directly on the installation's baseline,
+     * which the catalogue already carries, so "inherited" is that baseline
+     * and "effective" is the baseline with this profile's decisions laid
+     * over it - the same arithmetic the server does for a course.
+     */
+    const profileDetails = computed(() => {
+      const own = draft.value?.data.details ?? emptyDetails();
+      const base = state.baseline ?? emptyDetails();
+      const effective = { features: { ...base.features }, params: { ...base.params } };
+      for (const [key, stateValue] of Object.entries(own.features ?? {})) {
+        if (Number(stateValue) !== 0) effective.features[key] = Number(stateValue) > 0;
+      }
+      for (const [key, value] of Object.entries(own.params ?? {})) {
+        if (value !== null && value !== '') effective.params[key] = value;
+      }
+      return { own, inherited: base, effective };
+    });
+
+    /** The editor's partial patch, applied to the draft the Save button writes. */
+    const patchProfileDetails = (patch) => {
+      if (!draft.value) return;
+      const details = draft.value.data.details;
+      for (const [key, stateValue] of Object.entries(patch.features ?? {})) {
+        if (Number(stateValue) === 0) delete details.features[key];
+        else details.features[key] = Number(stateValue) > 0 ? 1 : -1;
+      }
+      for (const [key, value] of Object.entries(patch.params ?? {})) {
+        if (value === null || String(value).trim() === '') {
+          delete details.params[key];
+        } else {
+          details.params[key] = paramByKey.value[key]?.type === 'text' ? String(value).trim() : Number(value);
+        }
+      }
+    };
+
+    const detailCount = computed(() => {
+      const details = draft.value?.data.details ?? emptyDetails();
+      return Object.keys(details.features ?? {}).length + Object.keys(details.params ?? {}).length;
+    });
 
     // The prompt catalogue is what this screen calls "the config default", and
     // it was read once at sign-in. After somebody saved on the admin Prompts
@@ -692,8 +782,8 @@ export const ProfilesView = {
     const batchSuffix = BATCH_SUFFIX;
 
     return {
-      state, tab, draft, selectedId, saving, creating, confirmDelete, listOpen, MODEL_SLOTS, LANGUAGES,
-      languageToken, batchSuffix,
+      state, tab, draft, selectedId, saving, creating, confirmDelete, listOpen, MODEL_SLOTS, LANGUAGES, TABS,
+      languageToken, batchSuffix, profileDetails, patchProfileDetails, detailCount,
       select, create, reload, save, remove, addBookstack, addAi, aiAccounts, modelList, loadModels,
       providerFor, providerId, overHttp, needsKey, providerGroups, providerSearch,
       picker, openPicker, chooseProvider, isCurrentProvider,
@@ -706,10 +796,10 @@ export const ProfilesView = {
     };
   },
   template: `
-    <view-header title="Profiles" icon="sliders">
+    <view-header title="Profiles" icon="sliders" subtitle="Who writes a course, with what, and how it sounds">
       <template #actions>
         <span class="badge hide-sm">{{ plural(state.profiles.length, 'profile') }}</span>
-        <button class="btn btn--ghost btn--icon" title="Reload" @click="reload">
+        <button class="btn btn--ghost btn--icon" title="Reload" aria-label="Reload the profiles" @click="reload">
           <app-icon name="refresh" :size="15"/>
         </button>
         <button class="btn btn--primary" :disabled="creating" @click="create">
@@ -725,7 +815,7 @@ export const ProfilesView = {
       <aside class="pane pane--left" :class="{ 'is-open': listOpen }">
         <div class="pane__head">
           <span class="eyebrow grow">{{ plural(state.profiles.length, 'profile') }}</span>
-          <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Close"
+          <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Close" aria-label="Close the profile list"
                   @click="listOpen = false"><app-icon name="x" :size="14"/></button>
         </div>
         <div class="pane__body" style="padding:var(--s-2)">
@@ -744,9 +834,10 @@ export const ProfilesView = {
       <section class="pane">
         <template v-if="draft">
           <div class="pane__head">
-            <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show all profiles"
+            <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show all profiles" aria-label="Show all profiles"
                     @click="listOpen = true"><app-icon name="menu" :size="15"/></button>
-            <input v-model="draft.name" class="grow" style="max-width:340px" placeholder="Profile name">
+            <span class="tile tile--sm tile--accent none hide-sm"><app-icon name="sliders" :size="14"/></span>
+            <input v-model="draft.name" class="grow" style="max-width:340px" placeholder="Profile name" aria-label="Profile name">
             <!-- The same signal the admin screens give: a badge that says
                  there is unsaved typing, and a way to throw it away on purpose
                  rather than by clicking somewhere else. -->
@@ -756,16 +847,18 @@ export const ProfilesView = {
               <app-icon v-if="saving" name="refresh" :size="14" spin/><app-icon v-else name="save" :size="14"/>
               {{ saving ? 'Saving…' : 'Save' }}
             </button>
-            <button class="btn btn--danger btn--icon" title="Delete this profile" @click="confirmDelete = true">
+            <button class="btn btn--danger btn--icon" title="Delete this profile" aria-label="Delete this profile"
+                    @click="confirmDelete = true">
               <app-icon name="trash" :size="14"/>
             </button>
           </div>
 
-          <nav class="tabbar">
-            <button v-for="entry in [['accounts','Accounts','user'],['models','Models & output','zap'],['prompts','Prompts','file-text']]"
-                    :key="entry[0]" class="tab" :class="{ 'is-active': tab === entry[0] }" @click="tab = entry[0]">
-              <app-icon :name="entry[2]" :size="14"/>{{ entry[1] }}
-              <span v-if="entry[0] === 'prompts' && customCount" class="badge badge--warning">{{ customCount }}</span>
+          <nav class="tabbar" role="tablist" aria-label="Profile">
+            <button v-for="entry in TABS" :key="entry.key" class="tab" :class="{ 'is-active': tab === entry.key }"
+                    role="tab" :aria-selected="tab === entry.key" :title="entry.hint" @click="tab = entry.key">
+              <app-icon :name="entry.icon" :size="14"/>{{ entry.label }}
+              <span v-if="entry.key === 'prompts' && customCount" class="tab__count">{{ customCount }}</span>
+              <span v-else-if="entry.key === 'content' && detailCount" class="tab__count">{{ detailCount }}</span>
             </button>
           </nav>
 
@@ -781,20 +874,29 @@ export const ProfilesView = {
           <div v-if="tab === 'accounts'" class="pane__body view-pad">
             <div class="grid grid-2 container">
               <section class="col gap-3">
-                <div class="row between">
-                  <h3 class="card__title">BookStack instances</h3>
-                  <button class="btn btn--sm" @click="addBookstack"><app-icon name="plus" :size="13"/> Add</button>
+                <div class="row gap-3">
+                  <span class="tile tile--accent"><app-icon name="server" :size="17"/></span>
+                  <div class="card__heading">
+                    <h3 class="card__title">BookStack instances</h3>
+                    <span class="card__desc">Where a course can be published. A course picks one or several of these.</span>
+                  </div>
+                  <button class="btn btn--sm none" @click="addBookstack"><app-icon name="plus" :size="13"/> Add</button>
                 </div>
                 <div v-for="(instance, i) in draft.data.bookstack" :key="instance.id" class="card card--pad col gap-3">
                   <div class="row gap-2">
-                    <input v-model="instance.name" placeholder="Name" class="grow">
-                    <button class="btn btn--ghost btn--sm btn--icon none" title="Remove"
+                    <span class="tile tile--sm none"><app-icon name="book-open" :size="14"/></span>
+                    <input v-model="instance.name" placeholder="Name" class="grow" aria-label="Instance name">
+                    <button class="btn btn--ghost btn--sm btn--icon none" title="Remove this instance"
+                            :aria-label="'Remove ' + (instance.name || 'this instance')"
                             @click="draft.data.bookstack.splice(i, 1)"><app-icon name="trash" :size="13"/></button>
                   </div>
-                  <input v-model="instance.base_url" class="mono" placeholder="https://bookstack.example.com">
+                  <div class="input-icon">
+                    <app-icon name="globe" :size="13"/>
+                    <input v-model="instance.base_url" class="mono" placeholder="https://bookstack.example.com" aria-label="Base URL">
+                  </div>
                   <div class="grid grid-2" style="gap:var(--s-2)">
-                    <input v-model="instance.token_id" class="mono" placeholder="Token ID">
-                    <input v-model="instance.token_secret" type="password" class="mono"
+                    <input v-model="instance.token_id" class="mono" placeholder="Token ID" aria-label="Token ID">
+                    <input v-model="instance.token_secret" type="password" class="mono" aria-label="Token secret"
                            :placeholder="instance.token_secret_set ? '•••••••• stored' : 'Token secret'">
                   </div>
                   <p class="hint">Leave the secret empty to keep the stored one.</p>
@@ -805,20 +907,26 @@ export const ProfilesView = {
               </section>
 
               <section class="col gap-3">
-                <div class="row between">
-                  <h3 class="card__title">AI accounts</h3>
-                  <button class="btn btn--sm" @click="addAi"><app-icon name="plus" :size="13"/> Add</button>
+                <div class="row gap-3">
+                  <span class="tile tile--magic"><app-icon name="robot" :size="17"/></span>
+                  <div class="card__heading">
+                    <h3 class="card__title">AI accounts</h3>
+                    <span class="card__desc">Who does the writing. At least one, and the models tab decides which writes what.</span>
+                  </div>
+                  <button class="btn btn--sm none" @click="addAi"><app-icon name="plus" :size="13"/> Add</button>
                 </div>
 
                 <div v-for="(account, i) in draft.data.ai" :key="account.id" class="card card--pad col gap-3">
                   <div class="row gap-2">
-                    <input v-model="account.name" placeholder="Name" class="grow">
-                    <button class="btn btn--ghost btn--sm btn--icon none" title="Remove"
+                    <span class="tile tile--sm none"><app-icon name="sparkles" :size="14"/></span>
+                    <input v-model="account.name" placeholder="Name" class="grow" aria-label="Account name">
+                    <button class="btn btn--ghost btn--sm btn--icon none" title="Remove this account"
+                            :aria-label="'Remove ' + (account.name || 'this account')"
                             @click="draft.data.ai.splice(i, 1)"><app-icon name="trash" :size="13"/></button>
                   </div>
 
                   <div class="form-row">
-                    <label>Where the models come from</label>
+                    <label class="row gap-2"><app-icon name="cpu" :size="13"/> Where the models come from</label>
                     <button class="btn btn--block" style="justify-content:flex-start"
                             @click="openPicker(account)">
                       <app-icon name="layers" :size="14"/>
@@ -840,8 +948,11 @@ export const ProfilesView = {
                       </p>
                     </div>
                     <div v-if="needsKey(providerFor(account))" class="grid grid-2" style="gap:var(--s-2)">
-                      <input v-model="account.api_key" type="password" class="mono"
-                             :placeholder="account.api_key_set ? '•••••••• stored' : 'API key'">
+                      <div class="input-icon">
+                        <app-icon name="key" :size="13"/>
+                        <input v-model="account.api_key" type="password" class="mono" aria-label="API key"
+                               :placeholder="account.api_key_set ? '•••••••• stored' : 'API key'">
+                      </div>
                       <input v-if="account.kind === 'openai'" v-model="account.organization"
                              class="mono" placeholder="Organization (optional)">
                     </div>
@@ -915,19 +1026,24 @@ export const ProfilesView = {
           <div v-else-if="tab === 'models'" class="pane__body view-pad">
             <div class="col gap-6 container-narrow">
               <div v-for="slot in MODEL_SLOTS" :key="slot.key" class="card card--pad">
-                <h3 class="card__title">{{ slot.label }}</h3>
-                <p class="hint mb-4">{{ slot.hint }}</p>
+                <div class="row gap-3 mb-4">
+                  <span class="tile tile--accent"><app-icon :name="slot.icon" :size="17"/></span>
+                  <div class="card__heading">
+                    <h3 class="card__title">{{ slot.label }}</h3>
+                    <span class="card__desc">{{ slot.hint }}</span>
+                  </div>
+                </div>
                 <div class="grid grid-model" style="gap:var(--s-3)">
                   <div class="form-row">
-                    <label>AI account</label>
-                    <select v-model="draft.data.models[slot.key].ai_id">
+                    <label class="row gap-2"><app-icon name="robot" :size="12"/> AI account</label>
+                    <select v-model="draft.data.models[slot.key].ai_id" :aria-label="'AI account for ' + slot.label">
                       <option value="">— none —</option>
                       <option v-for="account in aiAccounts" :key="account.id" :value="account.id">{{ account.name }}</option>
                     </select>
                   </div>
                   <div class="form-row">
                     <label class="row between">
-                      <span>Model</span>
+                      <span class="row gap-2"><app-icon name="cpu" :size="12"/> Model</span>
                       <button class="btn btn--ghost btn--sm" style="padding:0 4px"
                               @click="loadModels(draft.data.models[slot.key].ai_id)">
                         <app-icon name="refresh" :size="11"/> fetch list
@@ -1021,21 +1137,29 @@ export const ProfilesView = {
                 </div>
               </div>
 
-              <div class="card card--pad grid grid-2">
+              <div class="card card--pad col gap-4">
+                <div class="row gap-3">
+                  <span class="tile tile--accent"><app-icon name="translate" :size="17"/></span>
+                  <div class="card__heading">
+                    <h3 class="card__title">Language and pace</h3>
+                    <span class="card__desc">What the courses are written in, and how many pages at a time.</span>
+                  </div>
+                </div>
+                <div class="grid grid-2">
                 <div class="form-row">
-                  <label>Course language</label>
-                  <div class="row"><combo-box v-model="draft.data.language" :options="LANGUAGES" placeholder="English"/></div>
+                  <label class="row gap-2"><app-icon name="globe" :size="12"/> Course language</label>
+                  <div class="row"><combo-box v-model="draft.data.language" :options="LANGUAGES" placeholder="English" icon="translate"/></div>
                   <p class="hint">Fuzzy search, or type any language. It fills the <code>{{ languageToken }}</code> placeholder.</p>
                 </div>
                 <div class="form-row">
-                  <label>Pages generated in parallel</label>
-                  <input v-model.number="draft.data.concurrency" type="number" min="1" max="12">
+                  <label for="profile-concurrency" class="row gap-2"><app-icon name="layers" :size="12"/> Pages generated in parallel</label>
+                  <input id="profile-concurrency" v-model.number="draft.data.concurrency" type="number" min="1" max="12">
                   <p class="hint">How many pages are written simultaneously. Raise it only if your provider allows it.</p>
                 </div>
                 <label class="check" style="grid-column:1/-1">
                   <input type="checkbox" v-model="draft.data.typography">
                   <span>
-                    Correct the punctuation of a generated page
+                    <app-icon name="quote" :size="12" class="dim"/> Correct the punctuation of a generated page
                     <span class="hint">
                       Quotation marks, apostrophes, ellipses, dashes and spacing set the way the language
                       above sets them, before the page is stored - a German page closes with
@@ -1047,7 +1171,33 @@ export const ProfilesView = {
                     </span>
                   </span>
                 </label>
+                </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Content defaults: what every course on this profile starts from.
+               The same editor the Details tab of a course is, one level up, so
+               the two are read as the same list - because they are. -->
+          <div v-else-if="tab === 'content'" class="pane__body view-pad">
+            <div class="col gap-4 container">
+              <div class="note-strip">
+                <app-icon name="inherit" :size="15" class="c-accent"/>
+                <span class="grow">
+                  Every course written with this profile starts from what is decided here. A course, a chapter
+                  or a page can still decide otherwise. Anything left on <strong>installation default</strong>
+                  follows Administration › Settings › Course defaults - and keeps following it when that changes.
+                  Nothing already written changes; the next page generated on any of this profile's courses does.
+                </span>
+                <span class="badge none" :class="detailCount ? 'badge--accent' : ''">{{ detailCount }} decided</span>
+              </div>
+              <div class="card card--pad">
+                <detail-editor level="profile" :details="profileDetails" :busy="saving"
+                               @change="patchProfileDetails"/>
+              </div>
+              <p class="hint">
+                Decisions here are saved with the profile - press <strong>Save</strong> at the top when you are done.
+              </p>
             </div>
           </div>
 
@@ -1108,19 +1258,22 @@ export const ProfilesView = {
         </template>
 
         <empty-state v-else icon="sliders" title="No profile selected"
-                     hint="A profile bundles the AI account, the BookStack instance, the model choices, the language and the prompt overrides.">
+                     hint="A profile bundles the AI account, the BookStack instance, the model choices, the language, the content defaults and the prompt overrides.">
           <button class="btn btn--primary mt-2" @click="create"><app-icon name="plus" :size="15"/> Create a profile</button>
         </empty-state>
       </section>
     </div>
 
     <!-- the provider picker ------------------------------------------- -->
-    <app-modal v-if="picker" title="Where should this account get its models?" icon="layers" wide
+    <app-modal v-if="picker" title="Where should this account get its models?" icon="cpu" wide
                @close="picker = null">
       <div class="col gap-4">
         <div class="form-row">
-          <input v-model="providerSearch" placeholder="Search by name, address or what it is good at"
-                 spellcheck="false">
+          <div class="input-icon">
+            <app-icon name="search" :size="14"/>
+            <input v-model="providerSearch" placeholder="Search by name, address or what it is good at"
+                   spellcheck="false" aria-label="Search providers">
+          </div>
           <p class="hint">
             Most of these are the same API at a different address, so the differences that matter are
             grouped below: whether there is a queue that halves the price of a long run, whether it runs on

@@ -37,7 +37,7 @@
  * while a password is owed, which is how one dialog in this application is
  * made un-dismissable without every other one having to know about it.
  */
-import { onMounted, onBeforeUnmount, ref, nextTick } from 'vue';
+import { onMounted, onBeforeUnmount, ref, nextTick, computed } from 'vue';
 import AppIcon from '@/components/AppIcon.js';
 
 /* Anything that can hold focus. [tabindex] is in the list for the sake of
@@ -191,14 +191,22 @@ export const AppModal = {
       if (opener instanceof HTMLElement && opener.isConnected && canFocus(opener)) opener.focus();
     });
 
-    return { scrim, panel, titleId, onKeydown };
+    /* The tile behind the icon says what kind of question this is before the
+       title is read: a warning glyph is a dialog about losing something. */
+    const tone = computed(() => (['alert', 'alert-circle', 'trash', 'x-circle'].includes(props.icon)
+      ? 'warning'
+      : 'accent'));
+
+    return { scrim, panel, titleId, onKeydown, tone };
   },
   template: `
     <div class="modal-scrim" ref="scrim" @click.self="$emit('close')" @keydown="onKeydown">
       <div class="modal" :class="{ 'modal--wide': wide }" ref="panel" tabindex="-1"
            role="dialog" aria-modal="true" :aria-labelledby="title ? titleId : null">
         <div v-if="title" class="modal__head">
-          <app-icon v-if="icon" :name="icon" :size="18" class="c-accent"/>
+          <span v-if="icon" class="tile tile--sm" :class="'tile--' + tone">
+            <app-icon :name="icon" :size="15"/>
+          </span>
           <h3 :id="titleId" class="grow">{{ title }}</h3>
           <button class="btn btn--ghost btn--sm btn--icon" @click="$emit('close')" aria-label="Close">
             <app-icon name="x" :size="15"/>

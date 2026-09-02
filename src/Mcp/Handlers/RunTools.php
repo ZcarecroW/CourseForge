@@ -885,7 +885,7 @@ final class RunTools
     {
         $total = count($selected);
         $step = (int)ceil($total / self::SAMPLE_PAGES);
-        $courseSettings = Projects::settings($project);
+        $chain = Projects::chain($project);
 
         $sampled = 0;
         $chars = 0;
@@ -902,9 +902,8 @@ final class RunTools
             // way the generator resolves them - so a chapter told to write long
             // pages is not averaged away by the course default.
             $params = Details::resolve(
-                $courseSettings,
-                Details::decode((string)($page['chapter_settings'] ?? '{}')),
-                Pages::settings($page),
+                ...$chain,
+                ...[Details::decode((string)($page['chapter_settings'] ?? '{}')), Pages::settings($page)],
             )['params'];
 
             $min = max(0, (int)($params['min_length'] ?? 0));

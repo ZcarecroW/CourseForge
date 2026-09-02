@@ -23,7 +23,7 @@
  * request, so a half-applied set of settings is not a state this screen can
  * leave the installation in.
  */
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { state, loadSettings, applySettings, declareUnsaved } from '@/core/store.js';
 import { get, put, post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
@@ -31,9 +31,64 @@ import { relativeTime, formatDateTime, plural, LANGUAGES } from '@/core/format.j
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal from '@/components/AppModal.js';
+import AppSwitch from '@/components/AppSwitch.js';
+import BaselineEditor from '@/components/BaselineEditor.js';
 import ComboBox from '@/components/ComboBox.js';
 import EmptyState from '@/components/EmptyState.js';
 import ViewHeader from '@/components/ViewHeader.js';
+
+/** The glyph each group of settings is filed under, in the index and on its card. */
+const GROUP_ICONS = {
+  general: 'cog',
+  content: 'list-check',
+  scheduler: 'clock',
+  batch: 'queue',
+  updates: 'download',
+  mcp: 'plug',
+  claude_cli: 'terminal',
+  security: 'shield',
+  timeouts: 'hourglass',
+  _other: 'help-circle',
+};
+
+/**
+ * The glyph beside one setting.
+ *
+ * By key where the key says what the setting is about, and by type where it
+ * does not - a secret is a key, a list is a list, a time is a clock - so a
+ * setting a later release adds arrives with a glyph of its own without this
+ * file having heard of it.
+ */
+const FIELD_ICONS = [
+  [/cron_token|github_token|secret|api_key|password/, 'key'],
+  [/^app\.name$/, 'tag'],
+  [/debug/, 'bug'],
+  [/timeout|lifetime|window|minutes|seconds/, 'hourglass'],
+  [/public_url|allowed_origins|base_url|timezone/, 'globe'],
+  [/language/, 'translate'],
+  [/concurrency|workers/, 'layers'],
+  [/cron|auto_time|poll/, 'clock'],
+  [/keep_days|keep_backups|backup/, 'archive'],
+  [/repository|channel/, 'git-branch'],
+  [/auto_check/, 'refresh'],
+  [/auto_install|update/, 'download'],
+  [/attempts|lockout|login|security/, 'shield'],
+  [/mcp/, 'plug'],
+  [/claude_cli_path|cli/, 'terminal'],
+  [/models/, 'cpu'],
+  [/search/, 'search'],
+  [/max_tokens|description_max|_max$/, 'hash'],
+  [/typography/, 'quote'],
+];
+const TYPE_ICONS = {
+  bool: 'toggle', int: 'hash', secret: 'key', list: 'list', time: 'clock', enum: 'list-check', text: 'align-left', string: 'text',
+};
+const iconFor = (field) => {
+  for (const [pattern, icon] of FIELD_ICONS) {
+    if (pattern.test(field.key)) return icon;
+  }
+  return TYPE_ICONS[field.type] ?? 'cog';
+};
 
 /**
  * The one key the generic list does not draw a row for.
@@ -56,7 +111,7 @@ const STATUS = {
 
 export const SettingsView = {
   name: 'SettingsView',
-  components: { AppIcon, AppModal, ComboBox, EmptyState, ViewHeader },
+  components: { AppIcon, AppModal, AppSwitch, BaselineEditor, ComboBox, EmptyState, ViewHeader },
   setup() {
     const loading = ref(true);
     const saving = ref(false);
@@ -164,6 +219,7 @@ export const SettingsView = {
       return declared
         .map((group) => ({
           ...group,
+          icon: GROUP_ICONS[group.key] ?? GROUP_ICONS._other,
           plain: group.fields.filter((field) => !field.advanced),
           advanced: group.fields.filter((field) => field.advanced),
           changed: group.fields.filter((field) => field.is_overridden).length,
@@ -171,6 +227,46 @@ export const SettingsView = {
         }))
         .filter((group) => group.fields.length || group.key === 'scheduler');
     });
+
+    /* ---------------------------------------------------------- the index */
+
+    /**
+     * Which group is on screen, for the index down the side.
+     *
+     * Measured from the scroller rather than from the window, because the
+     * shell owns all scrolling and the window never moves. The group whose
+     * heading was last to pass the top edge is the one being read.
+     */
+    const scroller = ref(null);
+    const activeGroup = ref('');
+    const INDEX_EXTRAS = [
+      { key: '_php', label: 'PHP on this host', icon: 'cpu' },
+      { key: '_check', label: 'Installation check', icon: 'shield-check' },
+    ];
+
+    const sectionId = (key) => `setting-group-${key}`;
+
+    const onScroll = () => {
+      const box = scroller.value;
+      if (!box) return;
+      const top = box.getBoundingClientRect().top + 24;
+      let current = '';
+      for (const entry of [...groups.value, ...INDEX_EXTRAS, { key: '_danger' }]) {
+        const element = document.getElementById(sectionId(entry.key));
+        if (element && element.getBoundingClientRect().top <= top) current = entry.key;
+      }
+      activeGroup.value = current || groups.value[0]?.key || '';
+    };
+
+    const jumpTo = (key) => {
+      const element = document.getElementById(sectionId(key));
+      if (!element) return;
+      const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+      element.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' });
+      activeGroup.value = key;
+    };
+
+    onMounted(() => nextTick(onScroll));
 
     /**
      * Advanced fields stay folded away, but never while they hold an edit that
@@ -463,7 +559,8 @@ export const SettingsView = {
 
     return {
       state, loading, saving, busy, draft, load, save, discard,
-      groups, fieldsOf, advancedShown, toggleAdvanced,
+      groups, fieldsOf, advancedShown, toggleAdvanced, iconFor,
+      scroller, activeGroup, INDEX_EXTRAS, sectionId, onScroll, jumpTo,
       isDirty, dirtyCount, overridden, defaultText, hasRange, suggestionsFor, resetField, resetEverything,
       scheduler, schedulerHealth, cronLine, cronCurlLine, cronUrlShown, copyCronUrl, revealedCronUrl,
       php, phpBusy, setUpPhp,
@@ -473,10 +570,12 @@ export const SettingsView = {
     };
   },
   template: `
-    <view-header title="Settings" icon="cog">
+    <view-header title="Settings" icon="cog" subtitle="Everything this installation can be told to do differently">
       <template #actions>
         <span v-if="dirtyCount" class="badge badge--warning">{{ plural(dirtyCount, 'unsaved change') }}</span>
-        <button v-if="dirtyCount" class="btn btn--ghost btn--sm" @click="discard">Discard</button>
+        <button v-if="dirtyCount" class="btn btn--ghost btn--sm" @click="discard">
+          <app-icon name="undo" :size="12"/> Discard
+        </button>
         <button class="btn btn--ghost btn--icon hide-sm" title="Reload from the server"
                 aria-label="Reload the settings from the server" @click="load">
           <app-icon name="refresh" :size="15"/>
@@ -488,38 +587,72 @@ export const SettingsView = {
       </template>
     </view-header>
 
-    <div class="view-scroll">
-      <div class="view-pad container-narrow col gap-5">
+    <div class="view-scroll" ref="scroller" @scroll.passive="onScroll">
+      <div class="view-pad container settings-layout">
+
+        <!-- the index ------------------------------------------------------ -->
+        <nav class="settings-nav" aria-label="Groups of settings">
+          <button v-for="group in groups" :key="group.key" type="button" class="settings-nav__item"
+                  :class="{ 'is-active': activeGroup === group.key }" :aria-current="activeGroup === group.key ? 'true' : null"
+                  :title="group.description" @click="jumpTo(group.key)">
+            <app-icon :name="group.icon" :size="15"/>
+            <span class="grow truncate">{{ group.label }}</span>
+            <span v-if="group.unsaved" class="badge badge--warning">{{ group.unsaved }}</span>
+            <span v-else-if="group.changed" class="badge badge--accent">{{ group.changed }}</span>
+          </button>
+          <div class="settings-nav__foot col" style="gap:2px">
+            <button v-for="entry in INDEX_EXTRAS" :key="entry.key" type="button" class="settings-nav__item"
+                    :class="{ 'is-active': activeGroup === entry.key }" @click="jumpTo(entry.key)">
+              <app-icon :name="entry.icon" :size="15"/>
+              <span class="grow truncate">{{ entry.label }}</span>
+            </button>
+            <button v-if="overridden.length" type="button" class="settings-nav__item"
+                    :class="{ 'is-active': activeGroup === '_danger' }" @click="jumpTo('_danger')">
+              <app-icon name="alert" :size="15"/>
+              <span class="grow truncate">Start again</span>
+            </button>
+          </div>
+        </nav>
+
+        <div class="col gap-5" style="min-width:0">
 
         <!-- what this screen is and where it writes ---------------------- -->
-        <section class="card card--pad col gap-2">
-          <h3 class="t-md">Everything this installation can be told to do differently</h3>
-          <p class="hint">
-            Nothing here is written until you press <strong>Save changes</strong>, and the whole page is saved
-            in one go. A setting you have not touched keeps following the release: upgrade CourseForge and it
-            picks up the new default on its own. Only the settings you actually change are written to
-            <code>{{ state.settingsFiles.overrides }}</code> - everything else stays in the shipped
-            <code>{{ state.settingsFiles.defaults }}</code>, which is never edited.
-          </p>
-          <p class="hint">
-            Three things here are written the moment you confirm them rather than waiting for Save, and each
-            one asks first: generating a scheduler token, deleting a stored secret, and
-            <strong>Reset every setting</strong> at the bottom of the page. A secret cannot wait, because this
-            screen is never sent one - so there is no value it could hold that means "remove it".
-          </p>
-          <p v-if="overridden.length" class="hint">
-            Changed from the release on this installation:
-            <strong>{{ plural(overridden.length, 'setting') }}</strong>. Each one is marked below, and each
-            one can be put back on its own.
-          </p>
+        <section class="card">
+          <div class="card__head">
+            <span class="tile tile--accent"><app-icon name="info" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">How this screen writes</span>
+              <span class="card__desc">Nothing is written until you press Save changes, and the whole page is saved in one go.</span>
+            </div>
+            <span v-if="overridden.length" class="badge badge--accent none">
+              <app-icon name="pencil" :size="10"/> {{ plural(overridden.length, 'setting') }} changed here
+            </span>
+          </div>
+          <div class="card__body col gap-2">
+            <p class="hint">
+              A setting you have not touched keeps following the release: upgrade CourseForge and it
+              picks up the new default on its own. Only the settings you actually change are written to
+              <code>{{ state.settingsFiles.overrides }}</code> - everything else stays in the shipped
+              <code>{{ state.settingsFiles.defaults }}</code>, which is never edited.
+            </p>
+            <p class="hint">
+              Three things here are written the moment you confirm them rather than waiting for Save, and each
+              one asks first: generating a scheduler token, deleting a stored secret, and
+              <strong>Reset every setting</strong> at the bottom of the page. A secret cannot wait, because this
+              screen is never sent one - so there is no value it could hold that means "remove it".
+            </p>
+          </div>
         </section>
 
         <!-- the groups, in the order the server sends them ---------------- -->
-        <section v-for="group in groups" :key="group.key" class="card">
+        <section v-for="group in groups" :key="group.key" class="card setting-group" :id="sectionId(group.key)">
           <div class="card__head">
-            <div class="col gap-1 grow">
+            <span class="tile" :class="group.changed || group.unsaved ? 'tile--accent' : ''">
+              <app-icon :name="group.icon" :size="17"/>
+            </span>
+            <div class="card__heading">
               <span class="card__title">{{ group.label }}</span>
-              <span class="hint">{{ group.description }}</span>
+              <span class="card__desc">{{ group.description }}</span>
             </div>
             <span v-if="group.unsaved" class="badge badge--warning none">{{ group.unsaved }} unsaved</span>
             <span v-else-if="group.changed" class="badge badge--accent none">{{ group.changed }} changed</span>
@@ -529,7 +662,7 @@ export const SettingsView = {
           <div v-if="group.key === 'scheduler'" class="card__body col gap-4"
                style="border-bottom:1px solid var(--border-soft)">
             <div class="row-top gap-3">
-              <app-icon name="zap" :size="18" class="c-accent none" style="margin-top:2px"/>
+              <span class="tile tile--accent"><app-icon name="zap" :size="17"/></span>
               <div class="col gap-1">
                 <h3 class="t-md">Keep writing after the browser is closed</h3>
                 <p class="hint">
@@ -651,10 +784,29 @@ export const SettingsView = {
             </details>
           </div>
 
+          <!-- ============================================ course defaults -->
+          <!-- The bottom of the content-details chain, drawn as the Details
+               tab of a course draws the same fourteen elements - the same
+               rows, tiles and order - so the two screens read as one list. -->
+          <div v-if="group.key === 'content'" class="card__body">
+            <div class="note-strip mb-4">
+              <app-icon name="inherit" :size="15" class="c-accent"/>
+              <span>
+                Every profile, course, chapter and page starts from this and can decide otherwise. Changing a
+                default here moves everything that has not - which is the point, and worth knowing on an
+                installation with courses already in it. A profile carries defaults of its own on its
+                <strong>Content defaults</strong> tab, for the courses written with it.
+              </span>
+            </div>
+            <baseline-editor :fields="group.fields" :draft="draft" :dirty="isDirty" :reset="resetField" :busy="busy"/>
+          </div>
+
           <!-- ============================================ the generic list -->
-          <div class="setting-list">
+          <div v-else class="setting-list">
             <div v-for="field in fieldsOf(group)" :key="field.key"
                  class="setting-row" :class="{ 'is-changed': field.is_overridden }">
+
+              <span class="setting-row__icon"><app-icon :name="iconFor(field)" :size="15"/></span>
 
               <div class="setting-row__text">
                 <div class="row wrap gap-2">
@@ -676,6 +828,7 @@ export const SettingsView = {
                             :title="field.type === 'secret'
                               ? 'Deletes the stored secret on the server. It cannot wait for Save, because this screen is never sent a secret to put back - so it asks first.'
                               : 'Puts the box back to the shipped default. Nothing is written until you save.'">
+                      <app-icon :name="field.type === 'secret' ? 'trash' : 'undo'" :size="11"/>
                       {{ field.type === 'secret' ? 'Remove what is stored' : 'Reset to default' }}
                     </button>
                   </template>
@@ -684,11 +837,11 @@ export const SettingsView = {
 
               <div class="setting-row__control">
                 <!-- bool -->
-                <label v-if="field.type === 'bool'" class="check">
-                  <input type="checkbox" :checked="draft[field.key] === true"
-                         @change="draft[field.key] = $event.target.checked">
-                  <span>{{ draft[field.key] ? 'On' : 'Off' }}</span>
-                </label>
+                <div v-if="field.type === 'bool'" class="row gap-3">
+                  <app-switch :model-value="draft[field.key] === true" :label="field.label"
+                              @update:model-value="draft[field.key] = $event"/>
+                  <span class="t-sm" :class="draft[field.key] ? '' : 'dim'">{{ draft[field.key] ? 'On' : 'Off' }}</span>
+                </div>
 
                 <!-- int -->
                 <template v-else-if="field.type === 'int'">
@@ -765,9 +918,11 @@ export const SettingsView = {
                      hint="The server answered without a catalogue. Reload the page; if it keeps happening, the installation is incomplete."/>
 
         <!-- ======================================================= PHP -->
-        <section class="card card--pad col gap-3">
+        <section class="card card--pad col gap-3 setting-group" :id="sectionId('_php')">
           <div class="row wrap between gap-3">
-            <div class="col gap-1 grow" style="min-width:280px">
+            <div class="row-top gap-3 grow" style="min-width:280px">
+              <span class="tile tile--accent"><app-icon name="cpu" :size="17"/></span>
+              <div class="col gap-1 grow">
               <h3 class="t-md">How PHP is configured here</h3>
               <p class="hint">
                 Shared hosting hands out a PHP configuration nobody chose for this application: sixty seconds
@@ -776,12 +931,13 @@ export const SettingsView = {
                 <strong>Every number below is a floor</strong> - a limit this host is already generous about is
                 left exactly as it is, never lowered.
               </p>
+              </div>
             </div>
             <div class="row gap-2 none">
               <button v-if="php.has_block" class="btn btn--ghost btn--sm" :disabled="phpBusy || !php.possible"
                       title="Take CourseForge's block out of .user.ini and let this host's own values come back. Do this before moving to different hosting, or to hand the settings back."
                       @click="setUpPhp(true)">
-                <app-icon name="inherit" :size="13"/> Remove these settings
+                <app-icon name="undo" :size="13"/> Remove these settings
               </button>
               <button class="btn btn--primary" :disabled="phpBusy || !php.possible" @click="setUpPhp(false)">
                 <app-icon :name="phpBusy ? 'refresh' : 'zap'" :size="14" :spin="phpBusy"/>
@@ -790,9 +946,9 @@ export const SettingsView = {
             </div>
           </div>
 
-          <p v-if="php.note" class="hint row gap-2">
-            <app-icon :name="php.possible ? 'info' : 'alert-triangle'" :size="14"
-                      :class="php.possible ? 'c-accent none' : 'c-warning none'" style="margin-top:2px"/>
+          <p v-if="php.note" class="note-strip" :class="php.possible ? '' : 'note-strip--warning'">
+            <app-icon :name="php.possible ? 'info' : 'alert'" :size="14"
+                      :class="php.possible ? 'c-accent' : 'c-warning'"/>
             <span>{{ php.note }}</span>
           </p>
 
@@ -847,9 +1003,10 @@ export const SettingsView = {
         </section>
 
         <!-- ============================================== installation check -->
-        <section class="card section" :class="{ 'is-open': diagOpen }">
-          <button class="section__head" @click="toggleDiagnostics">
+        <section class="card section setting-group" :class="{ 'is-open': diagOpen }" :id="sectionId('_check')">
+          <button class="section__head" :aria-expanded="diagOpen" @click="toggleDiagnostics">
             <app-icon class="section__chevron" name="chevron-right" :size="14"/>
+            <span class="tile tile--sm tile--success none"><app-icon name="shield-check" :size="14"/></span>
             <span class="col gap-1 grow">
               <span class="strong">Installation check</span>
               <span class="t-xs dim">
@@ -904,8 +1061,8 @@ export const SettingsView = {
         </section>
 
         <!-- ======================================================== danger -->
-        <div v-if="overridden.length" class="danger-zone">
-          <p class="danger-zone__title">Start again from the defaults</p>
+        <div v-if="overridden.length" class="danger-zone setting-group" :id="sectionId('_danger')">
+          <p class="danger-zone__title row gap-2"><app-icon name="alert" :size="16"/> Start again from the defaults</p>
           <p class="hint">
             Puts {{ plural(overridden.length, 'changed setting') }} back to what the release ships. Your
             courses, profiles, tags and accounts are not touched - this is only the configuration.
@@ -916,9 +1073,10 @@ export const SettingsView = {
           </p>
           <div class="row">
             <button class="btn btn--danger btn--sm" :disabled="busy" @click="confirmResetAll = true">
-              <app-icon name="inherit" :size="13"/> Reset every setting
+              <app-icon name="undo" :size="13"/> Reset every setting
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -973,7 +1131,7 @@ export const SettingsView = {
       <template #footer>
         <button class="btn" @click="confirmResetAll = false">Cancel</button>
         <button class="btn btn--danger" :disabled="busy" @click="resetEverything">
-          <app-icon name="inherit" :size="14"/> Reset everything
+          <app-icon name="undo" :size="14"/> Reset everything
         </button>
       </template>
     </app-modal>`,

@@ -47,7 +47,23 @@
 
 .sidebar__name { font-weight: 650; letter-spacing: -0.015em; }
 
-.sidebar__nav { display: flex; flex-direction: column; gap: 2px; padding: var(--s-3); }
+.sidebar__nav { display: flex; flex-direction: column; gap: 2px; padding: var(--s-3); overflow-y: auto; min-height: 0; }
+
+/* The heading over a group of destinations: "Workspace", "Administration".
+   A glyph beside the word, both a step quieter than the entries under it. */
+.nav-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--s-2) 10px var(--s-1);
+  font-size: var(--t-2xs);
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.nav-section + .nav-item { margin-top: 1px; }
+.nav-section--later { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--border-soft); }
 
 .sidebar__foot {
   margin-top: auto;
@@ -75,12 +91,68 @@
 }
 .nav-item:hover { background: var(--surface-hover); color: var(--text); }
 .nav-item.is-active { background: var(--accent-soft); color: var(--accent); }
+.nav-item > .icon { color: var(--text-dim); transition: color var(--speed) var(--ease); }
+.nav-item:hover > .icon, .nav-item.is-active > .icon { color: currentColor; }
 .nav-item__count {
   margin-left: auto;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--neutral-soft);
   font-size: var(--t-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--text-faint);
 }
+.nav-item.is-active .nav-item__count { background: var(--accent-soft); }
+
+/* The account entry at the foot: an avatar, the name and the role. */
+.sidebar__user { align-items: center; }
+.sidebar__user-name { font-size: var(--t-sm); font-weight: 550; line-height: 1.2; }
+.sidebar__user-role { font-size: var(--t-2xs); color: var(--text-faint); line-height: 1.2; }
+
+/* Dark, light, or whatever the system says: three glyphs in a segmented
+   control, the chosen one raised. */
+.theme-switch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.theme-switch__opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--t-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--speed) var(--ease), color var(--speed) var(--ease);
+}
+.theme-switch__opt:hover { color: var(--text); }
+.theme-switch__opt.is-active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+
+/* Keyboard users land on the page, not on the navigation, by pressing Tab
+   once: the link is invisible until it has the focus. */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: var(--s-3);
+  z-index: var(--z-toast);
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+.skip-link:focus { top: var(--s-3); outline: 2px solid var(--accent-ink); }
 
 /* -- main column ----------------------------------------------------------- */
 .main {
@@ -102,6 +174,11 @@
 }
 
 .topbar__title { font-size: var(--t-lg); font-weight: 620; letter-spacing: -0.015em; }
+
+/* The title and, under it, one line on what the screen is for. The line goes
+   on a narrow screen, where the header has room for the title alone. */
+.topbar__titles { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.topbar__sub { font-size: var(--t-xs); color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .crumbs { display: flex; align-items: center; gap: var(--s-2); min-width: 0; font-size: var(--t-sm); }
 .crumbs__sep { color: var(--text-faint); }
@@ -304,6 +381,7 @@
   :root { --header-h: 52px; }
   .view-pad { padding: var(--s-3); }
   .hide-sm { display: none !important; }
+  .topbar__sub { display: none; }
 }
 
 /* -- drawer triggers -------------------------------------------------------

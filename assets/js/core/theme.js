@@ -52,6 +52,7 @@ export function toggleTheme() {
   setTheme(resolvedTheme.value === 'dark' ? 'light' : 'dark');
 }
 
+/** The stored choice - 'dark', 'light' or 'system' - as a ref the sidebar's control reads. */
 export function themePreference() {
   return preference;
 }

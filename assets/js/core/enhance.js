@@ -59,11 +59,9 @@ function glyph(name, className) {
   svg.setAttribute('stroke-linejoin', 'round');
   svg.setAttribute('aria-hidden', 'true');
   if (className) svg.setAttribute('class', className);
-  for (const d of ICONS[name] ?? []) {
-    const path = document.createElementNS(SVG_NS, 'path');
-    path.setAttribute('d', d);
-    svg.append(path);
-  }
+  // The set stores each glyph as its inner markup, which is our own static
+  // text - never anything a page wrote - so it goes in as HTML.
+  svg.innerHTML = ICONS[name] ?? ICONS.info ?? '';
   return svg;
 }
 

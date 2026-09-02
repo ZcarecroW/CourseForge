@@ -47,7 +47,61 @@ final class Profiles
             'language' => Config::str('app.default_language', 'English'),
             'typography' => Config::bool('app.typography', true),
             'prompts' => new \stdClass(),
+            'details' => ['features' => new \stdClass(), 'params' => new \stdClass()],
         ];
+    }
+
+    /**
+     * The content details one profile has decided for itself.
+     *
+     * A profile sits between the installation's defaults and the course: what
+     * it stores here is inherited by every course written with it, and a course
+     * can still override any of it. Only deviations are stored, in the same
+     * shape a course stores them, so an empty answer means "whatever the
+     * installation says". A profile that does not exist - deleted under a
+     * course that still points at it - resolves to that same empty layer, which
+     * is what "no profile" has always meant to the chain.
+     *
+     * Read once per request per profile: the course tree asks for it, and so
+     * does every page brief of a run. A write to a profile clears the memory,
+     * so a request that changes a profile and reads it back sees its own edit.
+     *
+     * @return array{features:array<string,int>,params:array<string,int|string>}
+     */
+    public static function details(string $username, int $id): array
+    {
+        $key = $username . "\0" . $id;
+        if (!array_key_exists($key, self::$detailsCache)) {
+            $row = self::find($username, $id);
+            self::$detailsCache[$key] = self::detailsOf($row === null ? [] : (array)$row['data']);
+        }
+        return self::$detailsCache[$key];
+    }
+
+    /** @var array<string,array{features:array<string,int>,params:array<string,int|string>}> */
+    private static array $detailsCache = [];
+
+    /**
+     * @param array<string,mixed> $data a profile's data blob, as stored or as sent
+     * @return array{features:array<string,int>,params:array<string,int|string>}
+     */
+    public static function detailsOf(array $data): array
+    {
+        $raw = $data['details'] ?? [];
+        // Stored as objects so that an empty map survives a JSON round trip as
+        // `{}` - see normalise() - which is why they are cast back here.
+        if ($raw instanceof \stdClass) {
+            $raw = (array)$raw;
+        }
+        if (!is_array($raw)) {
+            return ['features' => [], 'params' => []];
+        }
+        foreach (['features', 'params'] as $group) {
+            if (($raw[$group] ?? null) instanceof \stdClass) {
+                $raw[$group] = (array)$raw[$group];
+            }
+        }
+        return Details::normalise($raw);
     }
 
     /**
@@ -107,6 +161,7 @@ final class Profiles
         $data = self::normalise(self::mergeStored($username, $id, $data));
         Db::run('UPDATE profiles SET name = ?, data = ?, updated_at = ? WHERE username = ? AND id = ?',
             [$name, self::encode($data), time(), $username, $id]);
+        self::$detailsCache = [];
         return self::require($username, $id);
     }
 
@@ -134,6 +189,7 @@ final class Profiles
         // Projects keep working: profile_id becomes a dangling reference,
         // which the UI reports as "no profile" instead of silently deleting work.
         Db::run('UPDATE projects SET profile_id = NULL WHERE username = ? AND profile_id = ?', [$username, $id]);
+        self::$detailsCache = [];
     }
 
     /**
@@ -417,6 +473,24 @@ final class Profiles
                 FILTER_VALIDATE_BOOLEAN
             ),
             'prompts' => $prompts === [] ? new \stdClass() : $prompts,
+            // Objects rather than arrays when empty, so that a browser reading
+            // `{}` can write a key into it and get it back. `[]` arrives as a
+            // JavaScript array, an array drops string keys on its way to JSON,
+            // and the first detail set on a fresh profile would be lost in
+            // silence.
+            'details' => self::detailsForStorage(self::detailsOf($data)),
+        ];
+    }
+
+    /**
+     * @param array{features:array<string,int>,params:array<string,int|string>} $details
+     * @return array{features:array<string,int>|\stdClass,params:array<string,int|string>|\stdClass}
+     */
+    private static function detailsForStorage(array $details): array
+    {
+        return [
+            'features' => $details['features'] === [] ? new \stdClass() : $details['features'],
+            'params' => $details['params'] === [] ? new \stdClass() : $details['params'],
         ];
     }
 

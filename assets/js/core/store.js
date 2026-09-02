@@ -90,6 +90,14 @@ export const state = reactive({
   projectTab: 'structure',
 
   /**
+   * A profile the Profiles screen should open on, and the tab to open it on,
+   * set by whoever sends somebody there - the Details tab of a course pointing
+   * at "the profile this inherits from". Read once by the Profiles screen and
+   * cleared, so a later visit starts where it always did.
+   */
+  profileFocus: null,
+
+  /**
    * A move to another screen that unsaved work has held up: where it was
    * heading, and what would be lost. The shell draws the dialog that asks.
    * Null whenever nothing is being asked.

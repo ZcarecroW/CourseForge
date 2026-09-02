@@ -175,7 +175,7 @@ final class Guide
 
         if ($pages === 0
             && !Research::has($project)
-            && (Details::resolve(Projects::settings($project))['features']['web_research'] ?? false)
+            && (Details::resolve(...Projects::chain($project))['features']['web_research'] ?? false)
         ) {
             return self::step(
                 self::STATE_NEEDS_RESEARCH,

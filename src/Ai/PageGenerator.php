@@ -88,11 +88,11 @@ final class PageGenerator
         $page = self::locate($pages, $pageId);
 
         $library = Prompt::library($profile);
-        $details = Details::resolve(
-            Projects::settings($project),
+        $details = Details::resolve(...Projects::chain(
+            $project,
             Details::decode((string)$page['chapter_settings']),
-            Pages::settings($page)
-        );
+            Pages::settings($page),
+        ));
         $features = $details['features'];
         $params = $details['params'];
 

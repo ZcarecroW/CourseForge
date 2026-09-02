@@ -28,7 +28,7 @@ final class StructureGenerator
         $autoTags = (int)$project['auto_tags'] === 1;
         $strictPool = (int)$project['tag_pool_strict'] === 1 && $pool !== [];
 
-        $details = Details::resolve(Projects::settings($project));
+        $details = Details::resolve(...Projects::chain($project));
         $vars = self::vars($profile, $project, $details['params']) + [
             'current_structure' => $existing,
             'feedback' => $feedback,

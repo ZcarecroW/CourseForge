@@ -50,6 +50,7 @@ const PARITY = [
     'remove one AI account' => 'delete_ai_account',
     'set one model slot on its own' => 'set_model_slot',
     'override a prompt for one profile' => 'set_profile_prompts',
+    'decide content details for every course on a profile' => 'set_profile_details',
     'read the prompt library without being an administrator' => 'list_prompt_slots',
     // Connect.
     'issue a connection' => 'create_my_connection',

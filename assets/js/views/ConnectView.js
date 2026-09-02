@@ -382,14 +382,14 @@ export const ConnectView = {
     };
   },
   template: `
-    <view-header title="Connect" icon="link">
+    <view-header title="Connect" icon="plug" subtitle="Hand an AI client a key to this installation, and decide how much of it">
       <template #actions>
         <span v-if="status === 'ready'" class="badge hide-sm">
           {{ plural(connect.clients.length, 'connection') }}
         </span>
         <span v-if="status === 'ready' && stale" class="badge badge--warning hide-sm">out of date</span>
         <span v-else-if="status === 'failed'" class="badge badge--danger hide-sm">not read</span>
-        <button class="btn btn--ghost btn--icon" title="Reload" @click="load">
+        <button class="btn btn--ghost btn--icon" title="Reload" aria-label="Reload the connections" @click="load">
           <app-icon name="refresh" :size="15" :spin="reading"/>
         </button>
       </template>
@@ -440,7 +440,10 @@ export const ConnectView = {
 
         <!-- what this is ---------------------------------------------- -->
         <section class="card card--pad col gap-3">
-          <h3 class="card__title">Let an AI client work on your courses</h3>
+          <div class="row gap-3">
+            <span class="tile tile--accent"><app-icon name="plug" :size="17"/></span>
+            <h3 class="card__title">Let an AI client work on your courses</h3>
+          </div>
           <p class="hint">
             CourseForge can hand a connected client the same brief it would send a model itself - the course
             outline, the page's place in it, the content details resolved for that page - and take the
@@ -479,8 +482,8 @@ export const ConnectView = {
         <!-- the token, once -------------------------------------------- -->
         <section v-if="fresh" ref="freshPanel" class="card card--pad col gap-3"
                  style="border-color:var(--success-line);scroll-margin-top:var(--s-4)">
-          <div class="row gap-2">
-            <app-icon name="check-circle" :size="16" class="c-success none"/>
+          <div class="row gap-3">
+            <span class="tile tile--success"><app-icon name="key" :size="17"/></span>
             <h3 class="card__title grow" style="overflow-wrap:anywhere">"{{ fresh.client.name }}" is ready</h3>
           </div>
           <p class="hint c-warning">
@@ -550,11 +553,14 @@ export const ConnectView = {
 
         <!-- create ------------------------------------------------------ -->
         <section class="card card--pad col gap-4">
-          <div>
-            <h3 class="card__title">New connection</h3>
-            <p class="hint mt-1">
-              One per client, so you can revoke the laptop without touching the desktop.
-            </p>
+          <div class="row gap-3">
+            <span class="tile tile--accent"><app-icon name="plus" :size="17"/></span>
+            <div>
+              <h3 class="card__title">New connection</h3>
+              <p class="hint mt-1">
+                One per client, so you can revoke the laptop without touching the desktop.
+              </p>
+            </div>
           </div>
 
           <empty-state v-if="status === 'loading'" icon="refresh" title="Reading this installation…"
@@ -597,13 +603,16 @@ export const ConnectView = {
 
           <div class="col gap-3">
             <div class="row wrap between gap-2">
-              <div>
+              <div class="row-top gap-2">
+                <app-icon name="shield" :size="15" class="c-accent none" style="margin-top:2px"/>
+                <div>
                 <p class="semi">What this connection may do</p>
                 <p class="hint">
                   This cannot be changed afterwards. Widening a connection means revoking it and issuing a
                   new one, which is the whole point: the token you handed out yesterday cannot quietly
                   become more powerful today.
                 </p>
+                </div>
               </div>
               <button class="btn btn--sm none" :disabled="allChosen || !grantable.length" @click="selectAll">
                 <app-icon name="list-check" :size="13"/> Tick everything
@@ -681,7 +690,10 @@ export const ConnectView = {
 
         <!-- existing ---------------------------------------------------- -->
         <section class="col gap-3">
-          <h3 class="card__title">Connected clients</h3>
+          <div class="row gap-3">
+            <span class="tile"><app-icon name="laptop" :size="17"/></span>
+            <h3 class="card__title">Connected clients</h3>
+          </div>
 
           <empty-state v-if="status === 'loading'" icon="refresh" title="Reading your connections…"/>
 
@@ -707,10 +719,10 @@ export const ConnectView = {
                 <p v-if="client.note" class="t-xs dim" style="overflow-wrap:anywhere">{{ client.note }}</p>
               </div>
               <div class="row gap-1 none">
-                <button class="btn btn--ghost btn--sm" @click="startEdit(client)">
+                <button class="btn btn--ghost btn--sm" :aria-label="'Rename ' + client.name" @click="startEdit(client)">
                   <app-icon name="pencil" :size="13"/> Rename
                 </button>
-                <button class="btn btn--ghost btn--sm" @click="confirmDelete = client">
+                <button class="btn btn--ghost btn--sm" :aria-label="'Revoke ' + client.name" @click="confirmDelete = client">
                   <app-icon name="trash" :size="13"/> Revoke
                 </button>
               </div>

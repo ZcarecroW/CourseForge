@@ -10,7 +10,7 @@
  * account when only one account is the point.
  */
 import { ref, reactive, computed, watch } from 'vue';
-import { state, isAdmin, loadProjects, openProject } from '@/core/store.js';
+import { state, isAdmin, loadProjects, openProject, go } from '@/core/store.js';
 import { post, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
@@ -28,6 +28,15 @@ const SORTS = {
   name: (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
   progress: (a, b) => percent(b.generated_count, b.page_count) - percent(a.generated_count, a.page_count),
 };
+
+/** The whole application in five steps, for somebody who has no course yet. */
+const STEPS = [
+  { icon: 'sliders', title: 'Profile', text: 'An AI account, a BookStack instance, the models and the language a course is written with.', view: 'profiles' },
+  { icon: 'book', title: 'Course', text: 'One sentence: what should be taught, to whom, and up to which level.', view: '' },
+  { icon: 'sitemap', title: 'Structure', text: 'The AI designs the outline - chapters and pages - and you edit it.', view: '' },
+  { icon: 'file-text', title: 'Content', text: 'Every page is written, in the tab, in the background or in a batch queue.', view: '' },
+  { icon: 'upload', title: 'Publish', text: 'The finished book goes into BookStack - one wiki or several, links and all.', view: '' },
+];
 
 export const ProjectsView = {
   name: 'ProjectsView',
@@ -138,6 +147,27 @@ export const ProjectsView = {
 
     const profileName = (id) => state.profiles.find((p) => p.id === id)?.name ?? 'no profile';
 
+    /**
+     * One word and one colour for where a course stands, so the list can be
+     * read by its tiles before a single title is.
+     */
+    const standing = (project) => {
+      if (project.open_runs) return { tone: 'magic', icon: 'queue', label: plural(project.open_runs, 'run') + ' open' };
+      if (!project.page_count) return { tone: '', icon: 'sitemap', label: 'no outline yet' };
+      if (project.page_count && project.pushed_count === project.page_count) {
+        return { tone: 'success', icon: 'check-circle', label: 'published' };
+      }
+      if (project.generated_count === project.page_count) {
+        return { tone: 'accent', icon: 'file-text', label: 'written, not published' };
+      }
+      if (project.generated_count) return { tone: 'accent', icon: 'pencil', label: 'being written' };
+      return { tone: 'warning', icon: 'hourglass', label: 'nothing written yet' };
+    };
+
+    const subtitle = computed(() => (isAdmin.value && owners.value.length > 1
+      ? 'Every course on this installation, whoever it belongs to'
+      : 'Everything being written: outline, pages, publishing'));
+
     // `openProject` is async, so handing it straight to a click listener let a
     // rejected fetch - a session that expired while the list sat on screen -
     // reach Vue's error handler as an unhandled rejection. The recovery is the
@@ -147,12 +177,12 @@ export const ProjectsView = {
     return {
       state, isAdmin, search, sort, projects, showCreate, creating, draft, confirmDelete,
       ownerFilter, owners, showOwners, isForeign, deleting, deleteScope,
-      create, remove, open, profileName,
+      create, remove, open, profileName, standing, subtitle, STEPS, go,
       relativeTime, percent, plural, excerpt,
     };
   },
   template: `
-    <view-header title="Courses" icon="book">
+    <view-header title="Courses" icon="book" :subtitle="subtitle">
       <template #actions>
         <button class="btn btn--primary" @click="showCreate = true">
           <app-icon name="plus" :size="15"/> New course
@@ -163,14 +193,14 @@ export const ProjectsView = {
     <div class="view-scroll">
       <div class="view-pad container">
         <div class="row wrap gap-3 mb-4" v-if="state.projects.length">
-          <div class="grow" style="max-width:420px;position:relative">
-            <app-icon name="search" :size="14"
-                      style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
-            <input v-model="search" placeholder="Search courses…" style="padding-left:30px" spellcheck="false">
+          <div class="input-icon grow" style="max-width:420px">
+            <app-icon name="search" :size="14"/>
+            <input v-model="search" placeholder="Search courses…" spellcheck="false" aria-label="Search courses">
           </div>
           <div v-if="showOwners" class="row gap-2 none">
-            <span class="t-xs dim">Belongs to</span>
-            <select v-model="ownerFilter" style="width:auto"
+            <app-icon name="user" :size="13" class="dim"/>
+            <label for="course-owner" class="t-xs dim">Belongs to</label>
+            <select id="course-owner" v-model="ownerFilter" style="width:auto"
                     title="Show only the courses of one account">
               <option value="">Everyone</option>
               <option v-for="owner in owners" :key="owner" :value="owner">
@@ -179,8 +209,9 @@ export const ProjectsView = {
             </select>
           </div>
           <div class="row gap-2 none">
-            <span class="t-xs dim">Sort</span>
-            <select v-model="sort" style="width:auto">
+            <app-icon name="sort" :size="13" class="dim"/>
+            <label for="course-sort" class="t-xs dim">Sort</label>
+            <select id="course-sort" v-model="sort" style="width:auto">
               <option value="updated">Last updated</option>
               <option value="created">Newest</option>
               <option value="name">Name</option>
@@ -193,13 +224,18 @@ export const ProjectsView = {
         <div v-if="projects.length" class="grid grid-auto">
           <article v-for="project in projects" :key="project.id" class="card">
             <div class="card__body col gap-3">
-              <div class="row-top between gap-2">
-                <button class="grow" style="background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit"
-                        @click="open(project.id)">
+              <div class="row-top gap-3">
+                <span class="tile" :class="standing(project).tone ? 'tile--' + standing(project).tone : ''"
+                      :title="standing(project).label">
+                  <app-icon :name="standing(project).icon" :size="16"/>
+                </span>
+                <button class="grow" style="background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit;min-width:0"
+                        :aria-label="'Open ' + project.name" @click="open(project.id)">
                   <h3 class="truncate" style="font-size:var(--t-md)">{{ project.name }}</h3>
+                  <p class="t-2xs dim truncate">{{ standing(project).label }}</p>
                 </button>
                 <button class="btn btn--ghost btn--sm btn--icon none" title="Delete this course"
-                        @click="confirmDelete = project">
+                        :aria-label="'Delete ' + project.name" @click="confirmDelete = project">
                   <app-icon name="trash" :size="14"/>
                 </button>
               </div>
@@ -209,12 +245,13 @@ export const ProjectsView = {
               <p class="t-xs dim clamp-2" style="min-height:2.6em">{{ excerpt(project.topic) || 'No topic set.' }}</p>
 
               <div>
-                <div class="bar">
+                <div class="bar" role="progressbar" :aria-valuenow="percent(project.generated_count, project.page_count)"
+                     aria-valuemin="0" aria-valuemax="100" :aria-label="project.generated_count + ' of ' + project.page_count + ' pages written'">
                   <div class="bar__fill" :class="{ 'bar__fill--success': project.pushed_count === project.page_count && project.page_count }"
                        :style="{ width: percent(project.generated_count, project.page_count) + '%' }"></div>
                 </div>
                 <div class="row between t-2xs dim mt-1">
-                  <span class="nums">{{ project.generated_count }}/{{ project.page_count }} pages written</span>
+                  <span class="nums"><app-icon name="file-text" :size="10"/> {{ project.generated_count }}/{{ project.page_count }} pages written</span>
                   <span class="nums">{{ percent(project.generated_count, project.page_count) }}%</span>
                 </div>
               </div>
@@ -227,9 +264,12 @@ export const ProjectsView = {
                       :title="'This course belongs to ' + project.owner">
                   <app-icon name="user" :size="10"/>{{ project.owner }}
                 </span>
-                <span class="badge">{{ plural(project.chapter_count, 'chapter') }}</span>
+                <span class="badge"><app-icon name="sitemap" :size="10"/> {{ plural(project.chapter_count, 'chapter') }}</span>
                 <span v-if="project.pushed_count" class="badge badge--success">
                   <app-icon name="upload" :size="10"/> {{ project.pushed_count }} published
+                </span>
+                <span v-if="project.target_count > 1" class="badge badge--outline">
+                  <app-icon name="server" :size="10"/> {{ project.target_count }} wikis
                 </span>
                 <span v-if="project.auto_links" class="badge badge--accent">
                   <app-icon name="link" :size="10"/> auto links
@@ -237,8 +277,8 @@ export const ProjectsView = {
               </div>
 
               <div class="row between t-2xs faint">
-                <span class="truncate">{{ profileName(project.profile_id) }}</span>
-                <span class="none">{{ relativeTime(project.updated_at) }}</span>
+                <span class="truncate row gap-1"><app-icon name="sliders" :size="10"/> {{ profileName(project.profile_id) }}</span>
+                <span class="none row gap-1"><app-icon name="clock" :size="10"/> {{ relativeTime(project.updated_at) }}</span>
               </div>
 
               <button class="btn btn--block" @click="open(project.id)">
@@ -254,16 +294,32 @@ export const ProjectsView = {
                        ? 'No course of ' + ownerFilter + ' matches. Try a different word, or set the owner back to everyone.'
                        : 'Try a different word, or clear the search box.'"/>
 
-        <empty-state v-else icon="book" title="No courses yet"
-                     hint="A course starts with one sentence: what should be taught, to whom, and up to which level.">
-          <button class="btn btn--primary mt-2" @click="showCreate = true">
-            <app-icon name="plus" :size="15"/> Create your first course
-          </button>
-        </empty-state>
+        <template v-else>
+          <empty-state icon="book" title="No courses yet"
+                       hint="A course starts with one sentence: what should be taught, to whom, and up to which level. Here is the whole road from that sentence to a published book.">
+            <button class="btn btn--primary mt-2" @click="showCreate = true">
+              <app-icon name="plus" :size="15"/> Create your first course
+            </button>
+          </empty-state>
+
+          <div class="steps container-narrow">
+            <div v-for="(step, i) in STEPS" :key="step.title" class="step">
+              <div class="row gap-2">
+                <span class="tile tile--sm tile--accent"><app-icon :name="step.icon" :size="14"/></span>
+                <span class="step__num">Step {{ i + 1 }}</span>
+              </div>
+              <span class="step__title">{{ step.title }}</span>
+              <span class="step__text">{{ step.text }}</span>
+              <button v-if="step.view && !state.profiles.length" class="btn btn--sm mt-1" @click="go(step.view)">
+                <app-icon name="arrow-right" :size="12"/> Start here
+              </button>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 
-    <app-modal v-if="showCreate" title="New course" icon="sparkles" @close="showCreate = false">
+    <app-modal v-if="showCreate" title="New course" icon="book" @close="showCreate = false">
       <div class="col gap-4">
         <div class="form-row">
           <label for="new-topic">What should this course teach?</label>
@@ -284,14 +340,15 @@ export const ProjectsView = {
             </select>
           </div>
         </div>
-        <p v-if="!state.profiles.length" class="hint c-warning">
-          There is no profile yet. You can create the course now, but generating anything needs a profile with an AI account.
+        <p v-if="!state.profiles.length" class="note-strip note-strip--warning">
+          <app-icon name="alert" :size="14" class="c-warning"/>
+          <span>There is no profile yet. You can create the course now, but generating anything needs a profile with an AI account.</span>
         </p>
       </div>
       <template #footer>
         <button class="btn" @click="showCreate = false">Cancel</button>
         <button class="btn btn--primary" :disabled="creating || !draft.topic.trim()" @click="create">
-          <app-icon v-if="creating" name="refresh" :size="14" spin/>
+          <app-icon :name="creating ? 'refresh' : 'sparkles'" :size="14" :spin="creating"/>
           {{ creating ? 'Creating…' : 'Create course' }}
         </button>
       </template>

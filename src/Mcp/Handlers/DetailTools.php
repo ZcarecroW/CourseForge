@@ -83,8 +83,9 @@ final class DetailTools
                     . 'course_id alone for the course, add chapter_id for one chapter, or page_id for one page - '
                     . 'page_id wins over chapter_id, which wins over the course. Every detail is reported three ways: '
                     . 'what this level stores of its own, what it would inherit if it stored nothing, and what '
-                    . 'actually applies to a page written here. Features are tri-state, so a stored 0 means '
-                    . 'inherited, never off. Costs nothing.',
+                    . 'actually applies to a page written here. The chain is installation default, then the '
+                    . 'course\'s profile (see set_profile_details), then course, chapter, page. Features are '
+                    . 'tri-state, so a stored 0 means inherited, never off. Costs nothing.',
                 properties: [
                     'course_id' => Schema::courseId(),
                     'chapter_id' => Schema::int('Read one chapter\'s level instead of the course\'s.'),
@@ -494,6 +495,7 @@ final class DetailTools
                 'page' => $page,
                 'own' => Pages::settings($page),
                 'ancestors' => [
+                    ['level' => 'profile', 'settings' => Projects::profileSettings($project)],
                     ['level' => 'course', 'settings' => Projects::settings($project)],
                     ['level' => 'chapter', 'settings' => Chapters::settings($chapter)],
                 ],
@@ -511,6 +513,7 @@ final class DetailTools
                 'page' => null,
                 'own' => Chapters::settings($chapter),
                 'ancestors' => [
+                    ['level' => 'profile', 'settings' => Projects::profileSettings($project)],
                     ['level' => 'course', 'settings' => Projects::settings($project)],
                 ],
             ];
@@ -524,7 +527,11 @@ final class DetailTools
             'chapter' => null,
             'page' => null,
             'own' => Projects::settings($project),
-            'ancestors' => [],
+            // The course is not the bottom of the chain: its profile may have
+            // decided something, and "inherited" at course level means that.
+            'ancestors' => [
+                ['level' => 'profile', 'settings' => Projects::profileSettings($project)],
+            ],
         ];
     }
 

@@ -1,5 +1,5 @@
 import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue';
-import { state, openCourse, featureByKey, paramByKey, declareUnsaved } from '@/core/store.js';
+import { state, openCourse, currentProfile, featureByKey, paramByKey, declareUnsaved, go } from '@/core/store.js';
 import { busy, patchDetails, saveResearch } from '@/views/project/actions.js';
 import { plural } from '@/core/format.js';
 import { useScrollSync } from '@/core/scrollsync.js';
@@ -75,6 +75,25 @@ export const DetailsTab = {
         features: Object.fromEntries(Object.keys(entity.details.own.features ?? {}).map((k) => [k, 0])),
         params: Object.fromEntries(Object.keys(entity.details.own.params ?? {}).map((k) => [k, null])),
       });
+    };
+
+    /**
+     * Where the course's "inherit" position points. A profile that has decided
+     * something sits between the installation and this course; one that has
+     * not is passed through, and saying "follows the profile" then would send
+     * somebody to a tab with nothing on it.
+     */
+    const profileDecides = computed(() => project.value.profile_decides === true);
+    const parentLabel = computed(() => (profileDecides.value && currentProfile.value
+      ? `the profile "${currentProfile.value.name}"`
+      : 'the installation defaults'));
+    const inheritLabel = computed(() => (profileDecides.value ? 'Profile' : 'Default'));
+
+    /** Opens the course's profile on its Content tab. */
+    const openProfileDefaults = () => {
+      if (!currentProfile.value) return;
+      state.profileFocus = { id: currentProfile.value.id, tab: 'content' };
+      go('profiles');
     };
 
     const autoLinksOn = computed(() => project.value.details.effective.features.auto_links === true);
@@ -156,6 +175,7 @@ export const DetailsTab = {
 
     return {
       state, project, busy, onChange, overrides, clearOverride, showInherited, autoLinksOn, linkStats, plural,
+      profileDecides, parentLabel, inheritLabel, openProfileDefaults, currentProfile,
       researchOn, research, draft, dirty, tooLong, sourceLabel, save, revert, saving,
       researchView, researchEditor, researchPreview,
       syncEnabled: sync.enabled, toggleSync: sync.toggle, claim: sync.claim,
@@ -166,24 +186,52 @@ export const DetailsTab = {
     <div class="view-scroll">
       <div class="view-pad container col gap-5">
 
-        <section class="card card--pad">
-          <div class="row between mb-4">
-            <div>
-              <h2 class="t-lg">Course defaults</h2>
-              <p class="hint">
-                What every page of this course contains, unless a chapter or a page decides otherwise.
-                These are the baseline the whole course inherits from.
-              </p>
+        <section class="card">
+          <div class="card__head">
+            <span class="tile tile--accent"><app-icon name="list-check" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">What every page of this course is made of</span>
+              <span class="card__desc">
+                The elements a page gets and the values that size them. A chapter or a page can decide
+                otherwise; everything that does not follows what is set here.
+              </span>
             </div>
           </div>
-          <detail-editor level="course" :details="project.details" :busy="busy" @change="onChange"/>
+          <div class="card__body col gap-4">
+            <div class="note-strip">
+              <app-icon name="inherit" :size="15" class="c-accent"/>
+              <span class="grow">
+                Where this course has not decided, it follows <strong>{{ parentLabel }}</strong>.
+                <template v-if="profileDecides">
+                  The profile decides some of these for every course written with it; the rest come from the
+                  installation.
+                </template>
+                <template v-else-if="currentProfile">
+                  The profile <strong>{{ currentProfile.name }}</strong> has decided nothing of its own, so the
+                  installation's defaults apply straight through - a profile can carry defaults of its own on
+                  its Content tab, for every course written with it.
+                </template>
+                <template v-else>
+                  This course has no profile, so the chain is the installation, then this course.
+                </template>
+              </span>
+              <button v-if="currentProfile" class="btn btn--sm none" @click="openProfileDefaults">
+                <app-icon name="sliders" :size="13"/> Profile defaults
+              </button>
+            </div>
+            <detail-editor level="course" :details="project.details" :busy="busy"
+                           :parent-label="parentLabel" :inherit-label="inheritLabel" @change="onChange"/>
+          </div>
         </section>
 
         <section class="card" :class="autoLinksOn ? '' : 'card--flat'">
           <div class="card__head">
-            <app-icon name="link" :size="17" :class="autoLinksOn ? 'c-accent' : 'dim'"/>
-            <span class="card__title grow">Auto links</span>
-            <span class="badge" :class="autoLinksOn ? 'badge--accent' : ''">{{ autoLinksOn ? 'on' : 'off' }}</span>
+            <span class="tile" :class="autoLinksOn ? 'tile--accent' : ''"><app-icon name="link" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">Auto links</span>
+              <span class="card__desc">Cross references between the pages of this course, turned into real links after publishing.</span>
+            </div>
+            <span class="badge none" :class="autoLinksOn ? 'badge--accent' : ''">{{ autoLinksOn ? 'on' : 'off' }}</span>
           </div>
           <div class="card__body col gap-3">
             <p class="t-sm muted">
@@ -198,15 +246,15 @@ export const DetailsTab = {
 
             <div class="grid grid-3 mt-2">
               <div class="stat">
-                <div class="stat__value">{{ linkStats.markers }}</div>
+                <div class="stat__value"><app-icon name="pencil" :size="14" class="dim"/> {{ linkStats.markers }}</div>
                 <div class="stat__label">markers written</div>
               </div>
               <div class="stat">
-                <div class="stat__value c-success">{{ linkStats.resolved }}</div>
+                <div class="stat__value c-success"><app-icon name="check-circle" :size="14"/> {{ linkStats.resolved }}</div>
                 <div class="stat__label">resolve to a link</div>
               </div>
               <div class="stat">
-                <div class="stat__value" :class="linkStats.pending ? 'c-warning' : ''">{{ linkStats.pending }}</div>
+                <div class="stat__value" :class="linkStats.pending ? 'c-warning' : ''"><app-icon name="hourglass" :size="14"/> {{ linkStats.pending }}</div>
                 <div class="stat__label">waiting for a publish</div>
               </div>
             </div>
@@ -220,9 +268,12 @@ export const DetailsTab = {
 
         <section class="card" :class="researchOn ? '' : 'card--flat'">
           <div class="card__head">
-            <app-icon name="search" :size="17" :class="researchOn ? 'c-accent' : 'dim'"/>
-            <span class="card__title grow">Research</span>
-            <span class="badge" :class="research.text ? 'badge--success' : ''">{{ research.freshness }}</span>
+            <span class="tile" :class="researchOn ? 'tile--accent' : ''"><app-icon name="search" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">Research</span>
+              <span class="card__desc">What is true about this subject today, established once and read by the outline and every page.</span>
+            </div>
+            <span class="badge none" :class="research.text ? 'badge--success' : ''">{{ research.freshness }}</span>
           </div>
           <div class="card__body col gap-3">
             <p class="t-sm muted">
@@ -282,11 +333,14 @@ export const DetailsTab = {
                 This text travels with every page, so it is paid for once per page.
               </p>
               <div class="row gap-2">
-                <button class="btn btn--ghost btn--sm" :disabled="busy || !dirty" @click="revert">Revert</button>
+                <button class="btn btn--ghost btn--sm" :disabled="busy || !dirty" @click="revert">
+                  <app-icon name="undo" :size="12"/> Revert
+                </button>
                 <!-- "Clear" only when there is actually something stored to clear:
                      on an empty panel the button read "Clear research" over an
                      empty box, which describes nothing that could happen. -->
                 <button class="btn btn--primary btn--sm" :disabled="busy || !dirty || tooLong" @click="save">
+                  <app-icon :name="!draft.trim() && research.text ? 'trash' : 'save'" :size="12"/>
                   {{ !draft.trim() && research.text ? 'Clear research' : 'Save research' }}
                 </button>
               </div>
@@ -305,8 +359,12 @@ export const DetailsTab = {
 
         <section class="card">
           <div class="card__head">
-            <span class="card__title grow">Overrides below the course</span>
-            <span class="badge">{{ overrides.length }}</span>
+            <span class="tile" :class="overrides.length ? 'tile--accent' : ''"><app-icon name="sitemap" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">Decided below the course</span>
+              <span class="card__desc">Every chapter and page that has decided something for itself, and what it decided.</span>
+            </div>
+            <span class="badge none">{{ overrides.length }}</span>
           </div>
           <div class="card__body">
             <div v-if="overrides.length" class="scroll-x">
@@ -327,8 +385,9 @@ export const DetailsTab = {
                     </td>
                     <td>
                       <button class="btn btn--ghost btn--sm btn--icon" title="Follow the course again"
+                              :aria-label="'Make ' + row.name + ' follow the course again'"
                               :disabled="busy" @click="clearOverride(row)">
-                        <app-icon name="inherit" :size="13"/>
+                        <app-icon name="undo" :size="13"/>
                       </button>
                     </td>
                   </tr>

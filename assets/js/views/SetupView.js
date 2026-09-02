@@ -325,8 +325,8 @@ export const SetupView = {
 
       <div class="view-pad" style="max-width:620px;margin-inline:auto">
         <div class="col gap-2" style="align-items:center;text-align:center;margin-bottom:var(--s-6)">
-          <span class="sidebar__mark" style="width:42px;height:42px;border-radius:var(--r-lg)">
-            <app-icon name="book" :size="22"/>
+          <span class="tile tile--lg tile--brand">
+            <app-icon name="graduation-cap" :size="24"/>
           </span>
 
           <template v-if="redeeming">
@@ -352,8 +352,8 @@ export const SetupView = {
                an invite cannot read files on this server, which is the whole
                reason somebody had to send them the code. -->
           <section v-if="!redeeming" class="card card--pad col gap-3">
-            <div class="row gap-2">
-              <app-icon name="file-text" :size="16" class="c-accent none"/>
+            <div class="row gap-3">
+              <span class="tile tile--accent"><app-icon name="ticket" :size="17"/></span>
               <h2 class="t-md grow">Find the invite code</h2>
             </div>
             <p class="hint">
@@ -389,8 +389,8 @@ export const SetupView = {
 
           <!-- the account ---------------------------------------------- -->
           <form class="card card--pad col gap-4" @submit.prevent="submit">
-            <div class="row gap-2">
-              <app-icon name="user" :size="16" class="c-accent none"/>
+            <div class="row gap-3">
+              <span class="tile tile--accent"><app-icon name="user-plus" :size="17"/></span>
               <h2 class="t-md grow">{{ redeeming ? 'Create your account' : 'Create the administrator' }}</h2>
             </div>
 
@@ -474,14 +474,15 @@ export const SetupView = {
               </p>
             </div>
 
-            <p v-if="error" class="card card--flat t-sm c-danger" role="alert"
-               style="padding:9px 12px;border-color:var(--danger-line)">{{ error }}</p>
+            <p v-if="error" class="note-strip note-strip--danger" role="alert">
+              <app-icon name="alert-circle" :size="14" class="c-danger"/><span>{{ error }}</span>
+            </p>
 
             <!-- Enabled whatever the form holds. A disabled button leaves the
                  keyboard out of the tab order and answers a press with silence;
                  pressing this one always says what is missing and goes there. -->
             <button type="submit" class="btn btn--primary btn--block" :disabled="busy">
-              <app-icon v-if="busy" name="refresh" :size="14" spin/>
+              <app-icon :name="busy ? 'refresh' : 'rocket'" :size="14" :spin="busy"/>
               <template v-if="busy">Creating the account…</template>
               <template v-else-if="redeeming">Create account and sign in</template>
               <template v-else>Create account and start</template>

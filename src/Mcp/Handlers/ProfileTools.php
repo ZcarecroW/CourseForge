@@ -6,6 +6,7 @@ namespace CourseForge\Mcp\Handlers;
 use CourseForge\Ai\ModelId;
 use CourseForge\Ai\Provider\ClaudeCliProvider;
 use CourseForge\Ai\Provider\Providers;
+use CourseForge\Domain\Details;
 use CourseForge\Domain\Profiles;
 use CourseForge\Domain\Projects;
 use CourseForge\Mcp\Args;
@@ -483,6 +484,44 @@ final class ProfileTools
             ),
 
             new Tool(
+                name: 'set_profile_details',
+                scope: Scopes::PROFILES,
+                title: 'Set the content defaults of one profile',
+                description: 'Decides content details for every course written with this profile - which elements '
+                    . 'a page gets and the values that size them - one level above the course. The chain is: '
+                    . 'installation default, then this profile, then course, chapter, page, the closest level '
+                    . 'winning. A course inherits whatever the profile decides until it overrides it, so this is '
+                    . 'where a house style lives: "every course on this profile opens with learning objectives and '
+                    . 'aims at 1,500 words". Call get_detail_catalogue for the keys, the types and the ranges. '
+                    . 'features maps a key to 1 (on), -1 (off) or 0 (stop deciding, so the installation default '
+                    . 'applies again); values maps a key to a number or a piece of text, or null to stop deciding. '
+                    . 'reset_all drops everything this profile decided. Nothing already written changes - the next '
+                    . 'page generated on any course of this profile follows the new answer. Costs nothing.',
+                properties: [
+                    'profile_id' => Schema::int('The profile to change.'),
+                    'features' => [
+                        'type' => 'object',
+                        'description' => 'Feature key to 1 (on), -1 (off) or 0 (inherit the installation default). '
+                            . 'Unknown keys are refused rather than silently dropped.',
+                        'additionalProperties' => ['type' => 'integer', 'enum' => [-1, 0, 1]],
+                    ],
+                    'values' => [
+                        'type' => 'object',
+                        'description' => 'Value key to the number or text this profile decides, or null to stop '
+                            . 'deciding it. Numbers are clamped to the range get_detail_catalogue reports.',
+                        'additionalProperties' => ['type' => ['integer', 'string', 'null']],
+                    ],
+                    'reset_all' => Schema::bool(
+                        'Drop every content detail this profile decided, so its courses follow the installation '
+                        . 'defaults again. Can be combined with features and values, which are applied afterwards.'
+                    ),
+                ],
+                required: ['profile_id'],
+                handler: static fn(Actor $actor, array $args): array => self::setProfileDetails($actor, Args::of($args)),
+                idempotent: true,
+            ),
+
+            new Tool(
                 name: 'list_models',
                 scope: Scopes::PROFILES,
                 title: 'List the models an account can use',
@@ -657,6 +696,8 @@ final class ProfileTools
             'prompt_override_note' => $prompts === []
                 ? 'This profile uses the installation\'s prompt library unchanged.'
                 : 'These slots replace the installation default; every other slot is inherited.',
+            'content_defaults' => self::detailsBrief(Profiles::detailsOf($data)),
+            'content_defaults_note' => self::detailsNote(Profiles::detailsOf($data)),
             'courses' => $courses,
             'next' => $accounts === []
                 ? 'This profile has no AI account. Add one with update_profile, giving ai_kind and api_key.'
@@ -1367,6 +1408,145 @@ final class ProfileTools
             'overridden' => array_keys((array)($after['prompts'] ?? [])),
             'next_step' => 'get_profile with include_prompt_text reads back what this profile now overrides.',
         ];
+    }
+
+    /**
+     * Decides content details one level above every course on this profile.
+     *
+     * The same three answers a course gives - stored, inherited, effective -
+     * collapse to two here, because the only thing above a profile is the
+     * installation itself: what the profile decided, and what a course on it
+     * therefore starts from.
+     *
+     * @return array<string,mixed>
+     */
+    private static function setProfileDetails(Actor $actor, Args $args): array
+    {
+        ['owner' => $owner, 'row' => $row] = self::resolveProfile($actor, $args);
+        $data = (array)$row['data'];
+        $catalogue = Details::catalogue();
+
+        $features = [];
+        foreach ($args->object('features') as $key => $state) {
+            $key = (string)$key;
+            if (!isset($catalogue['features'][$key])) {
+                throw HttpException::unprocessable(
+                    'There is no content detail called "' . $key . '". Call get_detail_catalogue for the '
+                    . 'features this installation has.'
+                );
+            }
+            if (!is_scalar($state) && $state !== null) {
+                throw HttpException::unprocessable(
+                    'The feature "' . $key . '" must be 1 (on), -1 (off) or 0 (inherit), not a list or an object.'
+                );
+            }
+            $word = is_bool($state) ? ($state ? 'on' : 'off') : strtolower(trim((string)$state));
+            $features[$key] = match ($word) {
+                '1', 'on', 'true' => Details::ON,
+                '-1', 'off', 'false' => Details::OFF,
+                '0', '', 'inherit', 'default' => Details::INHERIT,
+                default => throw HttpException::unprocessable(
+                    'The feature "' . $key . '" must be 1 (on), -1 (off) or 0 (inherit), not "' . $word . '".'
+                ),
+            };
+        }
+
+        $values = [];
+        foreach ($args->object('values') as $key => $value) {
+            $key = (string)$key;
+            if (!isset($catalogue['params'][$key])) {
+                throw HttpException::unprocessable(
+                    'There is no content value called "' . $key . '". Call get_detail_catalogue for the values '
+                    . 'this installation has.'
+                );
+            }
+            if ($value !== null && !is_scalar($value)) {
+                throw HttpException::unprocessable(
+                    'The value "' . $key . '" must be a number, a piece of text or null, not a list or an object.'
+                );
+            }
+            $values[$key] = $value;
+        }
+
+        $resetAll = $args->bool('reset_all');
+        if ($features === [] && $values === [] && !$resetAll) {
+            throw HttpException::unprocessable(
+                'Nothing to change. Give features, values, or both - for example features {"objectives": 1} or '
+                . 'values {"min_length": 1500} - or reset_all to drop what this profile decided.'
+            );
+        }
+
+        $current = $resetAll ? ['features' => [], 'params' => []] : Profiles::detailsOf($data);
+        $next = Details::patch($current, $features, $values);
+
+        // Checked against the pair a course on this profile would inherit,
+        // for the same reason the Settings screen and set_details check it:
+        // a crossed pair here reaches every page of every course that has
+        // not overridden both ends.
+        $effective = Details::resolve($next)['params'];
+        $min = (int)($effective['min_length'] ?? 0);
+        $max = (int)($effective['max_length'] ?? 0);
+        if (Details::lengthsCross($min, $max)) {
+            throw HttpException::unprocessable(
+                'Minimum length (' . $min . ') would be above Maximum length (' . $max . '), so every course on this '
+                . 'profile would ask the AI for a length no page can have. Raise the maximum, or lower the minimum. '
+                . 'Nothing was saved.'
+            );
+        }
+
+        $data['details'] = $next;
+        $updated = Profiles::update($owner, (int)$row['id'], (string)$row['name'], $data);
+        Audit::record(
+            $actor->username,
+            'profile.update',
+            (string)$row['name'],
+            'content defaults' . ($resetAll ? ' reset' : '') . ' features=' . implode(' ', array_keys($features))
+                . ' values=' . implode(' ', array_keys($values)) . ', via MCP',
+            'mcp'
+        );
+
+        $stored = Profiles::detailsOf((array)$updated['data']);
+
+        return [
+            'profile_id' => (int)$updated['id'],
+            'updated' => true,
+            'reset_all' => $resetAll,
+            'decided' => self::detailsBrief($stored),
+            // What a course on this profile starts from now, before it has
+            // decided anything of its own.
+            'courses_start_from' => [
+                'features' => Details::resolve($stored)['features'],
+                'values' => Details::resolve($stored)['params'],
+            ],
+            'courses' => self::coursesUsing($owner, (int)$updated['id']),
+            'next_step' => 'Every course on this profile that has not overridden these now inherits them; '
+                . 'get_details on one of them names the profile as where each comes from. Nothing already '
+                . 'written has changed.',
+        ];
+    }
+
+    /**
+     * A profile's own content decisions, in words.
+     *
+     * @param array{features:array<string,int>,params:array<string,int|string>} $details
+     * @return array{features:array<string,string>,values:array<string,int|string>}
+     */
+    private static function detailsBrief(array $details): array
+    {
+        $features = [];
+        foreach ($details['features'] as $key => $state) {
+            $features[(string)$key] = (int)$state === Details::ON ? 'on' : 'off';
+        }
+        return ['features' => $features, 'values' => $details['params']];
+    }
+
+    /** @param array{features:array<string,int>,params:array<string,int|string>} $details */
+    private static function detailsNote(array $details): string
+    {
+        return $details['features'] === [] && $details['params'] === []
+            ? 'This profile decides no content details of its own, so its courses start from the installation defaults.'
+            : 'Every course on this profile starts from these; a course, chapter or page can still override any of '
+                . 'them. set_profile_details changes them.';
     }
 
     /**

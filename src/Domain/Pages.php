@@ -111,6 +111,7 @@ final class Pages
         array $projectSettings,
         array $chapterSettings,
         string $renderedContent,
+        array $profileSettings = ['features' => [], 'params' => []],
     ): array {
         $content = (string)$page['content'];
         $pushedHash = (string)$page['pushed_hash'];
@@ -134,7 +135,7 @@ final class Pages
             'updated_at' => (int)$page['updated_at'],
             'tags' => $ownTags,
             'effective_tags' => $effectiveTags,
-            'details' => Details::describe(self::settings($page), $projectSettings, $chapterSettings),
+            'details' => Details::describe(self::settings($page), $profileSettings, $projectSettings, $chapterSettings),
         ];
     }
 
@@ -146,7 +147,8 @@ final class Pages
     public static function detail(int $projectId, int $id): array
     {
         $page = self::require($projectId, $id);
-        $project = Db::row('SELECT settings FROM projects WHERE id = ?', [$projectId]) ?? ['settings' => '{}'];
+        $project = Db::row('SELECT settings, username, profile_id FROM projects WHERE id = ?', [$projectId])
+            ?? ['settings' => '{}', 'username' => '', 'profile_id' => null];
         $chapter = Chapters::require($projectId, (int)$page['chapter_id']);
 
         $resolved = Tags::resolved($projectId);
@@ -160,6 +162,7 @@ final class Pages
             Details::decode((string)$project['settings']),
             Chapters::settings($chapter),
             $rendered,
+            Projects::profileSettings($project),
         );
 
         return $summary + [

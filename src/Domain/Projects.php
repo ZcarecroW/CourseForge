@@ -60,7 +60,7 @@ final class Projects
         );
 
         return array_map(static function (array $row): array {
-            $effective = Details::resolve(Details::decode((string)$row['settings']));
+            $effective = Details::resolve(self::profileSettings($row), Details::decode((string)$row['settings']));
             return [
                 'id' => (int)$row['id'],
                 'name' => (string)$row['name'],
@@ -91,6 +91,44 @@ final class Projects
     public static function find(string $username, int $id): ?array
     {
         return Db::row('SELECT * FROM projects WHERE username = ? AND id = ?', [$username, $id]);
+    }
+
+    /**
+     * The level above the course: what its profile decided.
+     *
+     * A profile carries content defaults of its own, so every course written
+     * with it starts from the same choices - the chain is
+     * config default → profile → course → chapter → page, the value that wins
+     * being the one closest to the page. A course without a profile, or whose
+     * profile has decided nothing, inherits the installation's defaults
+     * directly, which is exactly what an empty layer resolves to.
+     *
+     * @param array<string,mixed> $project a row from the projects table
+     * @return array{features:array<string,int>,params:array<string,int|string>}
+     */
+    public static function profileSettings(array $project): array
+    {
+        $profileId = $project['profile_id'] ?? null;
+        if ($profileId === null || (string)($project['username'] ?? '') === '') {
+            return ['features' => [], 'params' => []];
+        }
+        return Profiles::details((string)$project['username'], (int)$profileId);
+    }
+
+    /**
+     * The ancestors of whatever sits under a course, in resolution order: the
+     * profile, then the course, then any levels handed in below it. Spread into
+     * Details::resolve() - `Details::resolve(...Projects::chain($project))` is
+     * the whole answer for the course itself, and the chapter and page settings
+     * go on the end for a page.
+     *
+     * @param array<string,mixed> $project
+     * @param array{features:array<string,int>,params:array<string,int|string>} ...$below
+     * @return array<int,array{features:array<string,int>,params:array<string,int|string>}>
+     */
+    public static function chain(array $project, array ...$below): array
+    {
+        return [self::profileSettings($project), self::settings($project), ...$below];
     }
 
     /** @return array<string,mixed> */
@@ -527,6 +565,7 @@ final class Projects
         $tags = Tags::resolved($id);
         $index = LinkIndex::forProject($id);
         $projectSettings = self::settings($project);
+        $profileSettings = self::profileSettings($project);
 
         /* Where this course publishes.
          *
@@ -588,6 +627,7 @@ final class Projects
                 $projectSettings,
                 $chapterSettings[$chapterId] ?? ['features' => [], 'params' => []],
                 $applied['content'],
+                $profileSettings,
             );
 
             if ($targetRows !== []) {
@@ -646,7 +686,7 @@ final class Projects
                 'dirty' => $bsId !== null && (string)$chapter['pushed_hash'] !== $chapterHash,
                 'tags' => $tags['own']['chapter'][$chapterId] ?? [],
                 'effective_tags' => $effectiveTags,
-                'details' => Details::describe($chapterSettings[$chapterId], $projectSettings),
+                'details' => Details::describe($chapterSettings[$chapterId], $profileSettings, $projectSettings),
                 'pages' => $pagesByChapter[$chapterId] ?? [],
             ];
 
@@ -720,7 +760,10 @@ final class Projects
             'dirty' => $bookDirty,
             'tags' => $tags['own']['project'][$id] ?? [],
             'effective_tags' => $effectiveTags,
-            'details' => Details::describe($projectSettings),
+            'details' => Details::describe($projectSettings, $profileSettings),
+            // Whether the level above the course has decided anything, so the
+            // Details tab can say "inherits from the profile" only when it does.
+            'profile_decides' => $profileSettings['features'] !== [] || $profileSettings['params'] !== [],
             'stats' => [
                 'chapters' => count($chapterList),
                 'pages' => $counts['pages'],

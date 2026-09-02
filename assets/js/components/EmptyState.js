@@ -11,7 +11,7 @@ export const EmptyState = {
   },
   template: `
     <div class="empty">
-      <span class="empty__icon"><app-icon :name="icon" :size="20"/></span>
+      <span class="empty__icon"><app-icon :name="icon" :size="22" :stroke="1.5"/></span>
       <p v-if="title" class="empty__title">{{ title }}</p>
       <p v-if="hint" class="t-sm dim" style="max-width:46ch">{{ hint }}</p>
       <slot/>

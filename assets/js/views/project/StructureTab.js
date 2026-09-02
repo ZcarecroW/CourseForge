@@ -176,9 +176,10 @@ export const StructureTab = {
       <!-- editor ------------------------------------------------------- -->
       <section class="pane">
         <div class="pane__head">
+          <span class="tile tile--sm tile--accent none"><app-icon name="sitemap" :size="14"/></span>
           <span class="eyebrow grow">Outline — strict Markdown</span>
           <span v-if="dirty" class="badge badge--warning">unapplied edits</span>
-          <button class="btn btn--sm" :disabled="!dirty" @click="revert">Revert</button>
+          <button class="btn btn--sm" :disabled="!dirty" @click="revert"><app-icon name="undo" :size="12"/> Revert</button>
           <!-- apply(false), never bare apply: a method reference is handed the
                click event, which would arrive here as "yes, delete them". -->
           <button class="btn btn--success btn--sm" :disabled="applying || !markdown.trim()" @click="apply(false)">
@@ -187,7 +188,7 @@ export const StructureTab = {
           </button>
         </div>
 
-        <textarea v-model="markdown" class="code-area" spellcheck="false"
+        <textarea v-model="markdown" class="code-area" spellcheck="false" aria-label="The outline, as strict Markdown"
                   placeholder="# Course title&#10;&#10;A short description of the whole course.&#10;&#10;1. First chapter&#10;   What the learner can do after it.&#10;   1. First page&#10;   2. Second page"></textarea>
 
         <div class="pane__foot row wrap gap-2">
@@ -205,10 +206,11 @@ export const StructureTab = {
         <div class="pane__body view-pad col gap-4">
           <div class="card card--pad col gap-3">
             <div class="row gap-2">
+              <span class="tile tile--sm tile--magic none"><app-icon name="sparkles" :size="14"/></span>
               <span class="eyebrow grow">Course prompt</span>
               <span v-if="topicDirty" class="badge badge--warning">unsaved</span>
             </div>
-            <textarea v-model="topic" rows="4"
+            <textarea v-model="topic" rows="4" aria-label="Course prompt"
                       placeholder="Vue.js – complete course from beginner to professional"></textarea>
             <div class="row gap-2">
               <button class="btn btn--primary grow" :disabled="generating || !topic.trim()" @click="generate(false)">
@@ -216,7 +218,7 @@ export const StructureTab = {
                 {{ generating ? 'Designing…' : (hasStructure ? 'Regenerate' : 'Generate structure') }}
               </button>
               <button class="btn none" :disabled="!topicDirty" @click="saveTopic"
-                      title="Save the prompt without generating">
+                      title="Save the prompt without generating" aria-label="Save the prompt without generating">
                 <app-icon name="save" :size="14"/>
               </button>
             </div>
@@ -231,8 +233,11 @@ export const StructureTab = {
           </div>
 
           <div class="card card--pad col gap-3">
-            <span class="eyebrow">Request changes</span>
-            <textarea v-model="feedback" rows="4"
+            <div class="row gap-2">
+              <span class="tile tile--sm none"><app-icon name="pencil" :size="14"/></span>
+              <span class="eyebrow grow">Request changes</span>
+            </div>
+            <textarea v-model="feedback" rows="4" aria-label="Changes to request"
                       placeholder="Add a chapter about testing, merge chapters 4 and 5, split the routing page…"></textarea>
             <button class="btn btn--primary" :disabled="generating || !canRefine" @click="generate(true)">
               <app-icon :name="generating ? 'refresh' : 'pencil'" :size="14" :spin="generating"/>
@@ -243,8 +248,11 @@ export const StructureTab = {
 
           <div class="card">
             <div class="card__head">
+              <span class="tile tile--sm none"><app-icon name="list-check" :size="14"/></span>
               <span class="card__title grow">Parsed result</span>
-              <span class="badge">{{ project.stats.chapters }} / {{ project.stats.pages }}</span>
+              <span class="badge" :title="project.stats.chapters + ' chapters, ' + project.stats.pages + ' pages'">
+                <app-icon name="sitemap" :size="10"/> {{ project.stats.chapters }} / {{ project.stats.pages }}
+              </span>
             </div>
             <div class="card__body">
               <p v-if="publishedAs" class="t-xs dim mb-3">

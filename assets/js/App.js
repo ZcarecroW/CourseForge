@@ -28,7 +28,7 @@ import {
 } from '@/core/store.js';
 import { toast, attempt, toasts, dismiss } from '@/core/toast.js';
 import { post, put } from '@/core/api.js';
-import { resolvedTheme, toggleTheme } from '@/core/theme.js';
+import { resolvedTheme, setTheme, themePreference } from '@/core/theme.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal, { anyDialogOpen } from '@/components/AppModal.js';
@@ -91,10 +91,14 @@ const UpdatesView = adminScreen('Updates', () => import('@/views/admin/UpdatesVi
 /* -------------------------------------------------------------- navigation */
 
 const NAV = [
-  { view: 'projects', label: 'Courses', icon: 'book', count: () => state.projects.length },
-  { view: 'tags', label: 'Tags', icon: 'tag', count: () => state.tags.length },
-  { view: 'profiles', label: 'Profiles', icon: 'sliders', count: () => state.profiles.length },
-  { view: 'connect', label: 'Connect', icon: 'link', count: null },
+  { view: 'projects', label: 'Courses', icon: 'book', count: () => state.projects.length,
+    hint: 'Everything being written: outline, pages, publishing' },
+  { view: 'tags', label: 'Tags', icon: 'tag', count: () => state.tags.length,
+    hint: 'The tags a course carries into BookStack' },
+  { view: 'profiles', label: 'Profiles', icon: 'sliders', count: () => state.profiles.length,
+    hint: 'AI accounts, BookStack instances, models, language, content defaults and prompts' },
+  { view: 'connect', label: 'Connect', icon: 'plug', count: null,
+    hint: 'Hand an AI client a key to this installation over MCP' },
 ];
 
 /**
@@ -103,10 +107,17 @@ const NAV = [
  * either stale or an extra request at sign-in for something nobody looked at.
  */
 const ADMIN_NAV = [
-  { view: 'users', label: 'Accounts', icon: 'users' },
-  { view: 'settings', label: 'Settings', icon: 'cog' },
-  { view: 'prompts', label: 'Prompts', icon: 'file-text' },
-  { view: 'updates', label: 'Updates', icon: 'download' },
+  { view: 'users', label: 'Accounts', icon: 'users', hint: 'Who may sign in, and what happens to their work' },
+  { view: 'settings', label: 'Settings', icon: 'cog', hint: 'Everything this installation can be told to do differently' },
+  { view: 'prompts', label: 'Prompts', icon: 'file-text', hint: 'The words this installation sends to the model' },
+  { view: 'updates', label: 'Updates', icon: 'download', hint: 'Is this installation current, and what if it is not' },
+];
+
+/** Dark, light, or whatever the system says. */
+const THEMES = [
+  { key: 'light', label: 'Light', icon: 'sun', title: 'Light theme' },
+  { key: 'dark', label: 'Dark', icon: 'moon', title: 'Dark theme' },
+  { key: 'system', label: 'Auto', icon: 'monitor', title: 'Follow the system setting' },
 ];
 
 const COMPONENT_FOR = {
@@ -239,6 +250,15 @@ export const App = {
 
     const roleLabel = computed(() => (isAdmin.value ? 'Administrator' : 'User'));
 
+    /* The letters on the avatar: the first of the first two words of the
+       display name, so "Jo Halliwell" is JH and "admin" is A. */
+    const initials = computed(() => {
+      const words = String(state.user?.display_name ?? state.user?.username ?? '').trim().split(/\s+/).filter(Boolean);
+      return words.slice(0, 2).map((word) => word[0].toUpperCase()).join('') || '?';
+    });
+
+    const themePref = themePreference();
+
     /* ------------------------------------------------------ unsaved work */
 
     /* The store stops a move away from a screen that is holding unsaved edits
@@ -325,7 +345,7 @@ export const App = {
       leavingFor, leaveAnyway, stayPut,
       toasts, dismiss,
       showAccount, account, openAccount, closeAccount, saveDisplayName, changePassword, logout,
-      resolvedTheme, toggleTheme,
+      resolvedTheme, setTheme, themePref, THEMES, initials,
       toastIcon: (type) => ({ success: 'check-circle', error: 'alert-circle' }[type] ?? 'info'),
     };
   },
@@ -345,11 +365,12 @@ export const App = {
     </template>
 
     <div v-else class="shell">
+      <a class="skip-link" href="#main">Skip to content</a>
       <div v-if="state.sidebarOpen" class="scrim" @click="state.sidebarOpen = false"></div>
 
       <aside class="sidebar" :class="{ 'is-open': state.sidebarOpen }">
         <div class="sidebar__brand">
-          <span class="sidebar__mark"><app-icon name="book" :size="16"/></span>
+          <span class="sidebar__mark"><app-icon name="graduation-cap" :size="17"/></span>
           <span class="sidebar__name grow truncate">{{ installationName }}</span>
           <button class="btn btn--ghost btn--sm btn--icon menu-toggle" aria-label="Close navigation"
                   @click="state.sidebarOpen = false">
@@ -357,57 +378,67 @@ export const App = {
           </button>
         </div>
 
-        <nav class="sidebar__nav">
+        <nav class="sidebar__nav" aria-label="Main">
+          <p class="nav-section"><app-icon name="grid" :size="11"/> Workspace</p>
           <button v-for="item in navItems" :key="item.view" class="nav-item"
-                  :class="{ 'is-active': item.active }" @click="go(item.view)">
-            <app-icon :name="item.icon" :size="16"/>
+                  :class="{ 'is-active': item.active }" :aria-current="item.active ? 'page' : null"
+                  :title="item.hint" @click="go(item.view)">
+            <app-icon :name="item.icon" :size="17"/>
             <span class="grow truncate">{{ item.label }}</span>
             <span v-if="item.count !== null" class="nav-item__count">{{ item.total }}</span>
           </button>
 
-          <div v-if="isAdmin" class="nav-group">
-            <p class="eyebrow nav-group__title">Administration</p>
+          <template v-if="isAdmin">
+            <p class="nav-section nav-section--later"><app-icon name="shield" :size="11"/> Administration</p>
             <button v-for="item in adminItems" :key="item.view" class="nav-item"
-                    :class="{ 'is-active': item.active }" @click="go(item.view)">
-              <app-icon :name="item.icon" :size="16"/>
+                    :class="{ 'is-active': item.active }" :aria-current="item.active ? 'page' : null"
+                    :title="item.hint" @click="go(item.view)">
+              <app-icon :name="item.icon" :size="17"/>
               <span class="grow truncate">{{ item.label }}</span>
               <span v-if="item.badge" class="badge badge--accent none" title="A newer version has been published">
                 new
               </span>
             </button>
-          </div>
+          </template>
         </nav>
 
         <div class="sidebar__foot">
-          <button class="nav-item" @click="toggleTheme">
-            <app-icon :name="resolvedTheme === 'dark' ? 'moon' : 'sun'" :size="16"/>
-            <span class="grow truncate">{{ resolvedTheme === 'dark' ? 'Dark' : 'Light' }} theme</span>
-          </button>
-          <button class="nav-item" @click="openAccount">
-            <app-icon name="user" :size="16"/>
-            <span class="grow truncate">{{ state.user.display_name }}</span>
-            <span class="badge none" :class="isAdmin ? 'badge--accent' : 'badge--outline'">{{ roleLabel }}</span>
+          <div class="theme-switch" role="radiogroup" aria-label="Theme">
+            <button v-for="option in THEMES" :key="option.key" type="button" class="theme-switch__opt"
+                    :class="{ 'is-active': themePref === option.key }" role="radio"
+                    :aria-checked="themePref === option.key" :title="option.title"
+                    @click="setTheme(option.key)">
+              <app-icon :name="option.icon" :size="13"/>{{ option.label }}
+            </button>
+          </div>
+          <button class="nav-item sidebar__user" title="Your account: display name and password" @click="openAccount">
+            <span class="avatar" aria-hidden="true">{{ initials }}</span>
+            <span class="grow" style="min-width:0">
+              <span class="sidebar__user-name truncate" style="display:block">{{ state.user.display_name }}</span>
+              <span class="sidebar__user-role" style="display:block">{{ roleLabel }}</span>
+            </span>
+            <app-icon name="chevron-right" :size="13" class="faint none"/>
           </button>
           <button class="nav-item" @click="logout">
-            <app-icon name="log-out" :size="16"/>
+            <app-icon name="log-out" :size="17"/>
             <span class="grow truncate">Sign out</span>
           </button>
           <p class="t-2xs faint" style="padding:0 10px">v{{ state.app.version }}</p>
         </div>
       </aside>
 
-      <main class="main">
+      <main class="main" id="main" tabindex="-1">
         <component :is="activeView" :key="state.project ? 'course-' + state.project.id : activeView"/>
       </main>
 
       <!-- No title while a password change is owed: AppModal draws a close
            button next to a title, and a button that refuses to close would be
            worse than not offering one. -->
-      <app-modal v-if="showAccount" :title="mustChangePassword ? '' : 'Account'" icon="user"
+      <app-modal v-if="showAccount" :title="mustChangePassword ? '' : 'Your account'" icon="user-circle"
                  @close="closeAccount">
         <div class="col gap-4">
-          <div v-if="mustChangePassword" class="row-top gap-3">
-            <app-icon name="alert" :size="18" class="c-warning none" style="margin-top:2px"/>
+          <div v-if="mustChangePassword" class="note-strip note-strip--warning">
+            <app-icon name="alert" :size="16" class="c-warning"/>
             <div class="col gap-1">
               <h3 class="t-md">Choose your own password</h3>
               <p class="hint">
@@ -417,18 +448,25 @@ export const App = {
             </div>
           </div>
 
-          <p v-else class="hint">
-            Signed in as <strong>{{ state.user.username }}</strong> ({{ roleLabel }}).
-          </p>
+          <div v-else class="row gap-3">
+            <span class="avatar avatar--lg" aria-hidden="true">{{ initials }}</span>
+            <div class="col" style="gap:1px;min-width:0">
+              <span class="strong truncate">{{ state.user.display_name }}</span>
+              <span class="t-xs dim">
+                Signed in as <strong>{{ state.user.username }}</strong> · {{ roleLabel }}
+              </span>
+            </div>
+          </div>
 
           <template v-if="!mustChangePassword">
             <div class="form-row">
-              <label for="acc-name">Display name</label>
+              <label for="acc-name" class="row gap-2"><app-icon name="user" :size="13"/> Display name</label>
               <div class="row gap-2">
                 <input id="acc-name" v-model="account.displayName" class="grow" autocomplete="name"
                        @keydown.enter="saveDisplayName">
                 <button class="btn none" :disabled="account.savingName || !account.displayName.trim()"
                         @click="saveDisplayName">
+                  <app-icon :name="account.savingName ? 'refresh' : 'save'" :size="13" :spin="account.savingName"/>
                   {{ account.savingName ? 'Saving…' : 'Save' }}
                 </button>
               </div>
@@ -439,6 +477,10 @@ export const App = {
             </div>
 
             <div class="divider"></div>
+            <div class="row gap-2">
+              <span class="tile tile--sm"><app-icon name="key" :size="14"/></span>
+              <span class="strong t-sm">Password</span>
+            </div>
           </template>
 
           <div class="form-row">
@@ -458,11 +500,14 @@ export const App = {
         </div>
 
         <template #footer>
-          <button v-if="mustChangePassword" class="btn btn--ghost" @click="logout">Sign out instead</button>
+          <button v-if="mustChangePassword" class="btn btn--ghost" @click="logout">
+            <app-icon name="log-out" :size="14"/> Sign out instead
+          </button>
           <button v-else class="btn" @click="closeAccount">Close</button>
           <button class="btn btn--primary"
                   :disabled="account.savingPassword || !account.old || !account.next || !account.confirm"
                   @click="changePassword">
+            <app-icon :name="account.savingPassword ? 'refresh' : 'key'" :size="14" :spin="account.savingPassword"/>
             {{ account.savingPassword ? 'Saving…' : 'Change password' }}
           </button>
         </template>
@@ -479,8 +524,8 @@ export const App = {
         <p class="hint">Staying brings you back to it exactly as you left it.</p>
 
         <template #footer>
-          <button class="btn" @click="stayPut">Stay on this screen</button>
-          <button class="btn btn--danger" @click="leaveAnyway">Leave and discard</button>
+          <button class="btn" @click="stayPut"><app-icon name="arrow-left" :size="14"/> Stay on this screen</button>
+          <button class="btn btn--danger" @click="leaveAnyway"><app-icon name="trash" :size="14"/> Leave and discard</button>
         </template>
       </app-modal>
     </div>
@@ -489,7 +534,7 @@ export const App = {
       <div v-for="item in toasts" :key="item.id" class="toast" :class="'toast--' + item.type">
         <app-icon class="toast__icon" :name="toastIcon(item.type)" :size="16"/>
         <span class="toast__text">{{ item.message }}</span>
-        <button class="chip__btn" @click="dismiss(item.id)" aria-label="Dismiss">
+        <button class="chip__btn" @click="dismiss(item.id)" aria-label="Dismiss this message">
           <app-icon name="x" :size="13"/>
         </button>
       </div>

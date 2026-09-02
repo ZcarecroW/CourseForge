@@ -427,7 +427,7 @@ final class RunController
         foreach (Pages::ordered($projectId) as $row) {
             $rows[(int)$row['id']] = $row;
         }
-        $courseSettings = Projects::settings($project);
+        $chain = Projects::chain($project);
 
         $sampled = 0;
         $chars = 0;
@@ -442,9 +442,8 @@ final class RunController
 
             $page = $rows[$pageId] ?? [];
             $params = Details::resolve(
-                $courseSettings,
-                Details::decode((string)($page['chapter_settings'] ?? '{}')),
-                Pages::settings($page),
+                ...$chain,
+                ...[Details::decode((string)($page['chapter_settings'] ?? '{}')), Pages::settings($page)],
             )['params'];
 
             $min = max(0, (int)($params['min_length'] ?? 0));

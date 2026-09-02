@@ -555,20 +555,21 @@ export const ContentTab = {
       <!-- ============================================== outline ========= -->
       <aside class="pane pane--left" :class="{ 'is-open': outlineOpen }">
         <div class="pane__head">
-          <div class="grow" style="position:relative">
-            <app-icon name="search" :size="13"
-                      style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
-            <input v-model="search" placeholder="Filter pages…" spellcheck="false"
-                   style="padding-left:26px;font-size:var(--t-xs)">
+          <div class="input-icon grow">
+            <app-icon name="search" :size="13"/>
+            <input v-model="search" placeholder="Filter pages…" spellcheck="false" aria-label="Filter pages"
+                   style="font-size:var(--t-xs)">
           </div>
           <button class="btn btn--ghost btn--sm btn--icon none" title="Collapse or expand all chapters"
+                  aria-label="Collapse or expand all chapters"
                   @click="collapseAll"><app-icon name="chevrons-left" :size="14"/></button>
-          <button class="btn btn--ghost btn--sm btn--icon none menu-toggle" title="Close"
+          <button class="btn btn--ghost btn--sm btn--icon none menu-toggle" title="Close" aria-label="Close the outline"
                   @click="outlineOpen = false"><app-icon name="x" :size="14"/></button>
         </div>
 
         <div class="pane__head" style="border-bottom:1px solid var(--border-soft)">
-          <select v-model="filter" style="font-size:var(--t-xs)">
+          <app-icon name="filter" :size="13" class="dim none"/>
+          <select v-model="filter" style="font-size:var(--t-xs)" aria-label="Which pages to list">
             <option value="all">All pages</option>
             <option value="missing">Not written yet</option>
             <option value="written">Written</option>
@@ -686,7 +687,7 @@ export const ContentTab = {
               <span class="badge" :class="runTone(job)">{{ job.remote_state || job.status }}</span>
               <span class="t-2xs dim">{{ runWhere(job) }}</span>
               <span class="t-2xs dim truncate grow" :title="job.model">{{ job.model }}</span>
-              <button class="btn btn--ghost btn--sm btn--icon none" title="Check now"
+              <button class="btn btn--ghost btn--sm btn--icon none" title="Check now" aria-label="Check this run now"
                       :disabled="runs.busy" @click="pollNow">
                 <app-icon name="refresh" :size="12" :spin="runs.busy"/>
               </button>
@@ -703,7 +704,7 @@ export const ContentTab = {
           <div v-for="job in doneRuns" :key="job.id" class="row gap-2 t-2xs dim">
             <span class="badge" :class="runTone(job)">{{ job.status }}</span>
             <span class="grow truncate">{{ runProgress(job) }}</span>
-            <button class="btn btn--ghost btn--sm btn--icon none" title="Remove this record"
+            <button class="btn btn--ghost btn--sm btn--icon none" title="Remove this record" aria-label="Remove this run's record"
                     @click="forgetRun(job.id)"><app-icon name="x" :size="11"/></button>
           </div>
         </div>
@@ -714,17 +715,20 @@ export const ContentTab = {
         <!-- page editor -->
         <template v-if="selection.type === 'page' && selectedPage">
           <div class="pane__head">
-            <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show the outline"
+            <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show the outline" aria-label="Show the outline"
                     @click="outlineOpen = true"><app-icon name="menu" :size="15"/></button>
 
-            <input v-model="draft.title" class="grow" style="max-width:520px" placeholder="Page title">
+            <input v-model="draft.title" class="grow" style="max-width:520px" placeholder="Page title" aria-label="Page title">
             <span v-if="dirty" class="badge badge--warning none">unsaved</span>
             <span v-if="loadingPage" class="badge none">loading…</span>
 
             <div class="row gap-2 push none">
-              <div class="btn-group hide-sm">
-                <button v-for="mode in ['edit','split','preview']" :key="mode"
-                        :class="{ 'is-active': viewMode === mode }" @click="viewMode = mode">{{ mode }}</button>
+              <div class="btn-group hide-sm" role="radiogroup" aria-label="How the page is shown">
+                <button v-for="mode in [['edit','pencil'],['split','panel-right'],['preview','eye']]" :key="mode[0]"
+                        role="radio" :aria-checked="viewMode === mode[0]"
+                        :class="{ 'is-active': viewMode === mode[0] }" @click="viewMode = mode[0]">
+                  <app-icon :name="mode[1]" :size="12"/>{{ mode[0] }}
+                </button>
               </div>
               <button v-if="viewMode === 'split'" class="btn btn--ghost btn--sm btn--icon cf-sync hide-sm"
                       :class="{ 'is-active': syncEnabled }" :aria-pressed="String(syncEnabled)"
@@ -736,12 +740,12 @@ export const ContentTab = {
                       title="Ctrl+S">
                 <app-icon name="save" :size="13"/> Save
               </button>
-              <button class="btn btn--ghost btn--sm btn--icon drawer-toggle" title="Show the inspector"
+              <button class="btn btn--ghost btn--sm btn--icon drawer-toggle" title="Show the inspector" aria-label="Show the inspector"
                       @click="inspectorOpen = true"><app-icon name="panel-right" :size="15"/></button>
             </div>
           </div>
 
-          <div v-if="selectedPage.error" class="pane__head" style="background:var(--danger-soft);border:0">
+          <div v-if="selectedPage.error" class="pane__head" style="background:var(--danger-soft);border:0" role="alert">
             <app-icon name="alert-circle" :size="14" class="c-danger none"/>
             <span class="t-xs c-danger truncate">{{ selectedPage.error }}</span>
           </div>
@@ -780,8 +784,9 @@ export const ContentTab = {
         <!-- chapter editor -->
         <template v-else-if="selection.type === 'chapter' && selectedChapter">
           <div class="pane__head">
-            <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show the outline"
+            <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show the outline" aria-label="Show the outline"
                     @click="outlineOpen = true"><app-icon name="menu" :size="15"/></button>
+            <span class="tile tile--sm tile--accent none"><app-icon name="sitemap" :size="14"/></span>
             <span class="eyebrow grow">Chapter {{ selectedChapter.idx + 1 }}</span>
             <span v-if="chapterDirty" class="badge badge--warning">unsaved</span>
             <button class="btn btn--success btn--sm" :disabled="!chapterDirty || busy" @click="saveChapterEdits">
@@ -795,24 +800,26 @@ export const ContentTab = {
                     title="Publish this chapter and its pages to BookStack">
               <app-icon name="upload" :size="13"/> Publish chapter
             </button>
-            <button class="btn btn--ghost btn--sm btn--icon drawer-toggle" title="Show the inspector"
+            <button class="btn btn--ghost btn--sm btn--icon drawer-toggle" title="Show the inspector" aria-label="Show the inspector"
                     @click="inspectorOpen = true"><app-icon name="panel-right" :size="15"/></button>
           </div>
 
           <div class="pane__body view-pad container-narrow col gap-4">
             <div class="form-row">
-              <label>Chapter title</label>
-              <input v-model="chapterDraft.title">
+              <label for="chapter-title" class="row gap-2"><app-icon name="pencil" :size="13"/> Chapter title</label>
+              <input id="chapter-title" v-model="chapterDraft.title">
               <p class="hint">Renaming rewrites the outline. Page content stays attached to its own title.</p>
             </div>
             <div class="form-row">
-              <label>Chapter goal</label>
-              <textarea v-model="chapterDraft.description" rows="4"></textarea>
+              <label for="chapter-goal" class="row gap-2"><app-icon name="target" :size="13"/> Chapter goal</label>
+              <textarea id="chapter-goal" v-model="chapterDraft.description" rows="4"></textarea>
               <p class="hint">Sent to the AI with every page of this chapter, and published as the chapter description.</p>
             </div>
 
             <div class="card">
-              <div class="card__head"><span class="card__title grow">Pages</span>
+              <div class="card__head">
+                <span class="tile tile--sm none"><app-icon name="file-text" :size="14"/></span>
+                <span class="card__title grow">Pages</span>
                 <span class="badge">{{ selectedChapter.pages.length }}</span></div>
               <div class="card__body col" style="gap:2px">
                 <button v-for="page in selectedChapter.pages" :key="page.id" class="tree__page"
@@ -834,7 +841,7 @@ export const ContentTab = {
              reach on a phone. -->
         <template v-else>
           <div class="pane__head">
-            <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show the outline"
+            <button class="btn btn--ghost btn--sm btn--icon none outline-toggle" title="Show the outline" aria-label="Show the outline"
                     @click="outlineOpen = true"><app-icon name="menu" :size="15"/></button>
             <span class="eyebrow grow">Content</span>
           </div>
@@ -867,12 +874,13 @@ export const ContentTab = {
       <!-- ============================================== inspector ======= -->
       <aside class="pane pane--right" :class="{ 'is-open': inspectorOpen }">
         <div class="pane__head">
-          <div class="btn-group grow">
-            <button v-for="tab in ['details','tags','context']" :key="tab"
-                    :class="{ 'is-active': inspectorTab === tab }" @click="inspectorTab = tab"
-                    style="flex:1">{{ tab }}</button>
+          <div class="btn-group grow" role="tablist" aria-label="Inspector">
+            <button v-for="tab in [['details','list-check'],['tags','tag'],['context','pen']]" :key="tab[0]"
+                    role="tab" :aria-selected="inspectorTab === tab[0]"
+                    :class="{ 'is-active': inspectorTab === tab[0] }" @click="inspectorTab = tab[0]"
+                    style="flex:1"><app-icon :name="tab[1]" :size="12"/>{{ tab[0] }}</button>
           </div>
-          <button class="btn btn--ghost btn--sm btn--icon none drawer-toggle" title="Close"
+          <button class="btn btn--ghost btn--sm btn--icon none drawer-toggle" title="Close" aria-label="Close the inspector"
                   @click="inspectorOpen = false"><app-icon name="x" :size="14"/></button>
         </div>
 
@@ -917,15 +925,15 @@ export const ContentTab = {
             <div v-else class="col gap-5">
               <template v-if="selection.type === 'page'">
                 <div class="form-row">
-                  <label>Extra context for this page</label>
-                  <textarea v-model="draft.extra_context" rows="6" class="mono" spellcheck="false"
+                  <label for="page-context" class="row gap-2"><app-icon name="pen" :size="13"/> Extra context for this page</label>
+                  <textarea id="page-context" v-model="draft.extra_context" rows="6" class="mono" spellcheck="false"
                             placeholder="Facts, snippets or requirements the AI must respect on this page."></textarea>
                   <p class="hint">Outranks the model's own assumptions. Saved with the page.</p>
                 </div>
 
                 <div class="form-row">
-                  <label>Feedback for a rewrite</label>
-                  <textarea v-model="pageFeedback" rows="4"
+                  <label for="page-feedback" class="row gap-2"><app-icon name="sparkles" :size="13"/> Feedback for a rewrite</label>
+                  <textarea id="page-feedback" v-model="pageFeedback" rows="4"
                             placeholder="More examples, shorter intro, focus on PhpStorm…"></textarea>
                   <button class="btn btn--primary btn--block mt-2" :disabled="gen.running || regenerating"
                           @click="regeneratePage">
@@ -938,7 +946,7 @@ export const ContentTab = {
                 <div class="divider"></div>
 
                 <div class="col gap-2">
-                  <span class="eyebrow">Punctuation</span>
+                  <span class="eyebrow row gap-2"><app-icon name="quote" :size="12"/> Punctuation</span>
                   <button class="btn btn--block" :disabled="busy || dirty || !selectedPage.has_content"
                           @click="typesetPage">
                     <app-icon name="quote" :size="14"/> Correct this page
@@ -953,7 +961,7 @@ export const ContentTab = {
                 <div class="divider"></div>
 
                 <div class="col gap-2">
-                  <span class="eyebrow">Publish</span>
+                  <span class="eyebrow row gap-2"><app-icon name="upload" :size="12"/> Publish</span>
                   <button class="btn btn--block" :disabled="!selectedPage.has_content" @click="pushPage">
                     <app-icon name="upload" :size="14"/> Publish just this page
                   </button>
@@ -968,7 +976,7 @@ export const ContentTab = {
             </div>
           </template>
 
-          <empty-state v-else icon="sliders" title="Nothing selected"
+          <empty-state v-else icon="list-check" title="Nothing selected"
                        hint="Details, tags and context appear once you pick a page or a chapter."/>
         </div>
       </aside>

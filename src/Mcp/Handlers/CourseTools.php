@@ -340,7 +340,7 @@ final class CourseTools
             'book_title' => $tree['book_title'],
             'book_description' => $tree['book_desc'],
             'stats' => $tree['stats'],
-            'details' => Details::resolve(Details::decode((string)$project['settings'])),
+            'details' => Details::resolve(...Projects::chain($project)),
             'chapters' => $chapters,
         ];
 
@@ -462,7 +462,7 @@ final class CourseTools
             'course_id' => (int)$project['id'],
             'name' => (string)$project['name'],
             'profile_id' => $profileId,
-            'web_research' => (bool)(Details::resolve(Projects::settings($project))['features']['web_research'] ?? false),
+            'web_research' => (bool)(Details::resolve(...Projects::chain($project))['features']['web_research'] ?? false),
             'research' => $research === true
                 ? 'Web research is on for this course. Call get_research_brief to be handed the assignment for the '
                     . 'subject, search the web with your own tools, and send the findings to store_research. That is '

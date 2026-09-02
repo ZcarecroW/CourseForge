@@ -62,13 +62,28 @@
 
 .setting-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
-  gap: var(--s-2) var(--s-5);
+  grid-template-columns: 30px minmax(0, 1fr) minmax(0, 300px);
+  gap: var(--s-2) var(--s-4);
   align-items: start;
   padding: var(--s-4);
   border-bottom: 1px solid var(--border-soft);
 }
 .setting-row:last-child { border-bottom: 0; }
+
+/* The glyph that says what kind of setting this is, on the same tile the
+   Details tab draws a content element on - so the two screens are read as one
+   kind of list. It takes the accent when the installation has moved the
+   setting off what the release ships. */
+.setting-row__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
+  color: var(--text-dim);
+}
+.setting-row.is-changed .setting-row__icon { background: var(--accent-soft); color: var(--accent); }
 
 .setting-row__text { min-width: 0; }
 .setting-row__label { font-size: var(--t-sm); font-weight: 550; }
@@ -108,7 +123,62 @@
 }
 
 @media (max-width: 860px) {
-  .setting-row { grid-template-columns: minmax(0, 1fr); }
+  .setting-row { grid-template-columns: 30px minmax(0, 1fr); }
+  .setting-row__control { grid-column: 2; }
+}
+
+/* -- the index down the side of the Settings screen ---------------------------
+   Nine groups and a hundred fields is a long page; the index says what is on
+   it and takes you there. It follows the scroll, marks the group on screen,
+   and carries the count of settings this installation has changed in each -
+   so an inherited installation can be surveyed without reading a single row.
+   Below 1280px it folds into a row of chips above the groups. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: var(--s-6);
+  align-items: start;
+}
+.settings-nav {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--speed) var(--ease), color var(--speed) var(--ease);
+}
+.settings-nav__item > .icon { color: var(--text-dim); }
+.settings-nav__item:hover { background: var(--surface-hover); color: var(--text); }
+.settings-nav__item.is-active { background: var(--accent-soft); color: var(--accent); }
+.settings-nav__item.is-active > .icon { color: currentColor; }
+.settings-nav__item > .badge { margin-left: auto; }
+.settings-nav__foot { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--border-soft); }
+
+/* Each group is a jump target, and the header must not be hidden under the
+   top of the scroller when it is jumped to. */
+.setting-group { scroll-margin-top: var(--s-4); }
+
+@media (max-width: 1279px) {
+  .settings-layout { grid-template-columns: minmax(0, 1fr); }
+  .settings-nav { position: static; flex-direction: row; flex-wrap: wrap; gap: var(--s-1); }
+  .settings-nav__item { width: auto; padding: 5px 10px; border: 1px solid var(--border); background: var(--surface); font-size: var(--t-xs); }
+  .settings-nav__item > .badge { margin-left: 4px; }
+  .settings-nav__foot { display: none; }
 }
 
 /* -- the danger zone --------------------------------------------------------

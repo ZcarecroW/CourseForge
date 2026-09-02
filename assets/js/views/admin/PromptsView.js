@@ -155,11 +155,13 @@ export const PromptsView = {
     };
   },
   template: `
-    <view-header title="Prompts" icon="file-text">
+    <view-header title="Prompts" icon="file-text" subtitle="The words this installation sends to the model, slot by slot">
       <template #actions>
         <span v-if="customCount" class="badge badge--accent hide-sm">{{ customCount }} of {{ slotCount }} changed</span>
         <span v-if="dirtyCount" class="badge badge--warning">{{ plural(dirtyCount, 'unsaved edit') }}</span>
-        <button v-if="dirtyCount" class="btn btn--ghost btn--sm" @click="discard">Discard</button>
+        <button v-if="dirtyCount" class="btn btn--ghost btn--sm" @click="discard">
+          <app-icon name="undo" :size="12"/> Discard
+        </button>
         <button class="btn btn--ghost btn--icon hide-sm" title="Reload from the server"
                 aria-label="Reload the prompts from the server" @click="load">
           <app-icon name="refresh" :size="15"/>
@@ -204,7 +206,7 @@ export const PromptsView = {
         <span v-else-if="differs(item)" class="badge badge--accent none">changed</span>
         <span v-else class="badge none hide-sm">as shipped</span>
         <button class="btn btn--sm none" :disabled="!differs(item)" @click="resetSlot(item)">
-          <app-icon name="inherit" :size="13"/> Reset this slot
+          <app-icon name="undo" :size="13"/> Reset this slot
         </button>
       </template>
 

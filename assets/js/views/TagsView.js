@@ -103,10 +103,10 @@ export const TagsView = {
     };
   },
   template: `
-    <view-header title="Tags" icon="tag">
+    <view-header title="Tags" icon="tag" subtitle="The tags a course carries into BookStack, and where each one is used">
       <template #actions>
         <span class="badge hide-sm">{{ plural(state.tags.length, 'tag') }}</span>
-        <button class="btn btn--ghost btn--icon" title="Reload" @click="loadTags">
+        <button class="btn btn--ghost btn--icon" title="Reload" aria-label="Reload the tags" @click="loadTags">
           <app-icon name="refresh" :size="15"/>
         </button>
       </template>
@@ -115,8 +115,14 @@ export const TagsView = {
     <div class="view-scroll">
       <div class="view-pad container-narrow">
         <div class="card mb-4">
+          <div class="card__head">
+            <span class="tile tile--accent"><app-icon name="plus" :size="17"/></span>
+            <div class="card__heading">
+              <span class="card__title">New tag</span>
+              <span class="card__desc">A name, and optionally the value BookStack shows beside it.</span>
+            </div>
+          </div>
           <div class="card__body">
-            <p class="eyebrow mb-3">New tag</p>
             <div class="row wrap gap-3 items-end">
               <div class="form-row grow" style="min-width:200px">
                 <label for="tag-name">Name</label>
@@ -134,14 +140,13 @@ export const TagsView = {
         </div>
 
         <div class="row wrap gap-3 mb-3" v-if="state.tags.length">
-          <div class="grow" style="max-width:360px;position:relative">
-            <app-icon name="search" :size="14"
-                      style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-faint)"/>
-            <input v-model="search" placeholder="Search name or value…" style="padding-left:30px" spellcheck="false">
+          <div class="input-icon grow" style="max-width:360px">
+            <app-icon name="search" :size="14"/>
+            <input v-model="search" placeholder="Search name or value…" spellcheck="false" aria-label="Search tags">
           </div>
           <div class="row gap-2 push none">
-            <span class="t-xs dim">Per page</span>
-            <select v-model.number="perPage" style="width:auto">
+            <label for="tags-per-page" class="t-xs dim">Per page</label>
+            <select id="tags-per-page" v-model.number="perPage" style="width:auto">
               <option :value="25">25</option>
               <option :value="50">50</option>
               <option :value="100">100</option>
@@ -184,11 +189,12 @@ export const TagsView = {
                     <td class="t-xs dim">{{ formatDate(tag.updated_at) }}</td>
                     <td>
                       <div class="row gap-1 end">
-                        <button class="btn btn--ghost btn--sm btn--icon" title="Edit" @click="startEdit(tag)">
+                        <button class="btn btn--ghost btn--sm btn--icon" title="Edit" :aria-label="'Edit ' + tag.name"
+                                @click="startEdit(tag)">
                           <app-icon name="pencil" :size="13"/>
                         </button>
-                        <button class="btn btn--ghost btn--sm btn--icon" title="Delete" :disabled="busy"
-                                @click="confirmDelete = tag">
+                        <button class="btn btn--ghost btn--sm btn--icon" title="Delete" :aria-label="'Delete ' + tag.name"
+                                :disabled="busy" @click="confirmDelete = tag">
                           <app-icon name="trash" :size="13"/>
                         </button>
                       </div>
@@ -207,16 +213,16 @@ export const TagsView = {
         <div v-if="pageCount > 1" class="row between mt-3 t-xs dim">
           <span>{{ plural(sorted.length, 'tag') }} · page {{ page }} of {{ pageCount }}</span>
           <div class="row gap-1">
-            <button class="btn btn--sm btn--icon" :disabled="page === 1" @click="page = 1">
+            <button class="btn btn--sm btn--icon" :disabled="page === 1" @click="page = 1" aria-label="First page">
               <app-icon name="chevrons-left" :size="13"/>
             </button>
-            <button class="btn btn--sm btn--icon" :disabled="page === 1" @click="page--">
+            <button class="btn btn--sm btn--icon" :disabled="page === 1" @click="page--" aria-label="Previous page">
               <app-icon name="chevron-left" :size="13"/>
             </button>
-            <button class="btn btn--sm btn--icon" :disabled="page === pageCount" @click="page++">
+            <button class="btn btn--sm btn--icon" :disabled="page === pageCount" @click="page++" aria-label="Next page">
               <app-icon name="chevron-right" :size="13"/>
             </button>
-            <button class="btn btn--sm btn--icon" :disabled="page === pageCount" @click="page = pageCount">
+            <button class="btn btn--sm btn--icon" :disabled="page === pageCount" @click="page = pageCount" aria-label="Last page">
               <app-icon name="chevrons-right" :size="13"/>
             </button>
           </div>
