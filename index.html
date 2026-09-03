@@ -8,7 +8,7 @@
        soon as the first request answers, and keeps it in step after that. -->
   <title>CourseForge</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <meta name="cf-assets" content="5.1.0">
+  <meta name="cf-assets" content="5.2.0">
 
   <!-- Resolve the theme before the first paint so there is never a light flash. -->
   <script>
@@ -19,13 +19,14 @@
     })();
   </script>
 
-  <link rel="stylesheet" href="assets/css/tokens.css?v=5.1.0">
-  <link rel="stylesheet" href="assets/css/base.css?v=5.1.0">
-  <link rel="stylesheet" href="assets/css/layout.css?v=5.1.0">
-  <link rel="stylesheet" href="assets/css/components.css?v=5.1.0">
-  <link rel="stylesheet" href="assets/css/admin.css?v=5.1.0">
-  <link rel="stylesheet" href="assets/css/prose.css?v=5.1.0">
-  <link rel="stylesheet" href="assets/css/editor.css?v=5.1.0">
+  <link rel="stylesheet" href="assets/css/tokens.css?v=5.2.0">
+  <link rel="stylesheet" href="assets/css/base.css?v=5.2.0">
+  <link rel="stylesheet" href="assets/css/layout.css?v=5.2.0">
+  <link rel="stylesheet" href="assets/css/components.css?v=5.2.0">
+  <link rel="stylesheet" href="assets/css/admin.css?v=5.2.0">
+  <link rel="stylesheet" href="assets/css/prose.css?v=5.2.0">
+  <link rel="stylesheet" href="assets/css/editor.css?v=5.2.0">
+  <link rel="stylesheet" href="assets/css/tour.css?v=5.2.0">
 
   <!--
     Buildless module resolution. Every dependency is vendored under
@@ -36,96 +37,101 @@
   <script type="importmap">
     {
         "imports": {
-            "vue": "./assets/vendor/vue.esm-browser.prod.js?v=5.1.0",
-            "marked": "./assets/vendor/marked.esm.js?v=5.1.0",
-            "dompurify": "./assets/vendor/purify.es.mjs?v=5.1.0",
-            "fuse": "./assets/vendor/fuse.mjs?v=5.1.0",
-            "shiki": "./assets/vendor/shiki/core.js?v=5.1.0",
-            "shiki/engine": "./assets/vendor/shiki/engine-javascript.js?v=5.1.0",
-            "@codemirror/state": "./assets/vendor/codemirror/state.js?v=5.1.0",
-            "@codemirror/view": "./assets/vendor/codemirror/view.js?v=5.1.0",
-            "@codemirror/language": "./assets/vendor/codemirror/language.js?v=5.1.0",
-            "@codemirror/commands": "./assets/vendor/codemirror/commands.js?v=5.1.0",
-            "@codemirror/search": "./assets/vendor/codemirror/search.js?v=5.1.0",
-            "@codemirror/autocomplete": "./assets/vendor/codemirror/autocomplete.js?v=5.1.0",
-            "@codemirror/lang-markdown": "./assets/vendor/codemirror/lang-markdown.js?v=5.1.0",
-            "@codemirror/lang-html": "./assets/vendor/codemirror/lang-html.js?v=5.1.0",
-            "@codemirror/lang-css": "./assets/vendor/codemirror/lang-css.js?v=5.1.0",
-            "@codemirror/lang-javascript": "./assets/vendor/codemirror/lang-javascript.js?v=5.1.0",
-            "@codemirror/lang-php": "./assets/vendor/codemirror/lang-php.js?v=5.1.0",
-            "@lezer/common": "./assets/vendor/codemirror/lezer-common.js?v=5.1.0",
-            "@lezer/highlight": "./assets/vendor/codemirror/lezer-highlight.js?v=5.1.0",
-            "@lezer/lr": "./assets/vendor/codemirror/lezer-lr.js?v=5.1.0",
-            "@lezer/markdown": "./assets/vendor/codemirror/lezer-markdown.js?v=5.1.0",
-            "@lezer/html": "./assets/vendor/codemirror/lezer-html.js?v=5.1.0",
-            "@lezer/css": "./assets/vendor/codemirror/lezer-css.js?v=5.1.0",
-            "@lezer/javascript": "./assets/vendor/codemirror/lezer-javascript.js?v=5.1.0",
-            "@lezer/php": "./assets/vendor/codemirror/lezer-php.js?v=5.1.0",
-            "@marijn/find-cluster-break": "./assets/vendor/codemirror/find-cluster-break.js?v=5.1.0",
-            "style-mod": "./assets/vendor/codemirror/style-mod.js?v=5.1.0",
-            "w3c-keyname": "./assets/vendor/codemirror/w3c-keyname.js?v=5.1.0",
-            "crelt": "./assets/vendor/codemirror/crelt.js?v=5.1.0",
-            "@/App.js": "./assets/js/App.js?v=5.1.0",
-            "@/components/AppIcon.js": "./assets/js/components/AppIcon.js?v=5.1.0",
-            "@/components/AppModal.js": "./assets/js/components/AppModal.js?v=5.1.0",
-            "@/components/AppSwitch.js": "./assets/js/components/AppSwitch.js?v=5.1.0",
-            "@/components/BaselineEditor.js": "./assets/js/components/BaselineEditor.js?v=5.1.0",
-            "@/components/ComboBox.js": "./assets/js/components/ComboBox.js?v=5.1.0",
-            "@/components/DetailEditor.js": "./assets/js/components/DetailEditor.js?v=5.1.0",
-            "@/components/EmptyState.js": "./assets/js/components/EmptyState.js?v=5.1.0",
-            "@/components/MarkdownBlock.js": "./assets/js/components/MarkdownBlock.js?v=5.1.0",
-            "@/components/MarkdownEditor.js": "./assets/js/components/MarkdownEditor.js?v=5.1.0",
-            "@/components/MarkdownPreview.js": "./assets/js/components/MarkdownPreview.js?v=5.1.0",
-            "@/components/OutlinePreview.js": "./assets/js/components/OutlinePreview.js?v=5.1.0",
-            "@/components/PromptWorkbench.js": "./assets/js/components/PromptWorkbench.js?v=5.1.0",
-            "@/components/TagPicker.js": "./assets/js/components/TagPicker.js?v=5.1.0",
-            "@/components/TriToggle.js": "./assets/js/components/TriToggle.js?v=5.1.0",
-            "@/components/ViewHeader.js": "./assets/js/components/ViewHeader.js?v=5.1.0",
-            "@/core/anchors.js": "./assets/js/core/anchors.js?v=5.1.0",
-            "@/core/api.js": "./assets/js/core/api.js?v=5.1.0",
-            "@/core/assets.js": "./assets/js/core/assets.js?v=5.1.0",
-            "@/core/codeview.js": "./assets/js/core/codeview.js?v=5.1.0",
-            "@/core/detect.js": "./assets/js/core/detect.js?v=5.1.0",
-            "@/core/diagrams.js": "./assets/js/core/diagrams.js?v=5.1.0",
-            "@/core/enhance.js": "./assets/js/core/enhance.js?v=5.1.0",
-            "@/core/format.js": "./assets/js/core/format.js?v=5.1.0",
-            "@/core/fuzzy.js": "./assets/js/core/fuzzy.js?v=5.1.0",
-            "@/core/highlight.js": "./assets/js/core/highlight.js?v=5.1.0",
-            "@/core/languages.js": "./assets/js/core/languages.js?v=5.1.0",
-            "@/core/markdown.js": "./assets/js/core/markdown.js?v=5.1.0",
-            "@/core/math.js": "./assets/js/core/math.js?v=5.1.0",
-            "@/core/mcpclients.js": "./assets/js/core/mcpclients.js?v=5.1.0",
-            "@/core/outline.js": "./assets/js/core/outline.js?v=5.1.0",
-            "@/core/scrollsync.js": "./assets/js/core/scrollsync.js?v=5.1.0",
-            "@/core/store.js": "./assets/js/core/store.js?v=5.1.0",
-            "@/core/theme.js": "./assets/js/core/theme.js?v=5.1.0",
-            "@/core/toast.js": "./assets/js/core/toast.js?v=5.1.0",
-            "@/main.js": "./assets/js/main.js?v=5.1.0",
-            "@/views/BookStackDevView.js": "./assets/js/views/BookStackDevView.js?v=5.1.0",
-            "@/views/ConnectView.js": "./assets/js/views/ConnectView.js?v=5.1.0",
-            "@/views/LoginView.js": "./assets/js/views/LoginView.js?v=5.1.0",
-            "@/views/ProfilesView.js": "./assets/js/views/ProfilesView.js?v=5.1.0",
-            "@/views/ProjectView.js": "./assets/js/views/ProjectView.js?v=5.1.0",
-            "@/views/ProjectsView.js": "./assets/js/views/ProjectsView.js?v=5.1.0",
-            "@/views/SetupView.js": "./assets/js/views/SetupView.js?v=5.1.0",
-            "@/views/TagsView.js": "./assets/js/views/TagsView.js?v=5.1.0",
-            "@/views/admin/PromptsView.js": "./assets/js/views/admin/PromptsView.js?v=5.1.0",
-            "@/views/admin/SettingsView.js": "./assets/js/views/admin/SettingsView.js?v=5.1.0",
-            "@/views/admin/UpdatesView.js": "./assets/js/views/admin/UpdatesView.js?v=5.1.0",
-            "@/views/admin/UsersView.js": "./assets/js/views/admin/UsersView.js?v=5.1.0",
-            "@/views/project/ContentTab.js": "./assets/js/views/project/ContentTab.js?v=5.1.0",
-            "@/views/project/DetailsTab.js": "./assets/js/views/project/DetailsTab.js?v=5.1.0",
-            "@/views/project/PublishTab.js": "./assets/js/views/project/PublishTab.js?v=5.1.0",
-            "@/views/project/SettingsTab.js": "./assets/js/views/project/SettingsTab.js?v=5.1.0",
-            "@/views/project/StructureTab.js": "./assets/js/views/project/StructureTab.js?v=5.1.0",
-            "@/views/project/actions.js": "./assets/js/views/project/actions.js?v=5.1.0",
-            "@/views/project/runs.js": "./assets/js/views/project/runs.js?v=5.1.0",
+            "vue": "./assets/vendor/vue.esm-browser.prod.js?v=5.2.0",
+            "marked": "./assets/vendor/marked.esm.js?v=5.2.0",
+            "dompurify": "./assets/vendor/purify.es.mjs?v=5.2.0",
+            "fuse": "./assets/vendor/fuse.mjs?v=5.2.0",
+            "shiki": "./assets/vendor/shiki/core.js?v=5.2.0",
+            "shiki/engine": "./assets/vendor/shiki/engine-javascript.js?v=5.2.0",
+            "@codemirror/state": "./assets/vendor/codemirror/state.js?v=5.2.0",
+            "@codemirror/view": "./assets/vendor/codemirror/view.js?v=5.2.0",
+            "@codemirror/language": "./assets/vendor/codemirror/language.js?v=5.2.0",
+            "@codemirror/commands": "./assets/vendor/codemirror/commands.js?v=5.2.0",
+            "@codemirror/search": "./assets/vendor/codemirror/search.js?v=5.2.0",
+            "@codemirror/autocomplete": "./assets/vendor/codemirror/autocomplete.js?v=5.2.0",
+            "@codemirror/lang-markdown": "./assets/vendor/codemirror/lang-markdown.js?v=5.2.0",
+            "@codemirror/lang-html": "./assets/vendor/codemirror/lang-html.js?v=5.2.0",
+            "@codemirror/lang-css": "./assets/vendor/codemirror/lang-css.js?v=5.2.0",
+            "@codemirror/lang-javascript": "./assets/vendor/codemirror/lang-javascript.js?v=5.2.0",
+            "@codemirror/lang-php": "./assets/vendor/codemirror/lang-php.js?v=5.2.0",
+            "@lezer/common": "./assets/vendor/codemirror/lezer-common.js?v=5.2.0",
+            "@lezer/highlight": "./assets/vendor/codemirror/lezer-highlight.js?v=5.2.0",
+            "@lezer/lr": "./assets/vendor/codemirror/lezer-lr.js?v=5.2.0",
+            "@lezer/markdown": "./assets/vendor/codemirror/lezer-markdown.js?v=5.2.0",
+            "@lezer/html": "./assets/vendor/codemirror/lezer-html.js?v=5.2.0",
+            "@lezer/css": "./assets/vendor/codemirror/lezer-css.js?v=5.2.0",
+            "@lezer/javascript": "./assets/vendor/codemirror/lezer-javascript.js?v=5.2.0",
+            "@lezer/php": "./assets/vendor/codemirror/lezer-php.js?v=5.2.0",
+            "@marijn/find-cluster-break": "./assets/vendor/codemirror/find-cluster-break.js?v=5.2.0",
+            "style-mod": "./assets/vendor/codemirror/style-mod.js?v=5.2.0",
+            "w3c-keyname": "./assets/vendor/codemirror/w3c-keyname.js?v=5.2.0",
+            "crelt": "./assets/vendor/codemirror/crelt.js?v=5.2.0",
+            "@/App.js": "./assets/js/App.js?v=5.2.0",
+            "@/components/AppIcon.js": "./assets/js/components/AppIcon.js?v=5.2.0",
+            "@/components/AppModal.js": "./assets/js/components/AppModal.js?v=5.2.0",
+            "@/components/AppSwitch.js": "./assets/js/components/AppSwitch.js?v=5.2.0",
+            "@/components/AppTour.js": "./assets/js/components/AppTour.js?v=5.2.0",
+            "@/components/BaselineEditor.js": "./assets/js/components/BaselineEditor.js?v=5.2.0",
+            "@/components/ComboBox.js": "./assets/js/components/ComboBox.js?v=5.2.0",
+            "@/components/DetailEditor.js": "./assets/js/components/DetailEditor.js?v=5.2.0",
+            "@/components/EmptyState.js": "./assets/js/components/EmptyState.js?v=5.2.0",
+            "@/components/MarkdownBlock.js": "./assets/js/components/MarkdownBlock.js?v=5.2.0",
+            "@/components/MarkdownEditor.js": "./assets/js/components/MarkdownEditor.js?v=5.2.0",
+            "@/components/MarkdownPreview.js": "./assets/js/components/MarkdownPreview.js?v=5.2.0",
+            "@/components/OutlinePreview.js": "./assets/js/components/OutlinePreview.js?v=5.2.0",
+            "@/components/PromptWorkbench.js": "./assets/js/components/PromptWorkbench.js?v=5.2.0",
+            "@/components/SecretLock.js": "./assets/js/components/SecretLock.js?v=5.2.0",
+            "@/components/TagPicker.js": "./assets/js/components/TagPicker.js?v=5.2.0",
+            "@/components/TriToggle.js": "./assets/js/components/TriToggle.js?v=5.2.0",
+            "@/components/ViewHeader.js": "./assets/js/components/ViewHeader.js?v=5.2.0",
+            "@/core/anchors.js": "./assets/js/core/anchors.js?v=5.2.0",
+            "@/core/api.js": "./assets/js/core/api.js?v=5.2.0",
+            "@/core/assets.js": "./assets/js/core/assets.js?v=5.2.0",
+            "@/core/codeview.js": "./assets/js/core/codeview.js?v=5.2.0",
+            "@/core/detect.js": "./assets/js/core/detect.js?v=5.2.0",
+            "@/core/diagrams.js": "./assets/js/core/diagrams.js?v=5.2.0",
+            "@/core/enhance.js": "./assets/js/core/enhance.js?v=5.2.0",
+            "@/core/format.js": "./assets/js/core/format.js?v=5.2.0",
+            "@/core/fuzzy.js": "./assets/js/core/fuzzy.js?v=5.2.0",
+            "@/core/highlight.js": "./assets/js/core/highlight.js?v=5.2.0",
+            "@/core/languages.js": "./assets/js/core/languages.js?v=5.2.0",
+            "@/core/markdown.js": "./assets/js/core/markdown.js?v=5.2.0",
+            "@/core/math.js": "./assets/js/core/math.js?v=5.2.0",
+            "@/core/mcpclients.js": "./assets/js/core/mcpclients.js?v=5.2.0",
+            "@/core/outline.js": "./assets/js/core/outline.js?v=5.2.0",
+            "@/core/scrollsync.js": "./assets/js/core/scrollsync.js?v=5.2.0",
+            "@/core/store.js": "./assets/js/core/store.js?v=5.2.0",
+            "@/core/theme.js": "./assets/js/core/theme.js?v=5.2.0",
+            "@/core/toast.js": "./assets/js/core/toast.js?v=5.2.0",
+            "@/core/tour.js": "./assets/js/core/tour.js?v=5.2.0",
+            "@/main.js": "./assets/js/main.js?v=5.2.0",
+            "@/views/BookStackDevView.js": "./assets/js/views/BookStackDevView.js?v=5.2.0",
+            "@/views/ConnectView.js": "./assets/js/views/ConnectView.js?v=5.2.0",
+            "@/views/LoginView.js": "./assets/js/views/LoginView.js?v=5.2.0",
+            "@/views/ProfilesView.js": "./assets/js/views/ProfilesView.js?v=5.2.0",
+            "@/views/ProjectView.js": "./assets/js/views/ProjectView.js?v=5.2.0",
+            "@/views/ProjectsView.js": "./assets/js/views/ProjectsView.js?v=5.2.0",
+            "@/views/SetupView.js": "./assets/js/views/SetupView.js?v=5.2.0",
+            "@/views/TagsView.js": "./assets/js/views/TagsView.js?v=5.2.0",
+            "@/views/admin/PromptsView.js": "./assets/js/views/admin/PromptsView.js?v=5.2.0",
+            "@/views/admin/SecurityView.js": "./assets/js/views/admin/SecurityView.js?v=5.2.0",
+            "@/views/admin/SettingsView.js": "./assets/js/views/admin/SettingsView.js?v=5.2.0",
+            "@/views/admin/UpdatesView.js": "./assets/js/views/admin/UpdatesView.js?v=5.2.0",
+            "@/views/admin/UsersView.js": "./assets/js/views/admin/UsersView.js?v=5.2.0",
+            "@/views/project/ContentTab.js": "./assets/js/views/project/ContentTab.js?v=5.2.0",
+            "@/views/project/DetailsTab.js": "./assets/js/views/project/DetailsTab.js?v=5.2.0",
+            "@/views/project/PublishTab.js": "./assets/js/views/project/PublishTab.js?v=5.2.0",
+            "@/views/project/SettingsTab.js": "./assets/js/views/project/SettingsTab.js?v=5.2.0",
+            "@/views/project/StructureTab.js": "./assets/js/views/project/StructureTab.js?v=5.2.0",
+            "@/views/project/actions.js": "./assets/js/views/project/actions.js?v=5.2.0",
+            "@/views/project/runs.js": "./assets/js/views/project/runs.js?v=5.2.0",
+            "@/views/project/tasks.js": "./assets/js/views/project/tasks.js?v=5.2.0",
             "@/": "./assets/js/"
         }
     }
   </script>
-  <link rel="modulepreload" href="assets/vendor/vue.esm-browser.prod.js?v=5.1.0">
-  <link rel="modulepreload" href="assets/js/main.js?v=5.1.0">
+  <link rel="modulepreload" href="assets/vendor/vue.esm-browser.prod.js?v=5.2.0">
+  <link rel="modulepreload" href="assets/js/main.js?v=5.2.0">
 </head>
 <body>
 <!-- Vue replaces the contents of #app; #app itself keeps whatever is on it,
@@ -143,6 +149,6 @@
   <div style="padding:2rem;font:16px system-ui">CourseForge needs JavaScript to run.</div>
 </noscript>
 
-<script type="module" src="assets/js/main.js?v=5.1.0"></script>
+<script type="module" src="assets/js/main.js?v=5.2.0"></script>
 </body>
 </html>
