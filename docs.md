@@ -39,15 +39,35 @@ A password needs at least ten characters and must differ from the old one. Your
 by you or by an administrator; a new name means a new account and a transfer.
 
 The sidebar holds the **Workspace** — **Courses**, **Tags**, **Profiles**,
-**Connect** — and, for an administrator, an **Administration** group below it:
-**Accounts**, **Settings**, **Prompts** and **Updates**. Every entry carries its
-glyph, and the same glyph marks the same thing everywhere else in the
-application: the book is always a course, the sliders are always a profile,
-the plug is always a connection. At the foot are the theme control — light,
-dark, or **Auto**, which follows the system and keeps following it — the
-account entry, and sign out. On screens narrower than 1024 px the whole thing
-collapses into a drawer behind the ☰ button. Pressing Tab on a fresh page
-offers a skip link past the navigation.
+**BookStackDev**, **Connect** — and, for an administrator, an **Administration**
+group below it: **Accounts**, **Settings**, **Prompts**, **Updates** and
+**Security**. Every entry carries its glyph, and the same glyph marks the same
+thing everywhere else in the application: the book is always a course, the
+sliders are always a profile, the plug is always a connection. At the foot are
+the **Guided tour** button, the theme control — light, dark, or **Auto**, which
+follows the system and keeps following it — the account entry, and sign out. On
+screens narrower than 1024 px the whole thing collapses into a drawer behind the
+☰ button. Pressing Tab on a fresh page offers a skip link past the navigation.
+
+### The guided tour
+
+The first time an account signs in, a tour starts by itself: a dimmed screen
+with one thing lit up at a time and a card beside it saying what that thing is
+for. It goes through every screen and, for an administrator, every group of
+settings — the workspace, the five tabs of a course, each tab of a profile,
+BookStackDev, Connect, then Accounts, every card of Settings, Prompts, Updates
+and Security — forty-odd steps in all, and a shorter set for a user, who has
+no administration screens. Skip it at any time with *Skip tour* or Escape; the
+arrow keys step through it. It is offered once — the server remembers that it
+was seen, per account — and the **Guided tour** button above the theme switch
+opens it again whenever you like. A step whose subject is not on screen (the
+course tabs on an installation with no course yet) is shown in the middle of
+the window and says so.
+
+Until **Administration › Security** has passed, every field that would store a
+secret is greyed out with a red mark, and a banner at the top of every screen
+says why. [Section 8](#8-installation) explains what is checked and how to pass
+it — or how an administrator accepts the risk in so many words.
 
 ### Step 1 — Create a profile
 
@@ -288,22 +308,54 @@ publishes to A, which is what that field meant when it was the only one there
 was. Anything behind the first destination is left alone, and adding a second one
 is the list here.
 
-Then push **everything** or just the **book metadata**; single chapters and pages
-can be pushed from the Content tab, and each destination has its own **Publish to
-this one only** button. Existing books, chapters and pages are updated in place —
-nothing is ever duplicated. Pages without content are skipped. **Force overwrite**
-re-sends even unchanged items. A live log shows what was created, updated and
-skipped, with the name of the wiki in front of each line when there is more than
-one. A wiki that cannot be reached does not stop the others: its failure is in
-the log and the rest still go out.
+Then push **everything** or just the **book metadata** from the **All
+destinations** card, which speaks for every wiki that is switched on. Existing
+books, chapters and pages are updated in place — nothing is ever duplicated.
+Pages without content are skipped. **Force overwrite** re-sends even unchanged
+items, which is also what repairs a page somebody edited in BookStack by hand.
 
-The counts above the button are folded across the destinations that are switched
-on, which is what makes them worth reading: **published** means published in
-every one of them, and **out of sync** means at least one of them would be
-written to. Adding a second destination to a finished course therefore lights up
-immediately, which is exactly the state it is in.
+**A push is a task.** Pressing the button writes it down and returns; the
+scheduler ([section 8](#8-installation)) works it in slices of one tick each,
+and the tab can be closed — or the laptop shut. A push interrupted half way, by
+a wiki that stopped answering, a host time limit or a process that died, is
+picked up again from the page it stopped at, never from the beginning: every
+item is written to the wiki and recorded before the next is looked at, and the
+task carries its place. Attempts are spaced out — half a minute, then a minute,
+two, five, ten, up to a quarter of an hour — and given up after
+`app.task_max_attempts` (twenty by default); **Retry** on a task that was given
+up on or stopped starts the counter again from where it got to, and **Stop**
+ends one, keeping whatever was already written. One wiki failing does not stop
+the others, and only the failed one is tried again. On an installation whose
+scheduler is not set up, or has stopped calling in, the tab works a queued task
+itself — one bounded slice per request, for as long as it stays open — and says
+so in a yellow strip; setting the scheduler up is what lets a push carry on
+with the tab closed.
 
-This tab also holds **Resolve auto links** — see [section 5](#5-auto-links).
+**The publish log** is the server's. Every line a task says — created, updated,
+skipped, recreated, the link pass, a failure with the wiki's own words — is
+written down as it is said and shown here whenever the tab is opened, grouped
+under its task with who asked, when, which attempt this is and the state of
+each wiki. It is the record of what happened while nobody was watching. *Clear*
+forgets the finished tasks and their lines; the thirty most recent are kept per
+course regardless.
+
+**Each destination has a card of its own.** Its book and shelf, how many pages
+it holds, how many are out of sync, how many written pages it does not hold at
+all, how its cross references resolve — each wiki resolves them against its own
+book — and what last happened to it: published a minute ago, failed and trying
+again, failed and given up, with the reason. *Publish here*, *Book only* and
+*Resolve links here* act on that wiki alone, which is the answer to one wiki
+having been down while the others were fine. The switch in the card's head
+pauses it; the bin removes it, with the dialog described above.
+
+The counts on the **All destinations** card are folded across the destinations
+that are switched on, which is what makes them worth reading: **published
+everywhere** means published in every one of them, and **out of sync
+somewhere** means at least one of them would be written to. Adding a second
+destination to a finished course therefore lights up immediately, which is
+exactly the state it is in.
+
+The card also holds **Resolve auto links** — see [section 5](#5-auto-links).
 
 #### Settings
 
@@ -362,22 +414,25 @@ Six properties are worth knowing before you deploy:
   another; on a first-run installation, where there is no administrator to do
   that with, deleting the open row from the `invites` table and reloading writes
   a fresh code.
-- **One invite is open at a time.** The file holds exactly one code, so issuing
-  a second closes the first — a second open row would be a code nobody can read.
-- **It can be taken back.** **Revoke** closes the open row and deletes the file,
-  and leaves no invite open at all — which is the difference between it and
-  issuing a replacement. The code stops working immediately, wherever it has
-  already been sent; accounts already created with it are not touched.
+- **Only the first-run invite lives in a file.** It is the one invite that has
+  no screen to be shown on. Every invite an administrator issues afterwards is
+  shown exactly once, on the screen that issued it, and written nowhere else —
+  and any number of them may be open at once, each with a **label** saying who
+  it is for. Twenty-five at most.
+- **It can be taken back.** **Revoke** beside an open invite closes it and — for
+  the first-run one — deletes its file. The code stops working immediately,
+  wherever it has already been sent; accounts already created with it are not
+  touched, and the other open invites are left alone.
 - **It is spent on use.** Creating an account takes one of the invite's places.
-  When the last one goes the invite closes and the file is deleted, from the
-  install root and from `data/`; while places remain the file stays, because the
-  plain code is in it and the next person still needs it.
+  When the last one goes the invite closes; the first-run file is deleted at
+  that moment, from the install root and from `data/`, while places remain it
+  stays, because the plain code is in it and the next person still needs it.
 - **An invite may be worth more than one account.** *Good for* on the invite form
   (and `max_uses` on `issue_invite` over MCP) takes a number up to fifty, for
   letting a whole group in with one code. It defaults to one. A code worth ten
-  accounts is worth ten accounts to whoever finds the file, so raise it only for
-  a group you are expecting, and the diagnostics say so while such an invite is
-  open.
+  accounts is worth ten accounts to whoever ends up holding it, so raise it only
+  for a group you are expecting, and the diagnostics say so while such an
+  invite is open.
 - **The door closes for good.** Once any account exists, the setup route reports
   `needs_setup: false` and refuses to create anything. There is no second chance
   to slip in through it.
@@ -404,15 +459,15 @@ two ways, and they differ in who ends up knowing the password:
 | | How it works | Use it when |
 |---|---|---|
 | **Create an account** | You set a password, or leave it blank and CourseForge generates one. Either way it is shown once, on the card that created it, and the account is asked to choose its own at first sign-in. | You are handing somebody an account face to face |
-| **Issue an invite** | A code is written to `INVITE-CODE.txt` again, with a role and an expiry — 48 hours by default, 30 days at most. The holder creates their own account with it. | You would rather not send a password over a chat |
+| **Issue an invite** | A code shown once, with a label, a role, an expiry — 48 hours by default, 30 days at most — and a number of places. The holder creates their own account with it. Several may be open together. | You would rather not send a password over a chat |
 
-An invite that has gone to the wrong address is withdrawn with **Revoke**, next
-to the *An invite is already open* notice. It closes the row and deletes the
-file in one step, so the code is worthless from that moment; issuing a
-replacement would have closed the same row but published a second live code in
-its place, which is the opposite of what is being asked for. The withdrawal is
-recorded in the audit log as `invite.revoke`, with the role it was for and how
-many of its places had already been used.
+The open invites are listed above the form — label, role, places left, expiry,
+who issued it — and each has its own **Revoke**. Revoking closes that one
+invite and leaves the others alone; the code is worthless from that moment.
+The withdrawal is recorded in the audit log as `invite.revoke`, with the label
+and the role it was for and how many of its places had already been used. Over
+MCP, `issue_invite` takes a `label` and `revoke_invite` an `invite_id`;
+`list_users` lists what is open.
 
 An invite grants nothing that reading the server's file system did not already
 grant, which is why an administrator is allowed to issue one at all. It is not,
@@ -2204,7 +2259,7 @@ whose consequences are worth stating in prose.
 |---|---|
 | **General** | The installation's name, the default course language, how many pages the in-tab generator writes at once, the public address, and debug mode |
 | **Course defaults** | What a generated page is made of before any course has said otherwise: every element and every value from [section 3](#3-content-details), one field each. The bottom of the inheritance chain, so changing one moves every course that never disagreed |
-| **Scheduler** | The cron token and how a tick behaves: how long it works for, how many may run side by side, how often a failed page is retried, how long a worker's claim on a page lasts |
+| **Scheduler** | The cron token and how a tick behaves: how long it works for, how many may run side by side, how often a failed page is retried, how long a worker's claim on a page lasts, and how many attempts a publish task gets |
 | **Batch and runs** | How rarely a queued batch is polled, how long finished run records are kept, and the output ceiling used where a provider demands an explicit one |
 | **Updates** | Repository, channel, whether to check and install automatically, at what time, how many backups to keep, and a GitHub token |
 | **MCP** | Whether the endpoint answers at all, the public URL to hand a client, and which browser origins may connect |
@@ -2253,10 +2308,19 @@ origin only when you actually have a browser client, and add the exact origin.
 trace into API responses and into MCP tool errors. Leave it off on anything
 reachable from the internet.
 
+**`app.task_max_attempts`.** How often a publish or a link pass that ran into
+trouble — a wiki that stopped answering, a host time limit — is picked up again
+from where it stopped before it is given up on. Twenty by default, two hundred
+at most; each attempt waits a little longer than the last, up to a quarter of an
+hour, and a task that was given up on can still be retried by hand from the
+Publish tab.
+
 Two settings hold secrets — `app.cron_token` and `updates.github_token` — and
 neither ever travels to a client. The screen is told whether one is stored, not
 what it is, and an empty string on save leaves the stored value alone rather
-than clearing it. Clearing one is an explicit reset.
+than clearing it. Clearing one is an explicit reset. Neither can be *stored*
+while Administration › Security has not passed — the generate button and the
+box are locked, with the red mark that leads to the screen.
 
 ### Setting up the scheduler
 
@@ -2356,13 +2420,52 @@ everything the 2.x catalogue did not know about falls back to the defaults.
 Take a copy of `app.sqlite` first anyway. The migration runs once, guarded by a
 `schema_version` row, and never touches a value you have since edited.
 
+### Administration › Security: the check
+
+CourseForge protects itself with **`.htaccess`**, and a file the server may not
+be reading is not a promise. So since 5.2 the installation asks: it writes a
+small file into the data directory and fetches it — and the database, the deny
+file, the shipped configuration, the invite file while there is one, and a few
+files that merely should not be served — from its own public address over
+HTTP, with a few kilobytes read of each. What comes back is the **verdict** on
+**Administration › Security**:
+
+- **secure** — every file that holds a secret was refused. Keys and tokens may be
+  stored.
+- **exposed** — at least one of them came back. Nothing that would store a secret
+  is allowed to, and anything already stored should be treated as read.
+- **unverified** — the server could not be reached from itself: no public
+  address is known (set `app.public_url`), or the host does not allow a request
+  to its own name. The verdict cannot be taken until it can.
+- **unknown** — nobody has checked yet. The check runs the first time the screen
+  is opened, and the scheduler takes it again every six hours.
+
+Until the verdict is *secure*, every field that would store a secret — API keys
+and BookStack tokens on a profile, the cron and GitHub tokens under Settings —
+is greyed out with a red mark, a banner at the top of every screen says so to
+an administrator, and the API refuses the write whichever door it arrives
+through, MCP included. Nothing already stored stops working: the stored key on
+a profile is kept when the field is saved blank, as always. The mark opens the
+Security screen for an administrator and explains itself to anybody else.
+
+The screen names the server it detected — Apache, LiteSpeed, nginx, Caddy, IIS,
+PHP's own — from the request, with the instructions for it and the
+configuration block to paste, switchable by hand because a proxy can make the
+name wrong; lists each file it asked for and what came back; and repeats the
+one arrangement that is safe on any server, the data directory outside the web
+root. At the bottom, framed in red, an administrator who has verified the
+server by hand — a proxy that will not let it fetch itself, say — can **accept
+the risk**: a six-character code shown on the screen is typed back, the fields
+unlock, and the acceptance is written to the audit log with their name. It can
+be withdrawn, and the lock holds again.
+
 ### Serving it somewhere other than Apache
 
 CourseForge protects itself with **`.htaccess`**. **Nginx, Caddy, IIS and PHP's
 built-in server ignore `.htaccess` entirely.** On those you must reproduce the
 protection yourself, or `data/app.sqlite`, `config/defaults.json`,
 `data/config.json` and — worst of all on a fresh install — `INVITE-CODE.txt` may
-be downloadable.
+be downloadable. The Security screen above tells you whether you have.
 
 That last one is why this section matters more in 4.0 than it did in 3.x. The
 invite code is the key to the first administrator account. On Apache the shipped
@@ -2526,10 +2629,40 @@ need to be public at all.
 The session cookie is `HttpOnly`, `SameSite=Lax`, scoped to the install
 directory rather than the whole host — so two CourseForge instances on one domain
 do not fight over it — and `Secure` whenever HTTPS is detected, including behind
-a proxy that sets `X-Forwarded-Proto`. Every non-GET request requires a CSRF
-token. Every response sends `X-Content-Type-Options: nosniff` and
-`Cache-Control: no-store`, and Apache adds `X-Frame-Options: SAMEORIGIN` and
-`Referrer-Policy: same-origin`.
+a proxy that sets `X-Forwarded-Proto`. Sessions run in strict mode, so an id a
+client made up is never adopted, and the id is renewed on sign-in and on a
+password change. Every non-GET request requires a CSRF token, and a request body
+above sixteen megabytes is refused before it is read. Every response sends
+`X-Content-Type-Options: nosniff` and `Cache-Control: no-store`, and Apache adds
+`X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: same-origin` and a
+`Content-Security-Policy` of `frame-ancestors 'self'; base-uri 'none';
+object-src 'none'; form-action 'self'` — the directives that cost nothing here.
+A `script-src` is deliberately not sent: the import map in `index.html` is
+inline and changes every release, and Vue's runtime compiler needs
+`'unsafe-eval'`; a hash-based policy would break on the first update.
+
+Addresses a profile carries — the AI endpoint, the BookStack base URL — are
+checked before they are stored: `http` or `https` only, a host, no credentials
+in the address, and never the cloud metadata range. A local model server on the
+same machine is allowed, because that is an ordinary case. What the address
+answers is never quoted back: an error names the status and the provider's own
+JSON message, and describes anything else rather than showing it. The shared
+cURL wrapper speaks HTTP and HTTPS and nothing else, follows redirects only to
+HTTPS, and only for BookStack. A blank secret on a saved profile keeps the
+stored one only for the address it was stored against — change the address and
+the key has to be entered again, so a stored key can never be sent somewhere
+new by editing the field beside it.
+
+Sign-in is throttled per account and per address, and so is a password change,
+in the browser and over MCP; a locked account stays reachable from the address
+its owner last signed in from, so five wrong guesses from elsewhere cannot keep
+the owner out of their own desk. The `Host` header is used for the addresses
+CourseForge hands out only when it has the shape of a host, `X-Forwarded-Host`
+never; a proxy that rewrites the host has `app.public_url` and `mcp.public_url`.
+A connection token minted over MCP dies with the connection that minted it and
+never carries a scope its account does not hold. A BookStackDev look may load its
+libraries only from the module CDNs or the installation itself, and the endpoint
+that serves it answers a preflight only for an origin the look allows.
 
 The MCP endpoint has no session and no cookie: a bearer token, an `Origin` check
 that refuses any origin that is neither this host nor listed in
@@ -2644,10 +2777,12 @@ Seven files, chosen because each covers something whose failure mode is silent:
 | `jsonl-chunker.test.php` | That the 200 MB ceiling binds at about 25,000 course prompts rather than at the 50,000-row cap, and that an unsendable row is refused by name |
 | `openrouter-body.test.php` | That the create body serialises as `endpoint`, `model`, `requests`, in that order, because the beta endpoint stream-parses it |
 | `review-fixes.test.php` | The 4.10 review, each finding held down: that stopping a batch keeps the run open until the provider hands over what it finished, that a book is created exactly once however the shelf behaves, that reading the settings never writes them, that a profile with a run under it cannot be deleted, and that a refused course update changes nothing |
+| `tasks.test.php` | Publishing as a task, against a wiki that fails on cue: that a push interrupted half way carries on from the page it stopped at and never creates a page twice, that a slice out of time keeps its place, that one wiki failing does not stop the other and only the failed one is tried again, that a stopped task is taken from its worker at the next renew, that a dead worker's task goes back to the queue, and that the browser can work a slice but never beside the scheduler |
+| `invite-many.test.php` | That several invites open at once each open their own door and only their own, that revoking or spending one leaves the others alone, and that only the first-run invite goes to a file |
+| `hardening.test.php` | The lock on secrets: that no verdict locks, a secure one opens, an exposed one closes, an acknowledgement opens and can be withdrawn, that the confirmation code has to be the one shown and goes stale, and that a profile carrying a key is refused at the domain while the lock holds |
 
-Those are the files worth reading first; the suite has grown to thirty-nine of
-them and three hundred and seventy-nine tests at the time of writing, all
-passing.
+Those are the files worth reading first; the suite has grown to forty-two of
+them and four hundred and seventeen tests at the time of writing, all passing.
 
 `tools/detect-test.mjs` is separate and older: sixty snippets the language
 detector must recognise, twenty-five it must not, and the rule that a fence
@@ -3001,6 +3136,28 @@ course list, the sync badges, the editor's link preview and everything else that
 predates destinations answering correctly without each of them having to learn to
 pick one, and it is what lets an installation roll back to 4.6 with its first
 book intact.
+
+**Tasks.** Since 5.2 the browser does not hold a push open. `Domain\Tasks` is a
+table of work — a publish, a link pass — written down before anything is done;
+`Tasks\Runner` claims one under a lease, `Tasks\PublishJob` works it for the
+budget of one tick, and `TargetPublisher::push()` takes a `PublishBudget` and a
+`state` and hands the state back: which phase it was in, the last chapter and
+page it finished, the link pass's own cursor. A slice that runs out of time is
+put back in the queue with that state; a slice that ends in an exception
+carries the state out with it, wrapped in `PublishFailure`, so the next attempt
+starts at the item that broke. Attempts are counted only for failures and the
+delay between them grows to a quarter of an hour; a lease that runs out with
+the row still running is a dead process, and `Tasks::recover()` hands the task
+back. A course never has two tasks worked at once, because a publish and a
+link pass on the same wiki would write the same pages over each other. Every
+line the publisher says goes through an emitter into `task_log` as it is said,
+with the wiki it belongs to, which is what the Publish tab reads. The
+scheduler works tasks before the generation queue, sharing the tick when both
+have work; `POST projects/{id}/tasks/{taskId}/run` lets the browser work one
+bounded slice itself under the same lease, for the installation with no
+scheduler. The synchronous `push` and `links` routes and the MCP
+`publish_course` tool still run a push to the end inside one request, through
+the same publisher with an unlimited budget.
 
 ### Data
 

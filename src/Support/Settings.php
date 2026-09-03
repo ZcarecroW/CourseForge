@@ -159,6 +159,15 @@ final class Settings
                 'description' => 'How long a page stays claimed by a worker that has stopped answering, before another one may take it.',
                 'default' => 1800, 'min' => 60, 'max' => 7200, 'advanced' => true,
             ],
+            [
+                'key' => 'app.task_max_attempts', 'group' => 'scheduler', 'type' => 'int',
+                'label' => 'Attempts per publish',
+                'description' => 'How often a publish or a link pass that ran into trouble - a wiki that stopped '
+                    . 'answering, a host time limit - is picked up again from where it stopped before it is given up '
+                    . 'on. Each attempt waits a little longer than the last, up to a quarter of an hour, and a task '
+                    . 'that was given up on can still be retried by hand.',
+                'default' => 20, 'min' => 1, 'max' => 200,
+            ],
 
             /* -------------------------------------------------------- batch */
             [
@@ -575,7 +584,8 @@ final class Settings
             throw HttpException::unprocessable($label . ' must be text.');
         }
         $v = trim((string)$value);
-        if ($field['key'] === 'updates.repository' && $v !== '' && preg_match('#^[\w.-]+/[\w.-]+$#', $v) !== 1) {
+        if ($field['key'] === 'updates.repository' && $v !== ''
+            && (preg_match('#^[\w.-]+/[\w.-]+$#', $v) !== 1 || in_array('.', explode('/', $v), true) || in_array('..', explode('/', $v), true))) {
             throw HttpException::unprocessable('A repository is written as owner/name, for instance ZcarecroW/CourseForge.');
         }
         if ($field['key'] === 'updates.timezone' && $v !== '' && !in_array($v, timezone_identifiers_list(), true)) {

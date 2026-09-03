@@ -29,13 +29,14 @@
  * be closed while it happens.
  */
 import { ref, reactive, computed, watch, onMounted } from 'vue';
-import { state, loadProfiles, loadCatalogue, loadBookStackDev, declareUnsaved, paramByKey, go } from '@/core/store.js';
+import { state, loadProfiles, loadCatalogue, loadBookStackDev, declareUnsaved, paramByKey, go, secretsLocked } from '@/core/store.js';
 import { post, put, del } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
 import { clone, uid, plural, relativeTime, LANGUAGES } from '@/core/format.js';
 
 import AppIcon from '@/components/AppIcon.js';
+import SecretLock from '@/components/SecretLock.js';
 import AppModal from '@/components/AppModal.js';
 import ComboBox from '@/components/ComboBox.js';
 import DetailEditor from '@/components/DetailEditor.js';
@@ -184,7 +185,7 @@ const UNKNOWN_PROVIDER = {
 
 export const ProfilesView = {
   name: 'ProfilesView',
-  components: { AppIcon, AppModal, ComboBox, DetailEditor, EmptyState, PromptWorkbench, ViewHeader },
+  components: { AppIcon, AppModal, ComboBox, DetailEditor, EmptyState, PromptWorkbench, SecretLock, ViewHeader },
   setup() {
     const tab = ref('accounts');
     const selectedId = ref(null);
@@ -803,7 +804,7 @@ export const ProfilesView = {
     const batchSuffix = BATCH_SUFFIX;
 
     return {
-      state, tab, draft, selectedId, saving, creating, confirmDelete, listOpen, MODEL_SLOTS, LANGUAGES, TABS,
+      state, tab, draft, selectedId, saving, creating, confirmDelete, listOpen, MODEL_SLOTS, LANGUAGES, TABS, secretsLocked,
       languageToken, batchSuffix, profileDetails, patchProfileDetails, detailCount,
       select, create, reload, save, remove, addBookstack, addAi, aiAccounts, modelList, loadModels,
       setLook, lookName, lookIssues, go,
@@ -877,7 +878,8 @@ export const ProfilesView = {
 
           <nav class="tabbar" role="tablist" aria-label="Profile">
             <button v-for="entry in TABS" :key="entry.key" class="tab" :class="{ 'is-active': tab === entry.key }"
-                    role="tab" :aria-selected="tab === entry.key" :title="entry.hint" @click="tab = entry.key">
+                    role="tab" :aria-selected="tab === entry.key" :title="entry.hint"
+                    :data-tour="'profile-tab-' + entry.key" @click="tab = entry.key">
               <app-icon :name="entry.icon" :size="14"/>{{ entry.label }}
               <span v-if="entry.key === 'prompts' && customCount" class="tab__count">{{ customCount }}</span>
               <span v-else-if="entry.key === 'content' && detailCount" class="tab__count">{{ detailCount }}</span>
@@ -896,7 +898,7 @@ export const ProfilesView = {
           <div v-if="tab === 'accounts'" class="pane__body view-pad">
             <div class="grid grid-2 container">
               <section class="col gap-3">
-                <div class="row gap-3">
+                <div class="row gap-3" data-tour="profile-bookstack">
                   <span class="tile tile--accent"><app-icon name="server" :size="17"/></span>
                   <div class="card__heading">
                     <h3 class="card__title">BookStack instances</h3>
@@ -918,10 +920,17 @@ export const ProfilesView = {
                   </div>
                   <div class="grid grid-2" style="gap:var(--s-2)">
                     <input v-model="instance.token_id" class="mono" placeholder="Token ID" aria-label="Token ID">
-                    <input v-model="instance.token_secret" type="password" class="mono" aria-label="Token secret"
-                           :placeholder="instance.token_secret_set ? '•••••••• stored' : 'Token secret'">
+                    <div class="secret-field" :class="{ 'is-locked': secretsLocked }">
+                      <input v-model="instance.token_secret" type="password" class="mono" aria-label="Token secret"
+                             :disabled="secretsLocked"
+                             :placeholder="secretsLocked ? 'locked - see Security' : (instance.token_secret_set ? '•••••••• stored' : 'Token secret')">
+                      <secret-lock v-if="secretsLocked" what="BookStack token"/>
+                    </div>
                   </div>
-                  <p class="hint">Leave the secret empty to keep the stored one.</p>
+                  <p class="hint">
+                    <template v-if="secretsLocked">A token cannot be stored until the server passes the security check{{ instance.token_secret_set ? '; the stored one keeps working' : '' }}.</template>
+                    <template v-else>Leave the secret empty to keep the stored one.</template>
+                  </p>
                   <div class="form-row">
                     <label class="row gap-2"><app-icon name="palette" :size="12"/> Look</label>
                     <select :value="instance.bookstackdev_id ?? ''" @change="setLook(instance, $event.target.value)"
@@ -942,7 +951,7 @@ export const ProfilesView = {
               </section>
 
               <section class="col gap-3">
-                <div class="row gap-3">
+                <div class="row gap-3" data-tour="profile-ai">
                   <span class="tile tile--magic"><app-icon name="robot" :size="17"/></span>
                   <div class="card__heading">
                     <h3 class="card__title">AI accounts</h3>
@@ -983,10 +992,12 @@ export const ProfilesView = {
                       </p>
                     </div>
                     <div v-if="needsKey(providerFor(account))" class="grid grid-2" style="gap:var(--s-2)">
-                      <div class="input-icon">
+                      <div class="input-icon secret-field" :class="{ 'is-locked': secretsLocked }">
                         <app-icon name="key" :size="13"/>
                         <input v-model="account.api_key" type="password" class="mono" aria-label="API key"
-                               :placeholder="account.api_key_set ? '•••••••• stored' : 'API key'">
+                               :disabled="secretsLocked"
+                               :placeholder="secretsLocked ? 'locked - see Security' : (account.api_key_set ? '•••••••• stored' : 'API key')">
+                        <secret-lock v-if="secretsLocked" what="API key"/>
                       </div>
                       <input v-if="account.kind === 'openai'" v-model="account.organization"
                              class="mono" placeholder="Organization (optional)">

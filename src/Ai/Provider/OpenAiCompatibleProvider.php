@@ -200,7 +200,8 @@ class OpenAiCompatibleProvider extends HttpProvider implements BatchCapable
         $models = self::collectModelIds($rows);
         if ($models === []) {
             throw HttpException::badRequest(
-                'The endpoint answered, but no model ids were found. Raw: ' . Text::snippet($this->modelsRaw)
+                'The endpoint answered with JSON (' . strlen($this->modelsRaw) . ' bytes), but no model ids were '
+                . 'found in it. Check that the base URL points at an OpenAI-compatible API and not at a web page.'
             );
         }
         return $models;
@@ -767,7 +768,9 @@ class OpenAiCompatibleProvider extends HttpProvider implements BatchCapable
         // by a few shims, and a bare array from the smaller local servers.
         $items = $res->data['data'] ?? $res->data['models'] ?? $res->data;
         if (!is_array($items)) {
-            throw HttpException::badRequest('Unexpected model list format: ' . Text::snippet($res->raw));
+            throw HttpException::badRequest(
+                'Unexpected model list format: the answer was JSON, but held neither a "data" nor a "models" list.'
+            );
         }
         return $items;
     }

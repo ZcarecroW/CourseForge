@@ -24,7 +24,7 @@
  * leave the installation in.
  */
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import { state, loadSettings, applySettings, declareUnsaved } from '@/core/store.js';
+import { state, loadSettings, applySettings, declareUnsaved, secretsLocked, go } from '@/core/store.js';
 import { get, put, post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
 import { useFuzzy } from '@/core/fuzzy.js';
@@ -36,6 +36,7 @@ import AppSwitch from '@/components/AppSwitch.js';
 import BaselineEditor from '@/components/BaselineEditor.js';
 import ComboBox from '@/components/ComboBox.js';
 import EmptyState from '@/components/EmptyState.js';
+import SecretLock from '@/components/SecretLock.js';
 import ViewHeader from '@/components/ViewHeader.js';
 
 /** The glyph each group of settings is filed under, in the index and on its card. */
@@ -129,7 +130,7 @@ const STATUS = {
 
 export const SettingsView = {
   name: 'SettingsView',
-  components: { AppIcon, AppModal, AppSwitch, BaselineEditor, ComboBox, EmptyState, ViewHeader },
+  components: { AppIcon, AppModal, AppSwitch, BaselineEditor, ComboBox, EmptyState, SecretLock, ViewHeader },
   setup() {
     const loading = ref(true);
     const saving = ref(false);
@@ -594,7 +595,7 @@ export const SettingsView = {
     };
 
     return {
-      state, loading, saving, busy, draft, load, save, discard,
+      state, loading, saving, busy, draft, load, save, discard, secretsLocked, go,
       groups, fieldsOf, advancedShown, toggleAdvanced, iconFor, settingSearch, searching,
       scroller, activeGroup, INDEX_EXTRAS, sectionId, onScroll, jumpTo,
       isDirty, dirtyCount, overridden, defaultText, hasRange, suggestionsFor, resetField, resetEverything,
@@ -781,14 +782,17 @@ export const SettingsView = {
             </details>
 
             <div class="row wrap gap-2">
-              <button class="btn btn--sm" :disabled="busy" @click="confirmToken = true">
-                <app-icon name="refresh" :size="13"/>
+              <button class="btn btn--sm" :disabled="busy || secretsLocked" @click="confirmToken = true">
+                <app-icon :name="secretsLocked ? 'lock' : 'refresh'" :size="13"/>
                 {{ scheduler.configured ? 'Generate a new token' : 'Generate a token' }}
               </button>
-              <span class="t-xs dim">
-                {{ scheduler.configured
-                   ? 'The old one stops working immediately.'
-                   : 'Nothing can call the scheduler until you do this.' }}
+              <secret-lock v-if="secretsLocked" what="cron token"/>
+              <span class="t-xs" :class="secretsLocked ? 'c-danger' : 'dim'">
+                {{ secretsLocked
+                   ? 'A token is a secret in data/config.json, and secrets are locked until the server passes the check under Security.'
+                   : (scheduler.configured
+                     ? 'The old one stops working immediately.'
+                     : 'Nothing can call the scheduler until you do this.') }}
               </span>
             </div>
 
@@ -813,9 +817,10 @@ export const SettingsView = {
 
             <details>
               <summary class="t-xs dim" style="cursor:pointer">Set the token by hand</summary>
-              <div class="form-row mt-3">
-                <input v-model="draft[CRON_TOKEN]" type="password" class="mono"
-                       :placeholder="scheduler.configured ? '•••••••• stored - leave blank to keep it' : 'Nothing stored'">
+              <div class="form-row mt-3 secret-field" :class="{ 'is-locked': secretsLocked }">
+                <input v-model="draft[CRON_TOKEN]" type="password" class="mono" :disabled="secretsLocked"
+                       :placeholder="secretsLocked ? 'locked - see Security' : (scheduler.configured ? '•••••••• stored - leave blank to keep it' : 'Nothing stored')">
+                <secret-lock v-if="secretsLocked" what="cron token"/>
                 <p class="hint">
                   Only useful when you are matching a token chosen somewhere else. Leave it blank and the
                   stored one is kept; it is saved with the rest of the page. Sixteen characters minimum, and
@@ -915,12 +920,17 @@ export const SettingsView = {
 
                 <!-- secret -->
                 <template v-else-if="field.type === 'secret'">
-                  <input v-model="draft[field.key]" type="password" class="mono"
-                         :placeholder="field.is_set ? '•••••••• stored - leave blank to keep it' : 'Nothing stored'">
-                  <p class="hint">
-                    {{ field.is_set
-                       ? 'Something is stored, and it is never sent back to this screen. Leave the box empty to keep it; type here only to replace it.'
-                       : 'Nothing is stored yet. What you type here is saved and never shown again.' }}
+                  <div class="secret-field" :class="{ 'is-locked': secretsLocked }">
+                    <input v-model="draft[field.key]" type="password" class="mono" :disabled="secretsLocked"
+                           :placeholder="secretsLocked ? 'locked - see Security' : (field.is_set ? '•••••••• stored - leave blank to keep it' : 'Nothing stored')">
+                    <secret-lock v-if="secretsLocked" :what="field.label.toLowerCase()"/>
+                  </div>
+                  <p class="hint" :class="secretsLocked ? 'c-danger' : ''">
+                    {{ secretsLocked
+                       ? 'A secret cannot be stored until the server passes the check under Security' + (field.is_set ? '; the stored one keeps working.' : '.')
+                       : (field.is_set
+                         ? 'Something is stored, and it is never sent back to this screen. Leave the box empty to keep it; type here only to replace it.'
+                         : 'Nothing is stored yet. What you type here is saved and never shown again.') }}
                   </p>
                 </template>
 

@@ -88,7 +88,7 @@ export const ProjectView = {
     <nav class="tabbar" role="tablist" aria-label="Course">
       <button v-for="tab in tabs" :key="tab.key" class="tab" :class="{ 'is-active': state.projectTab === tab.key }"
               role="tab" :aria-selected="state.projectTab === tab.key" :title="tab.hint"
-              @click="state.projectTab = tab.key">
+              :data-tour="'tab-' + tab.key" @click="state.projectTab = tab.key">
         <app-icon :name="tab.icon" :size="14"/>{{ tab.label }}
         <span v-if="tab.badge" class="badge badge--danger" :title="tab.badge + ' pages failed'">{{ tab.badge }}</span>
       </button>

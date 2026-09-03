@@ -41,6 +41,18 @@ final class TargetPublisher
     private array $log = [];
 
     /**
+     * Where a log line goes the moment it is said, when somebody is listening.
+     *
+     * A push inside a request collects its log and hands it back at the end.
+     * A push worked by the scheduler has nobody to hand it to - the request
+     * that asked for it ended minutes ago - so every line is written down as
+     * it happens, and the screen reads the record.
+     *
+     * @var callable(string,string):void|null line, level
+     */
+    private $emit = null;
+
+    /**
      * @param array<string,mixed> $project
      * @param array<string,mixed> $target a publish_targets row
      * @param string $prefix put in front of every log line, so a push to four
@@ -71,11 +83,73 @@ final class TargetPublisher
         return $this->target;
     }
 
+    /** @param callable(string,string):void $emit */
+    public function onLine(callable $emit): void
+    {
+        $this->emit = $emit;
+    }
+
+    /** What a push has to say about where it stands when nothing has been done yet. */
+    private const FRESH = [
+        'phase' => 'book',
+        'chapter_id' => null,
+        'chapter_bs_id' => null,
+        'page_id' => null,
+        'links_page_id' => null,
+        'links' => ['resolved' => 0, 'pending' => 0, 'updated' => 0],
+        'links_unknown' => [],
+        'links_pages' => 0,
+        'links_unpublished' => 0,
+        // How far the walk has got, for a screen watching it.
+        'chapters_done' => 0,
+        'pages_done' => 0,
+    ];
+
     /**
+     * Publishes, from the beginning or from where an earlier attempt stopped.
+     *
+     * `$state` is what a previous call handed back: which phase it was in and
+     * the last item it finished, so this one carries on after that item rather
+     * than walking the whole course again. An empty array is the beginning.
+     * `$budget` says when to stop; a push with no budget runs to the end.
+     *
+     * The answer says whether it is finished. When it is not, `state` is the
+     * place to resume from and nothing in it has been lost: every item is
+     * written to the wiki and recorded here before the next is looked at, so
+     * a stop between two items costs nothing at all.
+     *
      * @param string $scope all | book | chapter | page
-     * @return array{log:string[],links:array{resolved:int,pending:int,updated:int}}
+     * @param array<string,mixed> $state
+     * @return array{log:string[],links:array{resolved:int,pending:int,updated:int},state:array<string,mixed>,done:bool}
      */
-    public function push(string $scope = 'all', ?int $targetId = null, bool $force = false): array
+    public function push(
+        string $scope = 'all',
+        ?int $targetId = null,
+        bool $force = false,
+        array $state = [],
+        ?PublishBudget $budget = null,
+    ): array {
+        $budget ??= PublishBudget::unlimited();
+        $state = array_replace(self::FRESH, $state);
+
+        // Whatever stops the walk - a wiki that went away, a host time limit
+        // that surfaced as an exception - goes out with the place the walk had
+        // reached, so the next attempt can start there.
+        try {
+            return $this->walk($scope, $targetId, $force, $state, $budget);
+        } catch (\Throwable $e) {
+            throw PublishFailure::wrap($e, $state);
+        }
+    }
+
+    /**
+     * The push itself. `$state` is taken by reference so that push() can hand
+     * it out with the exception when the walk is cut short.
+     *
+     * @param array<string,mixed> $state
+     * @return array{log:string[],links:array{resolved:int,pending:int,updated:int},state:array<string,mixed>,done:bool}
+     */
+    private function walk(string $scope, ?int $targetId, bool $force, array &$state, PublishBudget $budget): array
     {
         $projectId = (int)$this->project['id'];
         $effectiveTags = Tags::resolved($projectId)['effective'];
@@ -91,53 +165,142 @@ final class TargetPublisher
             $pageFilter = (int)$page['id'];
         }
 
-        $bookId = $this->ensureBook($effectiveTags['project'][$projectId] ?? [], $force);
-
-        if ($scope === 'book') {
-            return ['log' => $this->log, 'links' => ['resolved' => 0, 'pending' => 0, 'updated' => 0]];
+        if ($state['phase'] === 'book') {
+            $bookId = $this->ensureBook($effectiveTags['project'][$projectId] ?? [], $force);
+            $state['phase'] = $scope === 'book' ? 'done' : 'items';
+        } else {
+            // ensureBook() wrote the book onto the target row before it
+            // returned, so a later slice reads it back from there.
+            $bookId = (int)$this->target['book_id'];
         }
 
-        $index = LinkIndex::forTarget($projectId, $this->targetId());
+        if ($state['phase'] === 'items') {
+            $index = LinkIndex::forTarget($projectId, $this->targetId());
+            $chapters = array_values(array_filter(
+                Chapters::ordered($projectId),
+                static fn(array $c): bool => $chapterFilter === null || (int)$c['id'] === $chapterFilter
+            ));
 
-        foreach (Chapters::ordered($projectId) as $chapter) {
-            if ($chapterFilter !== null && (int)$chapter['id'] !== $chapterFilter) {
-                continue;
+            // The chapter the last slice stopped in. A chapter that has since
+            // gone from the outline is not a place to resume from, so the walk
+            // starts again - every item is idempotent, and a repeated "already
+            // up to date" costs one request rather than a duplicate page.
+            $resumeAt = null;
+            if ($state['chapter_id'] !== null) {
+                foreach ($chapters as $i => $chapter) {
+                    if ((int)$chapter['id'] === (int)$state['chapter_id']) {
+                        $resumeAt = $i;
+                        break;
+                    }
+                }
+                if ($resumeAt === null) {
+                    $state['chapter_id'] = null;
+                    $state['chapter_bs_id'] = null;
+                    $state['page_id'] = null;
+                }
             }
-            $chapterBsId = $this->ensureChapter($bookId, $chapter, $effectiveTags['chapter'][(int)$chapter['id']] ?? [], $force);
 
-            foreach (Db::rows('SELECT * FROM pages WHERE chapter_id = ? ORDER BY idx', [(int)$chapter['id']]) as $page) {
-                if ($pageFilter !== null && (int)$page['id'] !== $pageFilter) {
+            foreach ($chapters as $i => $chapter) {
+                if ($resumeAt !== null && $i < $resumeAt) {
                     continue;
                 }
-                $this->ensurePage($chapterBsId, $page, $effectiveTags['page'][(int)$page['id']] ?? [], $index, $force);
+                $chapterId = (int)$chapter['id'];
+                $resuming = $resumeAt === $i && $state['chapter_bs_id'] !== null;
+
+                if (!$resuming) {
+                    if ($budget->exhausted()) {
+                        return $this->paused($state);
+                    }
+                    $chapterBsId = $this->ensureChapter($bookId, $chapter, $effectiveTags['chapter'][$chapterId] ?? [], $force);
+                    $state['chapter_id'] = $chapterId;
+                    $state['chapter_bs_id'] = $chapterBsId;
+                    $state['page_id'] = null;
+                    $state['chapters_done']++;
+                } else {
+                    $chapterBsId = (int)$state['chapter_bs_id'];
+                }
+
+                $pages = Db::rows('SELECT * FROM pages WHERE chapter_id = ? ORDER BY idx, id', [$chapterId]);
+                $skipping = $resuming && $state['page_id'] !== null;
+                foreach ($pages as $page) {
+                    $pageId = (int)$page['id'];
+                    if ($skipping) {
+                        if ($pageId === (int)$state['page_id']) {
+                            $skipping = false;
+                        }
+                        continue;
+                    }
+                    if ($pageFilter !== null && $pageId !== $pageFilter) {
+                        continue;
+                    }
+                    if ($budget->exhausted()) {
+                        return $this->paused($state);
+                    }
+                    $this->ensurePage($chapterBsId, $page, $effectiveTags['page'][$pageId] ?? [], $index, $force);
+                    $state['page_id'] = $pageId;
+                    $state['pages_done']++;
+                }
+                // A page that was the last of its chapter and then removed
+                // from the outline would otherwise be waited for for ever.
+                $skipping = false;
+            }
+
+            $state['phase'] = $scope === 'all' ? 'links' : 'done';
+        }
+
+        if ($state['phase'] === 'links') {
+            // The whole course is now in BookStack, so every link target has a URL.
+            $this->linkPass($effectiveTags, $force, $state, $budget);
+            if ($state['phase'] !== 'done') {
+                return $this->paused($state);
             }
         }
 
-        // The whole course is now in BookStack, so every link target has a URL.
-        $links = $scope === 'all'
-            ? $this->linkPass($effectiveTags, $force)
-            : ['resolved' => 0, 'pending' => 0, 'updated' => 0];
-
-        return ['log' => $this->log, 'links' => $links];
+        return ['log' => $this->log, 'links' => $state['links'], 'state' => $state, 'done' => true];
     }
 
     /**
      * Resolves auto links on their own, without re-publishing anything else.
      *
-     * @return array{log:string[],links:array{resolved:int,pending:int,updated:int}}
+     * @param array<string,mixed> $state see push()
+     * @return array{log:string[],links:array{resolved:int,pending:int,updated:int},state:array<string,mixed>,done:bool}
      */
-    public function resolveLinks(bool $force = false): array
+    public function resolveLinks(bool $force = false, array $state = [], ?PublishBudget $budget = null): array
     {
+        $budget ??= PublishBudget::unlimited();
+        $state = array_replace(self::FRESH, $state, ['phase' => 'links']);
         $projectId = (int)$this->project['id'];
-        $links = $this->linkPass(Tags::resolved($projectId)['effective'], $force);
-        return ['log' => $this->log, 'links' => $links];
+
+        try {
+            $this->linkPass(Tags::resolved($projectId)['effective'], $force, $state, $budget);
+        } catch (\Throwable $e) {
+            throw PublishFailure::wrap($e, $state);
+        }
+        if ($state['phase'] !== 'done') {
+            return $this->paused($state);
+        }
+        return ['log' => $this->log, 'links' => $state['links'], 'state' => $state, 'done' => true];
+    }
+
+    /**
+     * The answer for a push that ran out of budget between two items.
+     *
+     * @param array<string,mixed> $state
+     * @return array{log:string[],links:array{resolved:int,pending:int,updated:int},state:array<string,mixed>,done:bool}
+     */
+    private function paused(array $state): array
+    {
+        return ['log' => $this->log, 'links' => $state['links'], 'state' => $state, 'done' => false];
     }
 
     /* --------------------------------------------------------------- steps */
 
-    private function say(string $line): void
+    private function say(string $line, string $level = 'info'): void
     {
         $this->log[] = $this->prefix . $line;
+        if ($this->emit !== null) {
+            ($this->emit)($line, $level);
+        }
     }
 
     /**
@@ -211,7 +374,7 @@ final class TargetPublisher
         $this->say('The description of ' . $what . ' is longer than the ' . $limit
             . ' characters BookStack accepts, so ' . (count($paragraphs) - count($kept))
             . ' of its ' . count($paragraphs) . ' paragraphs were left off the cover page. '
-            . 'The full text is unchanged in CourseForge and is still what the pages are written from.');
+            . 'The full text is unchanged in CourseForge and is still what the pages are written from.', 'warn');
 
         return $short;
     }
@@ -260,7 +423,7 @@ final class TargetPublisher
 
         $existing = $bookId !== null ? $this->client->getBook($bookId) : null;
         if ($bookId !== null && $existing === null) {
-            $this->say('Book #' . $bookId . ' no longer exists in BookStack – recreating it.');
+            $this->say('Book #' . $bookId . ' no longer exists in BookStack – recreating it.', 'warn');
             $bookId = null;
         }
 
@@ -282,7 +445,7 @@ final class TargetPublisher
             }
 
             $bookId = (int)$result['id'];
-            $this->say('Created book "' . $title . '" (#' . $bookId . ').');
+            $this->say('Created book "' . $title . '" (#' . $bookId . ').', 'new');
         } elseif ($force || (string)$this->target['pushed_hash'] !== $hash) {
             $result = $this->client->updateBook($bookId, $title, $this->describe($description, 'the book'), $payloadTags);
             $this->say('Updated book "' . $title . '"'
@@ -349,14 +512,14 @@ final class TargetPublisher
 
         $existing = $bsId !== null ? $this->client->getChapter($bsId) : null;
         if ($bsId !== null && $existing === null) {
-            $this->say('Chapter "' . $title . '" no longer exists in BookStack – recreating it.');
+            $this->say('Chapter "' . $title . '" no longer exists in BookStack – recreating it.', 'warn');
             $bsId = null;
         }
 
         if ($bsId === null) {
             $result = $this->client->createChapter($bookId, $title, $this->describe($description, 'chapter "' . $title . '"'), $priority, $payloadTags);
             $bsId = (int)$result['id'];
-            $this->say('Created chapter "' . $title . '".');
+            $this->say('Created chapter "' . $title . '".', 'new');
         } elseif ($force || (string)($stored['pushed_hash'] ?? '') !== $hash) {
             $result = $this->client->updateChapter($bsId, $title, $this->describe($description, 'chapter "' . $title . '"'), $priority, $payloadTags);
             $this->say('Updated chapter "' . $title . '".');
@@ -401,14 +564,14 @@ final class TargetPublisher
 
         $existing = $bsId !== null ? $this->client->getPage($bsId) : null;
         if ($bsId !== null && $existing === null) {
-            $this->say('Page "' . $title . '" no longer exists in BookStack – recreating it.');
+            $this->say('Page "' . $title . '" no longer exists in BookStack – recreating it.', 'warn');
             $bsId = null;
         }
 
         if ($bsId === null) {
             $result = $this->client->createPage($chapterBsId, $title, $content, $priority, $payloadTags);
             $bsId = (int)$result['id'];
-            $this->say('Created page "' . $title . '".');
+            $this->say('Created page "' . $title . '".', 'new');
         } elseif ($force || (string)($stored['pushed_hash'] ?? '') !== $hash) {
             $result = $this->client->updatePage($bsId, $title, $content, $priority, $payloadTags);
             $this->say('Updated page "' . $title . '".');
@@ -432,82 +595,115 @@ final class TargetPublisher
      * Second pass: rewrite the (🔗 Title) markers into real links now that every
      * chapter and page has a URL, and re-send only what actually changed.
      *
+     * Resumable like the walk above: `links_page_id` in the state is the last
+     * page settled, and the counts are accumulated across slices so that the
+     * summary at the end describes the whole pass rather than the last piece
+     * of it. The summary is said once, when the pass finishes.
+     *
      * @param array<string,array<int,array<int,array<string,mixed>>>> $effectiveTags
-     * @return array{resolved:int,pending:int,updated:int}
+     * @param array<string,mixed> $state updated in place: `phase` becomes `done` once the pass is complete
      */
-    private function linkPass(array $effectiveTags, bool $force): array
+    private function linkPass(array $effectiveTags, bool $force, array &$state, PublishBudget $budget): void
     {
         $projectId = (int)$this->project['id'];
-        $pages = Db::rows('SELECT * FROM pages WHERE project_id = ? ORDER BY chapter_id, idx', [$projectId]);
+        $pages = Db::rows('SELECT * FROM pages WHERE project_id = ? ORDER BY chapter_id, idx, id', [$projectId]);
 
-        $withMarkers = array_filter($pages, static fn(array $p): bool => AutoLinker::hasMarkers((string)$p['content']));
+        $withMarkers = array_values(array_filter($pages, static fn(array $p): bool => AutoLinker::hasMarkers((string)$p['content'])));
         if ($withMarkers === []) {
-            return ['resolved' => 0, 'pending' => 0, 'updated' => 0];
+            $state['phase'] = 'done';
+            return;
         }
 
         $index = LinkIndex::forTarget($projectId, $this->targetId());
         $items = Targets::items($this->targetId())['page'];
-        $resolved = 0;
-        $pending = 0;
-        $updated = 0;
-        $unknown = [];
-        $unpublished = 0;
+
+        $skipping = $state['links_page_id'] !== null;
+        if ($skipping) {
+            $known = false;
+            foreach ($withMarkers as $page) {
+                if ((int)$page['id'] === (int)$state['links_page_id']) {
+                    $known = true;
+                    break;
+                }
+            }
+            // The page the last slice stopped at is gone: start the pass over.
+            if (!$known) {
+                $skipping = false;
+                $state['links_page_id'] = null;
+            }
+        }
 
         foreach ($withMarkers as $page) {
             $pageId = (int)$page['id'];
+            if ($skipping) {
+                if ($pageId === (int)$state['links_page_id']) {
+                    $skipping = false;
+                }
+                continue;
+            }
+            if ($budget->exhausted()) {
+                return;
+            }
+
             $applied = AutoLinker::apply((string)$page['content'], $index, $pageId);
-            $resolved += $applied['resolved'];
-            $pending += $applied['pending'];
-            $unknown = [...$unknown, ...$applied['unknown']];
+            $state['links']['resolved'] += $applied['resolved'];
+            $state['links']['pending'] += $applied['pending'];
+            $state['links_pages']++;
+            $state['links_unknown'] = array_slice(
+                array_values(array_unique([...$state['links_unknown'], ...$applied['unknown']])),
+                0,
+                10
+            );
 
             $stored = $items[$pageId] ?? null;
             if ($stored === null || $stored['bs_id'] === null) {
-                $unpublished++;
+                $state['links_unpublished']++;
+                $state['links_page_id'] = $pageId;
                 continue; // not published yet – a normal push will pick it up
             }
 
             $tags = $effectiveTags['page'][$pageId] ?? [];
             $hash = Pages::pushHash((string)$page['title'], $applied['content'], $tags);
-            if (!$force && (string)$stored['pushed_hash'] === $hash) {
-                continue;
+            if ($force || (string)$stored['pushed_hash'] !== $hash) {
+                $result = $this->client->updatePage(
+                    (int)$stored['bs_id'],
+                    (string)$page['title'],
+                    $applied['content'],
+                    (int)$page['idx'] + 1,
+                    Tags::apiPayload($tags)
+                );
+                $slug = (string)($result['slug'] ?? $stored['bs_slug']);
+                Targets::saveItem($this->targetId(), 'page', $pageId, [
+                    'bs_slug' => $slug,
+                    'bs_url' => $this->client->pageUrl((string)$this->target['book_slug'], $slug),
+                    'pushed_hash' => $hash,
+                ]);
+                $state['links']['updated']++;
             }
-
-            $result = $this->client->updatePage(
-                (int)$stored['bs_id'],
-                (string)$page['title'],
-                $applied['content'],
-                (int)$page['idx'] + 1,
-                Tags::apiPayload($tags)
-            );
-            $slug = (string)($result['slug'] ?? $stored['bs_slug']);
-            Targets::saveItem($this->targetId(), 'page', $pageId, [
-                'bs_slug' => $slug,
-                'bs_url' => $this->client->pageUrl((string)$this->target['book_slug'], $slug),
-                'pushed_hash' => $hash,
-            ]);
-            $updated++;
+            $state['links_page_id'] = $pageId;
         }
 
         $this->say(sprintf(
             'Auto links: %d link(s) resolved across %d page(s), %d page(s) re-published.',
-            $resolved,
-            count($withMarkers),
-            $updated
-        ));
-        if ($pending > 0) {
-            $this->say('Auto links: ' . $pending . ' reference(s) still point at content that has not been published yet.');
+            $state['links']['resolved'],
+            $state['links_pages'],
+            $state['links']['updated']
+        ), 'links');
+        if ($state['links']['pending'] > 0) {
+            $this->say('Auto links: ' . $state['links']['pending']
+                . ' reference(s) still point at content that has not been published yet.', 'warn');
         }
-        if ($unpublished > 0) {
-            $this->say('Auto links: ' . $unpublished . ' page(s) with references are not published yet and were left alone.');
+        if ($state['links_unpublished'] > 0) {
+            $this->say('Auto links: ' . $state['links_unpublished']
+                . ' page(s) with references are not published yet and were left alone.', 'warn');
         }
-        $unknown = array_slice(array_values(array_unique($unknown)), 0, 10);
-        if ($unknown !== []) {
+        if ($state['links_unknown'] !== []) {
             $this->say('Auto links: no chapter or page matches ' . implode(', ', array_map(
                 static fn(string $t): string => '"' . $t . '"',
-                $unknown
-            )) . ' – those references were published as plain text.');
+                $state['links_unknown']
+            )) . ' – those references were published as plain text.', 'warn');
         }
 
-        return ['resolved' => $resolved, 'pending' => $pending, 'updated' => $updated];
+        $state['phase'] = 'done';
     }
 }

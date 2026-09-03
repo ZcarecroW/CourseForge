@@ -6,7 +6,9 @@ namespace CourseForge\Domain;
 use CourseForge\Ai\Provider\PresetSpec;
 use CourseForge\Ai\Provider\Probe;
 use CourseForge\Ai\Provider\Providers;
+use CourseForge\Security\Hardening;
 use CourseForge\Support\Config;
+use CourseForge\Support\SafeUrl;
 use CourseForge\Support\Db;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Runtime;
@@ -145,9 +147,38 @@ final class Profiles
         return self::require($username, $id)['data'];
     }
 
+    /**
+     * Whether a document about to be stored carries a credential.
+     *
+     * The gate below is asked only then: a profile saved with its secrets
+     * left blank keeps the ones it has, which is not a new secret reaching
+     * the disk, and must go on working on a server whose verdict has not
+     * been taken yet - or the lock would stop somebody renaming a profile.
+     *
+     * @param array<string,mixed> $data as sent
+     */
+    public static function carriesSecret(array $data): bool
+    {
+        foreach (self::SECRETS as $group => $field) {
+            foreach ((array)($data[$group] ?? []) as $entry) {
+                if (is_array($entry) && trim((string)($entry[$field] ?? '')) !== '') {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /** @param array<string,mixed> $data @return array<string,mixed> */
     public static function create(string $username, string $name, array $data): array
     {
+        // A key or a token is about to be written into the database, which
+        // is only safe on a server that keeps the database private.
+        if (self::carriesSecret($data)) {
+            Hardening::assertSecretsWritable();
+        }
+        // Every address in a profile is one CourseForge will call.
+        SafeUrl::assertProfile($data);
         $now = time();
         Db::run('INSERT INTO profiles (username, name, data, created_at, updated_at) VALUES (?,?,?,?,?)',
             [$username, $name, self::encode(self::normalise($data)), $now, $now]);
@@ -158,6 +189,10 @@ final class Profiles
     public static function update(string $username, int $id, string $name, array $data): array
     {
         self::require($username, $id);
+        if (self::carriesSecret($data)) {
+            Hardening::assertSecretsWritable();
+        }
+        SafeUrl::assertProfile($data);
         $data = self::normalise(self::mergeStored($username, $id, $data));
         Db::run('UPDATE profiles SET name = ?, data = ?, updated_at = ? WHERE username = ? AND id = ?',
             [$name, self::encode($data), time(), $username, $id]);
@@ -346,13 +381,24 @@ final class Profiles
         foreach (self::SECRETS as $group => $field) {
             $previous = [];
             foreach ((array)($stored[$group] ?? []) as $entry) {
-                $previous[(string)($entry['id'] ?? '')] = (string)($entry[$field] ?? '');
+                $previous[(string)($entry['id'] ?? '')] = [
+                    'secret' => (string)($entry[$field] ?? ''),
+                    'base_url' => rtrim(trim((string)($entry['base_url'] ?? '')), '/'),
+                ];
             }
             foreach ((array)($data[$group] ?? []) as $i => $entry) {
                 unset($data[$group][$i][$field . '_set']); // never persist the UI flag
-                if (trim((string)($entry[$field] ?? '')) === '') {
-                    $data[$group][$i][$field] = $previous[(string)($entry['id'] ?? '')] ?? '';
+                if (trim((string)($entry[$field] ?? '')) !== '') {
+                    continue;
                 }
+                // A blank secret keeps the stored one - for the address it was
+                // stored against. Carrying it to a new address would send the
+                // key to wherever the new address points, which is how a
+                // credential leaves through the one field that never shows it.
+                $was = $previous[(string)($entry['id'] ?? '')] ?? null;
+                $sameAddress = $was !== null
+                    && rtrim(trim((string)($entry['base_url'] ?? '')), '/') === $was['base_url'];
+                $data[$group][$i][$field] = $sameAddress ? $was['secret'] : '';
             }
         }
 

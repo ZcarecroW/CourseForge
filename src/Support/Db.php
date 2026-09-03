@@ -16,7 +16,7 @@ use RuntimeException;
  */
 final class Db
 {
-    public const SCHEMA_VERSION = 9;
+    public const SCHEMA_VERSION = 10;
 
     private static ?PDO $pdo = null;
 
@@ -466,6 +466,51 @@ final class Db
             );
             CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts);
 
+            -- Work handed to the scheduler rather than done inside a request: a
+            -- publish, a link pass. A task is written down before anything is
+            -- done, worked in slices of one tick each, and carries its own
+            -- place in the work in `progress`, so a slice cut short by a time
+            -- limit or a wiki that stopped answering is taken up again from
+            -- where it stopped rather than from the start. `lease_until` is
+            -- what tells a slice still running from one whose process died.
+            CREATE TABLE IF NOT EXISTS tasks (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                username     TEXT NOT NULL,
+                created_by   TEXT NOT NULL DEFAULT '',
+                project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                kind         TEXT NOT NULL,
+                params       TEXT NOT NULL DEFAULT '{}',
+                status       TEXT NOT NULL DEFAULT 'queued',
+                progress     TEXT NOT NULL DEFAULT '{}',
+                attempts     INTEGER NOT NULL DEFAULT 0,
+                max_attempts INTEGER NOT NULL DEFAULT 0,
+                next_at      INTEGER NOT NULL DEFAULT 0,
+                owner        TEXT NOT NULL DEFAULT '',
+                lease_until  INTEGER NOT NULL DEFAULT 0,
+                error        TEXT NOT NULL DEFAULT '',
+                source       TEXT NOT NULL DEFAULT 'web',
+                created_at   INTEGER NOT NULL,
+                updated_at   INTEGER NOT NULL,
+                started_at   INTEGER NOT NULL DEFAULT 0,
+                finished_at  INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_tasks_open ON tasks(status, next_at);
+
+            -- What a task said while it worked, one row per line, written the
+            -- moment it is said. The log used to live in the browser that
+            -- pressed Publish and went with it when the tab closed; here it
+            -- outlives the tab, the request and the process.
+            CREATE TABLE IF NOT EXISTS task_log (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id   INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+                ts        INTEGER NOT NULL,
+                level     TEXT NOT NULL DEFAULT 'info',
+                target_id INTEGER,
+                line      TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_task_log_task ON task_log(task_id, id);
+
             -- Every update this installation has attempted, so a failed one is
             -- visible in the application rather than only in a server log.
             CREATE TABLE IF NOT EXISTS update_history (
@@ -584,6 +629,18 @@ final class Db
         self::ensureColumn($pdo, 'invites', 'max_uses', 'INTEGER NOT NULL DEFAULT 1');
         self::ensureColumn($pdo, 'invites', 'uses', 'INTEGER NOT NULL DEFAULT 0');
 
+        // Version 10: several invites may be open at once, so each carries a
+        // label saying who it is for; and an account remembers whether it has
+        // been shown round the application yet. Zero is what an existing
+        // account carries, which reads as "not yet" - the tour is offered
+        // once to everybody, and dismissed with one click by anyone who does
+        // not want it.
+        self::ensureColumn($pdo, 'invites', 'label', "TEXT NOT NULL DEFAULT ''");
+        self::ensureColumn($pdo, 'users', 'tour_seen_at', 'INTEGER NOT NULL DEFAULT 0');
+        // Which connection issued this one, so revoking a connection revokes
+        // what it minted. Zero is a connection a person made from the browser.
+        self::ensureColumn($pdo, 'mcp_clients', 'parent_id', 'INTEGER NOT NULL DEFAULT 0');
+
         // A row that was genuinely redeemed before the counter existed would
         // otherwise read as "0 of 1 used" for ever. The excluded names are the
         // ones the application writes when it closes a row administratively
@@ -604,7 +661,8 @@ final class Db
         if (self::schemaVersion($pdo) < 8) {
             self::upgradeToV8($pdo);
         }
-        // Version 9 adds bookstackdev_profiles, made above; nothing to move.
+        // Version 9 adds bookstackdev_profiles, and version 10 adds tasks and
+        // task_log - all made above; nothing to move.
         if (self::schemaVersion($pdo) < self::SCHEMA_VERSION) {
             self::setMeta($pdo, 'schema_version', (string)self::SCHEMA_VERSION);
         }

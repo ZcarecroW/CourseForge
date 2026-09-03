@@ -45,6 +45,7 @@ final class Http
             CURLOPT_CONNECTTIMEOUT => max(5, Config::int('app.connect_timeout_seconds', 30)),
             CURLOPT_FOLLOWLOCATION => $follow,
             CURLOPT_MAXREDIRS => 5,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,                // a typed address is a web address, never file:// or gopher://
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,                           // never downgrade on a redirect
             CURLOPT_POSTREDIR => 7,                                               // keep method + body on 301/302/303
             CURLOPT_SSL_VERIFYPEER => true,

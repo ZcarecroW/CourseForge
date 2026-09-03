@@ -8,6 +8,7 @@ use CourseForge\Ai\Run\RunManager;
 use CourseForge\Domain\Details;
 use CourseForge\Domain\Profiles;
 use CourseForge\Security\Actor;
+use CourseForge\Security\Hardening;
 use CourseForge\Support\Config;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Request;
@@ -41,7 +42,27 @@ final class ConfigController
             // account rather than several that can drift apart.
             'actor' => $me->toArray(),
             'can' => self::can(),
+            // Whether a secret may be stored right now. Every account is told,
+            // because every account has a profile with a key field on it and
+            // the field has to explain why it is grey.
+            'security' => self::security(),
         ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function security(): array
+    {
+        try {
+            $status = Hardening::status();
+            return [
+                'locked' => (bool)$status['locked'],
+                'verdict' => (string)$status['verdict'],
+                'acknowledged' => $status['acknowledged'] !== null,
+                'checked_at' => (int)$status['checked_at'],
+            ];
+        } catch (\Throwable) {
+            return ['locked' => true, 'verdict' => Hardening::VERDICT_UNKNOWN, 'acknowledged' => false, 'checked_at' => 0];
+        }
     }
 
     /**

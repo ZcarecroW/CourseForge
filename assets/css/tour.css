@@ -1,0 +1,106 @@
+/* ============================================================================
+   CourseForge – the guided tour.
+
+   A dimmed layer over the whole window with one hole cut in it, and a card
+   beside the hole. The hole is a box positioned over the thing being shown
+   whose enormous box-shadow is the dimming - one element, no clip paths -
+   and the card is positioned by the component, which measures both.
+   ========================================================================== */
+
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) + 5);
+  pointer-events: auto;
+}
+
+.tour__dim {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+  animation: cf-fade 160ms var(--ease);
+}
+
+.tour__spot {
+  position: absolute;
+  border-radius: var(--r-lg);
+  box-shadow: 0 0 0 9999px var(--overlay), 0 0 0 2px var(--accent), 0 0 32px 4px var(--accent-soft);
+  transition: top 220ms var(--ease), left 220ms var(--ease), width 220ms var(--ease), height 220ms var(--ease);
+  pointer-events: none;
+}
+
+.tour__card {
+  position: absolute;
+  width: min(400px, calc(100vw - 24px));
+  padding: 0 var(--s-5) var(--s-4);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-lg);
+  animation: cf-rise 160ms var(--ease);
+  transition: top 220ms var(--ease), left 220ms var(--ease);
+  outline: none;
+}
+.tour__card--centered { width: min(460px, calc(100vw - 24px)); }
+
+.tour__bar {
+  height: 3px;
+  margin: 0 calc(-1 * var(--s-5));
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.tour__bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+  transition: width 220ms var(--ease);
+}
+
+.tour__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-4) 0 var(--s-2);
+}
+.tour__count {
+  font-size: var(--t-2xs);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.tour__title { font-size: var(--t-lg); font-weight: 650; letter-spacing: -0.01em; margin-bottom: var(--s-2); }
+.tour__text { font-size: var(--t-sm); color: var(--text-muted); line-height: 1.6; margin-bottom: var(--s-2); }
+.tour__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--s-1) 0 var(--s-2);
+  font-size: var(--t-xs);
+  color: var(--text-faint);
+}
+.tour__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--border-soft);
+}
+
+/* The button that opens the tour, above the theme switch in the sidebar. */
+.tour-launch {
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--t-xs);
+  font-weight: 600;
+}
+.tour-launch:hover { background: var(--accent-line); color: var(--accent); }
+.tour-launch > .icon { color: currentColor; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tour__spot, .tour__card, .tour__bar-fill { transition: none; }
+}

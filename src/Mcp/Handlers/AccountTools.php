@@ -11,6 +11,7 @@ use CourseForge\Mcp\Schema;
 use CourseForge\Mcp\Scopes;
 use CourseForge\Mcp\Tool;
 use CourseForge\Security\Actor;
+use CourseForge\Security\LoginThrottle;
 use CourseForge\Security\Users;
 use CourseForge\Support\Audit;
 use CourseForge\Support\Config;
@@ -298,12 +299,15 @@ final class AccountTools
         }
 
         $ttlDays = max(0, min(365, $args->int('ttl_days', 0)));
+        // Issued by this connection, so revoking this connection revokes what
+        // it issued: a stolen token cannot mint successors that outlive it.
         $created = McpClients::create(
             $actor->username,
             $args->requiredStr('name'),
             $scopes,
             $ttlDays,
-            $args->str('note')
+            $args->str('note'),
+            Scopes::currentClientId()
         );
 
         Audit::record(
@@ -445,10 +449,23 @@ final class AccountTools
             throw HttpException::unprocessable('The new password must differ from the current one.');
         }
 
+        // A token can be told to guess, so this is throttled like the sign-in
+        // form, against the same counters - and a wrong guess is written down.
+        $ip = LoginThrottle::ip();
+        $locked = LoginThrottle::lockoutRemaining($ip, $actor->username);
+        if ($locked > 0) {
+            throw HttpException::forbidden(
+                'Too many wrong passwords for this account. Nothing was changed; try again in '
+                . (int)ceil($locked / 60) . ' minute(s).'
+            );
+        }
+
         // changePassword answers false for a wrong current password and writes
         // nothing. Returning that quietly would look to a model exactly like
         // success, so it becomes a refusal that says what went wrong.
         if (!Users::changePassword($actor->username, $current, $new)) {
+            LoginThrottle::record($ip, $actor->username, false);
+            Audit::record($actor->username, 'account.password_refused', $actor->username, 'wrong current password, via MCP', 'mcp');
             throw HttpException::forbidden(
                 'The current password is incorrect, so nothing was changed. Ask the person for it again rather '
                 . 'than trying another guess.'

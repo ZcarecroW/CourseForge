@@ -73,12 +73,30 @@ final class SessionController
         if ($old === $new) {
             throw HttpException::unprocessable('The new password must differ from the current one.');
         }
+
+        // The current password is checked here, which makes this a place a
+        // password can be guessed at - by whoever is holding a session. It is
+        // throttled like the sign-in form, against the same counters.
+        $ip = LoginThrottle::ip();
+        $locked = LoginThrottle::lockoutRemaining($ip, $me->username);
+        if ($locked > 0) {
+            throw HttpException::forbidden(
+                'Too many wrong passwords. Try again in ' . (int)ceil($locked / 60) . ' minute(s).'
+            );
+        }
         if (!Users::changePassword($me->username, $old, $new)) {
+            LoginThrottle::record($ip, $me->username, false);
+            Audit::record($me->username, 'account.password_refused', $me->username, 'wrong current password');
             throw HttpException::forbidden('The current password is incorrect.');
         }
 
+        // A new password, a new session id: whatever was holding the old one
+        // does not get to keep riding this session.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
         Audit::record($me->username, 'account.password_changed', $me->username);
-        return ['user' => Auth::describe()];
+        return ['user' => Auth::describe(), 'csrf' => Session::csrf()];
     }
 
     /** Renaming yourself. The user name is the key and cannot change. */
@@ -86,6 +104,17 @@ final class SessionController
     {
         $me = $actor ?? throw HttpException::unauthorized();
         Users::setDisplayName($me->username, $request->str('display_name'));
+        return ['user' => Auth::describe()];
+    }
+
+    /**
+     * The guided tour has been seen - finished or dismissed - so it stops
+     * starting by itself. It can always be opened again from the sidebar.
+     */
+    public static function tourSeen(Request $request, ?Actor $actor): array
+    {
+        $me = $actor ?? throw HttpException::unauthorized();
+        Users::markTourSeen($me->username);
         return ['user' => Auth::describe()];
     }
 }

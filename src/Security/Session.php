@@ -32,6 +32,10 @@ final class Session
             'samesite' => 'Lax',
             'secure' => self::isHttps(),
         ]);
+        // A session id the client made up is never adopted: PHP mints one of
+        // its own instead, which closes fixation before sign-in as well as
+        // after it.
+        @ini_set('session.use_strict_mode', '1');
         session_name('courseforge');
         session_start();
 

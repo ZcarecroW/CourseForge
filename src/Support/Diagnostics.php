@@ -385,28 +385,43 @@ final class Diagnostics
 
             $invite = Invite::status();
             if (!$invite['open']) {
-                $checks[] = self::ok('invite', 'Invite', 'none open');
+                $checks[] = self::ok('invite', 'Invites', 'none open');
             } else {
-                $expires = (int)$invite['expires_at'];
-                $left = (int)$invite['uses_left'];
-                $detail = 'open for ' . ($left === 1 ? 'one' : $left) . ' more ' . $invite['role']
-                    . ' account' . ($left === 1 ? '' : 's')
-                    . ((int)$invite['max_uses'] > 1 ? ' (' . $invite['uses'] . ' of ' . $invite['max_uses'] . ' used)' : '')
-                    . ', ' . ($expires > 0 ? 'until ' . gmdate('Y-m-d H:i', $expires) . ' UTC' : 'with no expiry');
+                $lines = [];
+                $places = 0;
+                foreach ((array)$invite['invites'] as $row) {
+                    $expires = (int)$row['expires_at'];
+                    $left = (int)$row['uses_left'];
+                    $places += $left;
+                    $lines[] = ((string)$row['label'] !== '' ? '"' . $row['label'] . '": ' : '')
+                        . ($left === 1 ? 'one' : $left) . ' more ' . $row['role'] . ' account' . ($left === 1 ? '' : 's')
+                        . ((int)$row['max_uses'] > 1 ? ' (' . $row['uses'] . ' of ' . $row['max_uses'] . ' used)' : '')
+                        . ', ' . ($expires > 0 ? 'until ' . gmdate('Y-m-d H:i', $expires) . ' UTC' : 'with no expiry');
+                }
+                $detail = count($lines) . ' open - ' . implode('; ', $lines);
 
                 $checks[] = $pending
-                    ? self::ok('invite', 'Invite', $detail)
+                    ? self::ok('invite', 'Invites', $detail)
                     : self::warn(
                         'invite',
-                        'Invite',
+                        'Invites',
                         $detail,
-                        'Setup is finished, so nobody needs this'
-                            . ($left > 1 ? ', and it is worth ' . $left . ' accounts to whoever finds the file' : '')
-                            . '. Spend it or clear the row from the invites table.'
+                        'Every open invite is a way to an account for whoever holds its code'
+                            . ($places > 1 ? ' - ' . $places . ' accounts between them' : '')
+                            . '. Revoke the ones nobody is waiting for under Administration › Accounts.'
                     );
             }
 
-            $checks = array_merge($checks, self::inviteFile($pending, (bool)$invite['open']));
+            // The file matters only for the invite that was written to one:
+            // the first-run invite. Invites issued from the application are
+            // shown once and never touch the disk.
+            $fileInvite = false;
+            foreach ((array)($invite['invites'] ?? []) as $row) {
+                if ((string)$row['path'] !== '') {
+                    $fileInvite = true;
+                }
+            }
+            $checks = array_merge($checks, self::inviteFile($pending, $fileInvite));
 
             // A file still sitting here means one of two different things, and
             // the difference is worth stating rather than leaving somebody to

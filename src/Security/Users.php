@@ -241,6 +241,12 @@ final class Users
         return self::publicView(self::require($username));
     }
 
+    /** Remembers that the account has been shown round the application. */
+    public static function markTourSeen(string $username): void
+    {
+        Db::run('UPDATE users SET tour_seen_at = ? WHERE username = ? COLLATE NOCASE', [time(), trim($username)]);
+    }
+
     /** Changing your own password: the old one has to be right. */
     public static function changePassword(string $username, string $old, string $new): bool
     {
@@ -455,6 +461,7 @@ final class Users
             'is_admin' => (string)$row['role'] === Actor::ROLE_ADMIN,
             'disabled' => (int)$row['disabled'] === 1,
             'must_change_password' => (int)($row['must_change_password'] ?? 0) === 1,
+            'tour_seen' => (int)($row['tour_seen_at'] ?? 0) > 0,
             'created_at' => (int)$row['created_at'],
             'updated_at' => (int)$row['updated_at'],
             'last_login_at' => (int)$row['last_login_at'],

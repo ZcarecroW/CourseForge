@@ -6,6 +6,9 @@ namespace CourseForge\Support;
 use CourseForge\Ai\Run\LiveDriver;
 use CourseForge\Ai\Run\RunManager;
 use CourseForge\Domain\Runs;
+use CourseForge\Domain\Tasks;
+use CourseForge\Security\Hardening;
+use CourseForge\Tasks\Runner;
 use CourseForge\Update\Updater;
 use Throwable;
 
@@ -16,9 +19,11 @@ use Throwable;
  * command line. Three things happen, in this order and for a reason:
  *
  *   1. pages whose worker never came back are given up for lost and requeued,
- *      so a killed process cannot strand a run,
+ *      so a killed process cannot strand a run - and the same for a task,
  *   2. batch runs are polled and anything finished is written home,
- *   3. the live queue is worked until the tick runs out of time.
+ *   3. the tasks people queued - a publish, a link pass - are worked, each
+ *      from where it last stopped,
+ *   4. the live queue is worked until the tick runs out of time.
  *
  * Everything is bounded. A tick that is cut short - by a host time limit, a
  * restart, a network stall - loses nothing: every claim is a lease with an
@@ -46,6 +51,7 @@ final class Cron
             'pages_failed' => 0,
             'pages_claimed' => 0,
             'slot' => '',
+            'tasks' => ['claimed' => 0, 'finished' => 0, 'failed' => 0, 'paused' => 0, 'retried' => 0],
             'errors' => [],
         ];
 
@@ -54,6 +60,11 @@ final class Cron
             $report['released'] = LiveDriver::recover();
         } catch (Throwable $e) {
             $report['errors'][] = 'recover: ' . $e->getMessage();
+        }
+        try {
+            $report['tasks_released'] = Tasks::recover();
+        } catch (Throwable $e) {
+            $report['errors'][] = 'recover tasks: ' . $e->getMessage();
         }
 
         // 2. Collect finished provider batches, for every user on the install.
@@ -76,7 +87,24 @@ final class Cron
             }
         }
 
-        // 3. Write pages until the time is up.
+        // 3. The tasks people queued. A publish is short and somebody is
+        //    usually waiting for it, so it goes before the generation queue;
+        //    when live pages are queued as well the two share the tick, or a
+        //    long publish would keep every page waiting for as long as it ran.
+        try {
+            $liveQueued = Runs::open('', Runs::MODE_LIVE) !== [];
+            $taskDeadline = $liveQueued ? min($deadline, $started + max(10.0, $budget / 2)) : $deadline;
+            $worked = Runner::work($taskDeadline);
+            foreach ($worked['errors'] as $error) {
+                $report['errors'][] = 'task: ' . $error;
+            }
+            unset($worked['errors']);
+            $report['tasks'] = $worked;
+        } catch (Throwable $e) {
+            $report['errors'][] = 'tasks: ' . $e->getMessage();
+        }
+
+        // 4. Write pages until the time is up.
         try {
             $worked = LiveDriver::work($deadline);
             $report['pages_claimed'] = $worked['claimed'];
@@ -87,7 +115,18 @@ final class Cron
             $report['errors'][] = 'work: ' . $e->getMessage();
         }
 
-        // 4. The unattended half of the update feature. It runs after the work,
+        // 5. Whether the server still refuses its private files, taken again
+        //    every few hours. Only from a request or with a public address
+        //    set: from a shell with no address to ask, the last verdict stands.
+        try {
+            if (Hardening::due() && (isset($_SERVER['HTTP_HOST']) || trim(Config::str('app.public_url', '')) !== '')) {
+                $report['security'] = (string)Hardening::check()['verdict'];
+            }
+        } catch (Throwable $e) {
+            $report['errors'][] = 'security: ' . $e->getMessage();
+        }
+
+        // 6. The unattended half of the update feature. It runs after the work,
         //    never before it: an update replaces the very files this tick is
         //    executing, so anything still owed to a course is finished first.
         try {

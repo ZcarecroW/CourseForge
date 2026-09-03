@@ -22,11 +22,15 @@ final class PublicUrl
     {
         $base = trim(Config::str('app.public_url', ''));
 
-        if ($base === '' && isset($_SERVER['HTTP_HOST'])) {
+        // The Host header is a string the client chose. It is used only when
+        // it has the shape of a host, and X-Forwarded-Host is never read: a
+        // proxy that rewrites the host is what "Public address" is for.
+        $host = (string)($_SERVER['HTTP_HOST'] ?? '');
+        if ($base === '' && SafeUrl::isHostShaped($host)) {
             $scheme = Session::isHttps() ? 'https' : 'http';
             $dir = rtrim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
             $dir = (string)preg_replace('#/api$#', '', $dir);
-            $base = $scheme . '://' . $_SERVER['HTTP_HOST'] . $dir;
+            $base = $scheme . '://' . $host . $dir;
         }
         if ($base === '') {
             $base = 'https://your-install';

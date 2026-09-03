@@ -285,10 +285,15 @@
          - reading session cookies, the CSRF meta and parent.document. Sandbox
          without allow-same-origin forces an opaque origin; the script still
          runs and renders, it just cannot reach out. */
-      frame.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
+      frame.setAttribute('sandbox', 'allow-scripts allow-popups');
       frame.srcdoc = info.srcdoc;
     } else {
       frame.src = info.src;
+      /* A pen, a fiddle, a sandbox: somebody else's page, running somebody
+         else's script. It may do everything an embed needs and nothing to the
+         page around it - in particular it may not navigate the wiki away,
+         which a non-sandboxed frame is allowed to do on the first click. */
+      frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-presentation');
       frame.setAttribute('allowfullscreen', '');
       frame.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
     }

@@ -71,14 +71,15 @@ final class McpClients
         array $scopes = [],
         int $ttlDays = 0,
         string $note = '',
+        int $parentId = 0,
     ): array {
         $name = trim($name) !== '' ? mb_substr(trim($name), 0, 60) : 'Claude';
         $token = self::PREFIX . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
         $expires = $ttlDays > 0 ? time() + ($ttlDays * 86400) : 0;
 
         Db::run(
-            'INSERT INTO mcp_clients (username, name, token_hash, scopes, note, expires_at, created_at, last_used_at, uses)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)',
+            'INSERT INTO mcp_clients (username, name, token_hash, scopes, note, expires_at, created_at, last_used_at, uses, parent_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?)',
             [
                 $username,
                 $name,
@@ -87,6 +88,7 @@ final class McpClients
                 mb_substr(trim($note), 0, 200),
                 $expires,
                 time(),
+                max(0, $parentId),
             ]
         );
 
@@ -133,13 +135,31 @@ final class McpClients
     public static function delete(string $username, int $id): void
     {
         self::require($username, $id);
-        Db::run('DELETE FROM mcp_clients WHERE username = ? AND id = ?', [$username, $id]);
+        self::deleteById($id);
     }
 
-    /** Revoking somebody else's connection, as an administrator. */
+    /**
+     * Revokes a connection, and every connection it issued.
+     *
+     * A connection may mint others over MCP, at or below its own scopes. A
+     * stolen token that minted a successor before it was noticed must not
+     * leave that successor standing, so a revocation follows the lineage down.
+     */
     public static function deleteById(int $id): void
     {
-        Db::run('DELETE FROM mcp_clients WHERE id = ?', [$id]);
+        $pending = [$id];
+        $seen = [];
+        while ($pending !== []) {
+            $current = (int)array_shift($pending);
+            if (isset($seen[$current])) {
+                continue;
+            }
+            $seen[$current] = true;
+            foreach (Db::rows('SELECT id FROM mcp_clients WHERE parent_id = ?', [$current]) as $child) {
+                $pending[] = (int)$child['id'];
+            }
+            Db::run('DELETE FROM mcp_clients WHERE id = ?', [$current]);
+        }
     }
 
     public static function rename(string $username, int $id, string $name, string $note): array

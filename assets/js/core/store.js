@@ -58,6 +58,16 @@ export const state = reactive({
    */
   redeeming: false,
 
+  /**
+   * Whether a secret may be stored right now, and why not.
+   *
+   * Answered with the catalogue for every account, because every account has
+   * a key field on its profile and that field has to be able to say why it is
+   * grey. `locked` holds until Administration › Security has shown the server
+   * to refuse its private files, or an administrator has accepted the risk.
+   */
+  security: { locked: false, verdict: 'unknown', acknowledged: false, checked_at: 0 },
+
   /* administration - fetched when an admin screen opens, never at sign-in */
   settings: [],
   settingsPhp: null,
@@ -155,6 +165,22 @@ export const minPassword = computed(() => Number(state.setupInfo.min_password) |
  */
 export const mustChangePassword = computed(() => state.user?.must_change_password === true);
 
+/** True while no field that would store a secret may be used. See state.security. */
+export const secretsLocked = computed(() => state.security?.locked === true);
+
+/** Applies a security status the server has answered - the catalogue, or the Security screen. */
+export function applySecurity(payload) {
+  const status = payload?.security;
+  if (!status) return payload;
+  state.security = {
+    locked: status.locked === true,
+    verdict: status.verdict ?? 'unknown',
+    acknowledged: status.acknowledged === true || (status.acknowledged !== null && typeof status.acknowledged === 'object'),
+    checked_at: status.checked_at ?? 0,
+  };
+  return payload;
+}
+
 /**
  * Whether there is an invite waiting to be turned into an account.
  *
@@ -233,6 +259,7 @@ export async function loadCatalogue() {
   state.baseline = data.details?.baseline ?? { features: {}, params: {} };
   state.profileDefaults = data.profile_defaults ?? null;
   state.providers = data.providers ?? [];
+  applySecurity(data);
 }
 
 
@@ -432,7 +459,7 @@ function unsavedBlocks(view) {
 }
 
 /** The screens the second navigation group in App.js leads to. Keep in step. */
-export const ADMIN_VIEWS = new Set(['users', 'settings', 'prompts', 'updates']);
+export const ADMIN_VIEWS = new Set(['users', 'settings', 'prompts', 'updates', 'security']);
 
 /**
  * What each screen shows, and how to ask the server for it again. See the note

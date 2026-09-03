@@ -8,7 +8,7 @@ DirectoryIndex index.html
 # CourseForge serves is a zip. `.php` deliberately is NOT here - the application
 # is made of PHP files - which is why an update backup is a single archive
 # rather than a live tree of executable files.
-<FilesMatch "\.(sqlite|sqlite3|sqlite-wal|sqlite-shm|sqlite-journal|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh)$">
+<FilesMatch "\.(sqlite|sqlite3|sqlite-wal|sqlite-shm|sqlite-journal|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh|tmp)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
@@ -29,8 +29,9 @@ DirectoryIndex index.html
     # Never serve anything out of the private directories. config/ has its own
     # .htaccess as well, and tests/ is here because a release ships it and a
     # test file is a PHP file, which the FilesMatch above deliberately does not
-    # cover - the application is made of those.
-    RewriteRule ^(data|src|tools|config|tests)/ - [F,L]
+    # cover - the application is made of those. .git and .github are for an
+    # installation deployed by cloning rather than from a release archive.
+    RewriteRule ^(data|src|tools|config|tests|\.git|\.github)(/|$) - [F,L]
 
     # The MCP endpoint is its own front door: bearer token instead of a cookie
     # session, JSON-RPC instead of REST. It has to be excluded before the
@@ -55,6 +56,11 @@ DirectoryIndex index.html
     Header set X-Content-Type-Options "nosniff"
     Header set X-Frame-Options "SAMEORIGIN"
     Header set Referrer-Policy "same-origin"
+    # The parts of a content security policy that cost nothing here: the
+    # application embeds nothing, is embedded by nothing, posts forms
+    # nowhere, and has no <base>. A script-src would need a hash of the
+    # import map, which changes every release - see docs.md.
+    Header always set Content-Security-Policy "frame-ancestors 'self'; base-uri 'none'; object-src 'none'; form-action 'self'"
 </IfModule>
 
 # --------------------------------------------------------------------- cache

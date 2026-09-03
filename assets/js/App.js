@@ -23,15 +23,17 @@
  */
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue';
 import {
-  state, isSignedIn, isAdmin, minPassword, mustChangePassword, ADMIN_VIEWS,
+  state, isSignedIn, isAdmin, minPassword, mustChangePassword, secretsLocked, ADMIN_VIEWS,
   loadSetup, loadSession, loadWorkspace, probeUpdate, go, stayPut, signOut,
 } from '@/core/store.js';
 import { toast, attempt, toasts, dismiss } from '@/core/toast.js';
 import { post, put } from '@/core/api.js';
 import { resolvedTheme, setTheme, themePreference } from '@/core/theme.js';
+import { tour, startTour } from '@/core/tour.js';
 
 import AppIcon from '@/components/AppIcon.js';
 import AppModal, { anyDialogOpen } from '@/components/AppModal.js';
+import AppTour from '@/components/AppTour.js';
 import LoginView from '@/views/LoginView.js';
 import SetupView from '@/views/SetupView.js';
 import ProjectsView from '@/views/ProjectsView.js';
@@ -87,6 +89,7 @@ const UsersView = adminScreen('Accounts', () => import('@/views/admin/UsersView.
 const SettingsView = adminScreen('Settings', () => import('@/views/admin/SettingsView.js'));
 const PromptsView = adminScreen('Prompts', () => import('@/views/admin/PromptsView.js'));
 const UpdatesView = adminScreen('Updates', () => import('@/views/admin/UpdatesView.js'));
+const SecurityView = adminScreen('Security', () => import('@/views/admin/SecurityView.js'));
 // Not an administrator screen, but deferred for the same reason: most
 // sessions never open it, and it is one of the larger views.
 const BookStackDevView = adminScreen('BookStackDev', () => import('@/views/BookStackDevView.js'));
@@ -116,6 +119,8 @@ const ADMIN_NAV = [
   { view: 'settings', label: 'Settings', icon: 'cog', hint: 'Everything this installation can be told to do differently' },
   { view: 'prompts', label: 'Prompts', icon: 'file-text', hint: 'The words this installation sends to the model' },
   { view: 'updates', label: 'Updates', icon: 'download', hint: 'Is this installation current, and what if it is not' },
+  { view: 'security', label: 'Security', icon: 'shield-lock',
+    hint: 'Whether this server keeps CourseForge\'s private files private, and what to do if it does not' },
 ];
 
 /** Dark, light, or whatever the system says. */
@@ -137,6 +142,7 @@ const COMPONENT_FOR = {
   settings: 'settings-view',
   prompts: 'prompts-view',
   updates: 'updates-view',
+  security: 'security-view',
 };
 
 /* What a destination is called when it has to be named in a sentence. The
@@ -151,7 +157,7 @@ export const App = {
   components: {
     AppIcon, AppModal, LoginView, SetupView,
     ProjectsView, ProjectView, TagsView, ProfilesView, ConnectView, BookStackDevView,
-    UsersView, SettingsView, PromptsView, UpdatesView,
+    UsersView, SettingsView, PromptsView, UpdatesView, SecurityView, AppTour,
   },
   setup() {
     const showAccount = ref(false);
@@ -253,8 +259,30 @@ export const App = {
         ...item,
         active: item.view === state.view,
         badge: item.view === 'updates' && updateAvailable.value,
+        // The lock on secrets is the one thing worth a red mark in the
+        // navigation: until Security has passed, half of Profiles is grey.
+        alert: item.view === 'security' && secretsLocked.value,
       }))
     );
+
+    /* The guided tour starts by itself the first time an account sees the
+       workspace, and never again once it has been finished or dismissed -
+       the server remembers. It waits for the workspace, because the tour
+       stands on the screens the workspace draws. */
+    watch(
+      () => state.ready && isSignedIn.value && !mustChangePassword.value && state.user?.tour_seen === false,
+      (due) => { if (due && !tour.active) setTimeout(() => { if (!tour.active) startTour(); }, 600); },
+      { immediate: true },
+    );
+
+    /* The banner for an administrator while secrets are locked - on every
+       screen but the one that fixes it. */
+    const securityBanner = computed(() => isAdmin.value && secretsLocked.value && state.view !== 'security');
+    const securityWords = computed(() => ({
+      exposed: 'This server hands out the files that hold CourseForge\'s secrets.',
+      unverified: 'CourseForge could not verify that this server keeps its data directory private.',
+      unknown: 'Nobody has checked yet whether this server keeps its data directory private.',
+    })[state.security?.verdict] ?? 'The server has not passed the security check.');
 
     const roleLabel = computed(() => (isAdmin.value ? 'Administrator' : 'User'));
 
@@ -350,6 +378,7 @@ export const App = {
     return {
       state, isSignedIn, isAdmin, minPassword, mustChangePassword,
       activeView, navItems, adminItems, updateAvailable, roleLabel, go, installationName,
+      tour, startTour, securityBanner, securityWords,
       leavingFor, leaveAnyway, stayPut,
       toasts, dismiss,
       showAccount, account, openAccount, closeAccount, saveDisplayName, changePassword, logout,
@@ -387,31 +416,38 @@ export const App = {
         </div>
 
         <nav class="sidebar__nav" aria-label="Main">
-          <p class="nav-section"><app-icon name="grid" :size="11"/> Workspace</p>
+          <p class="nav-section" data-tour="nav-workspace"><app-icon name="grid" :size="11"/> Workspace</p>
           <button v-for="item in navItems" :key="item.view" class="nav-item"
                   :class="{ 'is-active': item.active }" :aria-current="item.active ? 'page' : null"
-                  :title="item.hint" @click="go(item.view)">
+                  :title="item.hint" :data-tour="'nav-' + item.view" @click="go(item.view)">
             <app-icon :name="item.icon" :size="17"/>
             <span class="grow truncate">{{ item.label }}</span>
             <span v-if="item.count !== null" class="nav-item__count">{{ item.total }}</span>
           </button>
 
           <template v-if="isAdmin">
-            <p class="nav-section nav-section--later"><app-icon name="shield" :size="11"/> Administration</p>
+            <p class="nav-section nav-section--later" data-tour="nav-admin"><app-icon name="shield" :size="11"/> Administration</p>
             <button v-for="item in adminItems" :key="item.view" class="nav-item"
                     :class="{ 'is-active': item.active }" :aria-current="item.active ? 'page' : null"
-                    :title="item.hint" @click="go(item.view)">
+                    :title="item.hint" :data-tour="'nav-' + item.view" @click="go(item.view)">
               <app-icon :name="item.icon" :size="17"/>
               <span class="grow truncate">{{ item.label }}</span>
               <span v-if="item.badge" class="badge badge--accent none" title="A newer version has been published">
                 new
+              </span>
+              <span v-if="item.alert" class="badge badge--danger none" title="Secrets are locked until the server passes the check">
+                <app-icon name="lock" :size="9"/> locked
               </span>
             </button>
           </template>
         </nav>
 
         <div class="sidebar__foot">
-          <div class="theme-switch" role="radiogroup" aria-label="Theme">
+          <button class="nav-item tour-launch" data-tour="tour-button" title="A guided walk through every screen and setting"
+                  @click="startTour()">
+            <app-icon name="compass" :size="15"/> Guided tour
+          </button>
+          <div class="theme-switch" role="radiogroup" aria-label="Theme" data-tour="theme">
             <button v-for="option in THEMES" :key="option.key" type="button" class="theme-switch__opt"
                     :class="{ 'is-active': themePref === option.key }" role="radio"
                     :aria-checked="themePref === option.key" :title="option.title"
@@ -419,7 +455,7 @@ export const App = {
               <app-icon :name="option.icon" :size="13"/>{{ option.label }}
             </button>
           </div>
-          <button class="nav-item sidebar__user" title="Your account: display name and password" @click="openAccount">
+          <button class="nav-item sidebar__user" title="Your account: display name and password" data-tour="account" @click="openAccount">
             <span class="avatar" aria-hidden="true">{{ initials }}</span>
             <span class="grow" style="min-width:0">
               <span class="sidebar__user-name truncate" style="display:block">{{ state.user.display_name }}</span>
@@ -436,8 +472,20 @@ export const App = {
       </aside>
 
       <main class="main" id="main" tabindex="-1">
+        <div v-if="securityBanner" class="security-banner" role="alert">
+          <app-icon name="shield-alert" :size="16" class="none"/>
+          <span class="grow">
+            <strong>Secrets are locked.</strong> {{ securityWords }} Every API key and token field stays grey
+            until the server passes the check, or you accept the risk in so many words.
+          </span>
+          <button class="btn btn--sm none" @click="go('security')">
+            <app-icon name="shield-lock" :size="13"/> Open Security
+          </button>
+        </div>
         <component :is="activeView" :key="state.project ? 'course-' + state.project.id : activeView"/>
       </main>
+
+      <app-tour/>
 
       <!-- No title while a password change is owed: AppModal draws a close
            button next to a title, and a button that refuses to close would be

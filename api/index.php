@@ -18,8 +18,10 @@ use CourseForge\Api\ProfileController;
 use CourseForge\Api\ProjectController;
 use CourseForge\Api\PublishController;
 use CourseForge\Api\RunController;
+use CourseForge\Api\SecurityController;
 use CourseForge\Api\SessionController;
 use CourseForge\Api\SettingsController;
+use CourseForge\Api\TaskController;
 use CourseForge\Api\SetupController;
 use CourseForge\Api\TagController;
 use CourseForge\Api\UpdateController;
@@ -76,6 +78,7 @@ $router->add('DELETE', 'session', [SessionController::class, 'logout'], auth: fa
 $router->add('GET', 'config', [ConfigController::class, 'show']);
 $router->add('PUT', 'account', [SessionController::class, 'updateProfile']);
 $router->add('POST', 'account/password', [SessionController::class, 'changePassword']);
+$router->add('POST', 'account/tour', [SessionController::class, 'tourSeen']);
 
 $router->add('GET', 'profiles', [ProfileController::class, 'index']);
 $router->add('POST', 'profiles', [ProfileController::class, 'create']);
@@ -138,6 +141,18 @@ $router->add('PUT', 'projects/{id}/targets', [PublishController::class, 'saveTar
 $router->add('POST', 'projects/{id}/push', [PublishController::class, 'push']);
 $router->add('POST', 'projects/{id}/links', [PublishController::class, 'resolveLinks']);
 
+// The tasks the scheduler works for a course - a publish, a link pass - and
+// the log they leave. `run` is the browser working one slice itself, for an
+// installation whose scheduler is not calling in.
+$router->add('GET', 'projects/{id}/tasks', [TaskController::class, 'index']);
+$router->add('POST', 'projects/{id}/tasks', [TaskController::class, 'create']);
+$router->add('DELETE', 'projects/{id}/tasks', [TaskController::class, 'clear']);
+$router->add('GET', 'projects/{id}/tasks/{taskId}', [TaskController::class, 'show']);
+$router->add('DELETE', 'projects/{id}/tasks/{taskId}', [TaskController::class, 'delete']);
+$router->add('POST', 'projects/{id}/tasks/{taskId}/cancel', [TaskController::class, 'cancel']);
+$router->add('POST', 'projects/{id}/tasks/{taskId}/retry', [TaskController::class, 'retry']);
+$router->add('POST', 'projects/{id}/tasks/{taskId}/run', [TaskController::class, 'run']);
+
 // Administrators only. Every handler checks the role again for itself.
 $router->add('GET', 'admin/users', [UserController::class, 'index'], admin: true);
 $router->add('POST', 'admin/users', [UserController::class, 'create'], admin: true);
@@ -145,6 +160,7 @@ $router->add('PUT', 'admin/users/{id}', [UserController::class, 'update'], admin
 $router->add('DELETE', 'admin/users/{id}', [UserController::class, 'delete'], admin: true);
 $router->add('POST', 'admin/invite', [UserController::class, 'invite'], admin: true);
 $router->add('DELETE', 'admin/invite', [UserController::class, 'revokeInvite'], admin: true);
+$router->add('DELETE', 'admin/invite/{id}', [UserController::class, 'revokeInvite'], admin: true);
 $router->add('GET', 'admin/audit', [UserController::class, 'audit'], admin: true);
 
 $router->add('GET', 'admin/settings', [SettingsController::class, 'show'], admin: true);
@@ -156,6 +172,13 @@ $router->add('POST', 'admin/settings/php', [SettingsController::class, 'setUpPhp
 $router->add('GET', 'admin/prompts', [SettingsController::class, 'prompts'], admin: true);
 $router->add('PUT', 'admin/prompts', [SettingsController::class, 'savePrompts'], admin: true);
 $router->add('GET', 'admin/diagnostics', [SettingsController::class, 'diagnostics'], admin: true);
+
+// Whether this server keeps the data directory private, and the one way past
+// the lock that holds until it does.
+$router->add('GET', 'admin/security', [SecurityController::class, 'show'], admin: true);
+$router->add('POST', 'admin/security/check', [SecurityController::class, 'check'], admin: true);
+$router->add('POST', 'admin/security/acknowledge', [SecurityController::class, 'acknowledge'], admin: true);
+$router->add('DELETE', 'admin/security/acknowledge', [SecurityController::class, 'revoke'], admin: true);
 
 $router->add('GET', 'admin/update', [UpdateController::class, 'status'], admin: true);
 $router->add('POST', 'admin/update/check', [UpdateController::class, 'check'], admin: true);
@@ -247,7 +270,14 @@ try {
     $unexpected($e, 'The database could not be read or written. Please check the server log.');
 } catch (RuntimeException $e) {
     // Domain errors that predate HttpException: "not found" is a 404, the rest a 400.
-    Response::fail($e->getMessage(), stripos($e->getMessage(), 'not found') !== false ? 404 : 400);
+    // A message naming a path on disk is a message for the log, not the client.
+    $message = $e->getMessage();
+    if (str_contains($message, CF_ROOT) || str_contains($message, CF_DATA)
+        || str_contains($message, str_replace('\\', '/', CF_ROOT))) {
+        Runtime::log('request', $e);
+        $message = 'The server could not read or write one of its files. Please check the server log.';
+    }
+    Response::fail($message, stripos($message, 'not found') !== false ? 404 : 400);
 } catch (Throwable $e) {
     $unexpected($e, 'Unexpected server error. Please check the server log.');
 }

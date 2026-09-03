@@ -162,7 +162,11 @@ final class Auth
             return null;
         }
         $view = $actor->toArray();
-        $view['must_change_password'] = self::passwordChangeDue($actor);
+        $row = Users::find($actor->username);
+        $view['must_change_password'] = $row !== null && (int)($row['must_change_password'] ?? 0) === 1;
+        // Whether the guided tour has been seen. Zero - never - is what every
+        // account carries before 5.2, so it is offered once to everybody.
+        $view['tour_seen'] = $row !== null && (int)($row['tour_seen_at'] ?? 0) > 0;
         return $view;
     }
 

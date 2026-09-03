@@ -32,6 +32,26 @@ use Throwable;
 final class Publisher
 {
     /**
+     * How a wiki client is made from a profile, replaceable by a test.
+     *
+     * The publisher's promises - a book is never created twice, a push
+     * interrupted half way carries on from the page it stopped at - are only
+     * worth testing against a wiki that can fail on cue, and the seam for that
+     * is here rather than in every caller. Null means the real thing.
+     *
+     * @var callable(array<string,mixed>,string):BookStackClient|null
+     */
+    public static $clientFactory = null;
+
+    /** @param array<string,mixed> $credentials the owner's profile data */
+    private static function client(array $credentials, string $instanceId): BookStackClient
+    {
+        return self::$clientFactory !== null
+            ? (self::$clientFactory)($credentials, $instanceId)
+            : BookStackClient::fromProfile($credentials, $instanceId);
+    }
+
+    /**
      * @param array<string,mixed> $project
      * @param array<int,array<string,mixed>> $targets
      * @param array<string,array{name:string,base_url:string}> $instances
@@ -90,6 +110,92 @@ final class Publisher
         return count($this->targets);
     }
 
+    /** The targets this push covers, as rows. @return array<int,array<string,mixed>> */
+    public function targets(): array
+    {
+        return $this->targets;
+    }
+
+    /** The course being published. @return array<string,mixed> */
+    public function project(): array
+    {
+        return $this->project;
+    }
+
+    /** What a wiki is called, for a log line or a badge. @param array<string,mixed> $target */
+    public function nameOf(array $target): string
+    {
+        $instanceId = (string)$target['instance_id'];
+        $name = $this->instances[$instanceId]['name'] ?? '';
+        return $name !== '' ? $name : $instanceId;
+    }
+
+    /**
+     * One wiki of the push, done a slice at a time.
+     *
+     * This is the scheduler's way in. Publisher::push() runs every wiki to the
+     * end inside one request; a task cannot afford that, so it asks for one
+     * wiki with a budget and a place to resume from, and gets back where the
+     * work stands. Credentials are read here, once per call, from the owner's
+     * profile - a profile deleted between two slices is a refusal at the next
+     * one rather than a stale key kept in memory for an hour.
+     *
+     * @param array<string,mixed> $target a row from targets()
+     * @param array<string,mixed> $state what the last slice handed back, or []
+     * @param callable(string,string):void $emit every log line, as it is said
+     * @return array{log:string[],links:array{resolved:int,pending:int,updated:int},state:array<string,mixed>,done:bool}
+     */
+    public function pushTarget(
+        array $target,
+        string $scope,
+        ?int $itemId,
+        bool $force,
+        array $state,
+        PublishBudget $budget,
+        callable $emit,
+    ): array {
+        return $this->publisherFor($target, $emit)->push($scope, $itemId, $force, $state, $budget);
+    }
+
+    /**
+     * The link pass for one wiki, a slice at a time. See pushTarget().
+     *
+     * @param array<string,mixed> $target
+     * @param array<string,mixed> $state
+     * @param callable(string,string):void $emit
+     * @return array{log:string[],links:array{resolved:int,pending:int,updated:int},state:array<string,mixed>,done:bool}
+     */
+    public function resolveTarget(array $target, bool $force, array $state, PublishBudget $budget, callable $emit): array
+    {
+        return $this->publisherFor($target, $emit)->resolveLinks($force, $state, $budget);
+    }
+
+    /**
+     * Copies what the wikis now hold back onto the course, after a slice.
+     *
+     * Publisher::push() does this at the end of the push; a task does it at the
+     * end of every slice, so the badges on the course follow the work as it
+     * goes rather than jumping when it is over.
+     */
+    public function settle(): void
+    {
+        Targets::mirror($this->username, (int)$this->project['id']);
+        Projects::touch((int)$this->project['id']);
+    }
+
+    /**
+     * @param array<string,mixed> $target
+     * @param callable(string,string):void $emit
+     */
+    private function publisherFor(array $target, callable $emit): TargetPublisher
+    {
+        $credentials = Profiles::data($this->username, (int)$this->project['profile_id']);
+        $client = self::client($credentials, (string)$target['instance_id']);
+        $publisher = new TargetPublisher($this->project, $target, $client, '');
+        $publisher->onLine($emit);
+        return $publisher;
+    }
+
     /**
      * @param string $scope all | book | chapter | page
      * @return array{log:string[],links:array{resolved:int,pending:int,updated:int},targets:array<int,array<string,mixed>>,failed:int}
@@ -137,7 +243,7 @@ final class Publisher
             $prefix = $many ? $this->labelFor($target) : '';
 
             try {
-                $client = BookStackClient::fromProfile($credentials, (string)$target['instance_id']);
+                $client = self::client($credentials, (string)$target['instance_id']);
                 $publisher = new TargetPublisher($this->project, $target, $client, $prefix);
                 $result = $work($publisher);
 
@@ -180,7 +286,7 @@ final class Publisher
         // wrong rather than handed a log saying it did not work - which is what
         // a single-destination course has always done.
         if (count($failures) === count($this->targets)) {
-            throw $failures[0];
+            throw $failures[0] instanceof PublishFailure ? $failures[0]->cause() : $failures[0];
         }
 
         return self::combine($perTarget) + ['targets' => $perTarget, 'failed' => count($failures)];
@@ -211,14 +317,6 @@ final class Publisher
         }
 
         return ['log' => $log, 'links' => $links];
-    }
-
-    /** @param array<string,mixed> $target */
-    private function nameOf(array $target): string
-    {
-        $instanceId = (string)$target['instance_id'];
-        $name = $this->instances[$instanceId]['name'] ?? '';
-        return $name !== '' ? $name : $instanceId;
     }
 
     /**

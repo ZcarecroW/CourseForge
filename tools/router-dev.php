@@ -23,9 +23,9 @@ $path = '/' . ltrim($path, '/');
 // had, so `.htaccess` came back 200 here and 403 in production. A development
 // router that disagrees with the server it imitates is worse than none: it is
 // where somebody checks whether a file is exposed.
-if (preg_match('#(^|/)\.[^/]+$#', $path)
+if (preg_match('#(^|/)\.[^/]+(/|$)#', $path)
     || preg_match('#^/(data|src|tools|config|tests)/#', $path)
-    || preg_match('#\.(sqlite|sqlite3|sqlite-wal|sqlite-shm|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh)$#', $path)) {
+    || preg_match('#\.(sqlite|sqlite3|sqlite-wal|sqlite-shm|sqlite-journal|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh|tmp)$#', $path)) {
     http_response_code(403);
     header('Content-Type: application/json');
     echo '{"ok":false,"error":"Forbidden."}';

@@ -82,7 +82,13 @@ export const UsersView = {
     });
 
     /** The invite form. */
-    const inviteDraft = reactive({ role: 'user', ttl: 48, uses: 1 });
+    const inviteDraft = reactive({ role: 'user', ttl: 48, uses: 1, label: '' });
+
+    /** The open invite waiting to be revoked, or null. */
+    const revoking = ref(null);
+
+    /** Every open invite, newest first, as the server lists them. */
+    const openInvites = computed(() => state.invite?.invites ?? []);
 
     /**
      * The two things that are readable once and never again. They are held here
@@ -313,32 +319,37 @@ export const UsersView = {
       const data = await post('admin/invite', {
         role: inviteDraft.role,
         ttl_hours: inviteDraft.ttl,
+        label: inviteDraft.label.trim(),
         // A number input that has been emptied holds NaN rather than a number,
         // and NaN posts as null. One is what the server would have used anyway,
         // but sending it is what keeps the audit line honest.
         max_uses: Math.max(1, Math.min(MAX_INVITE_USES, Math.round(inviteDraft.uses) || 1)),
       });
       fresh.invite = data.invite;
+      inviteDraft.label = '';
     }, 'Issue invite');
 
     /**
-     * Takes the open invite back.
+     * Takes one open invite back.
      *
-     * Issuing another one always closed the first, so cancelling an invite was
-     * possible - at the price of leaving a second live code in a file on the
-     * server, which is not what somebody who sent the first to the wrong
-     * address is asking for. This leaves no open invite at all.
-     *
-     * The card holding the code goes with it, for the same reason it is only
-     * ever shown once: leaving a dead code on screen is an invitation to pass
-     * it on and have the other person find out it does not work.
+     * Several may be open, so the one to close is named. The code stops
+     * working the moment this returns, wherever it has already been sent;
+     * accounts already created with it are not touched. The card showing a
+     * freshly issued code goes with it when it is the one revoked, for the
+     * reason the code is only ever shown once: a dead code left on screen is
+     * an invitation to pass it on.
      */
     const revokeInvite = () => run(async () => {
-      confirmRevoke.value = false;
-      await del('admin/invite');
-      fresh.invite = null;
-      toast.success('The invite has been revoked. That code stopped working immediately.');
+      const invite = revoking.value;
+      revoking.value = null;
+      if (!invite) return;
+      await del(`admin/invite/${invite.id}`);
+      if (fresh.invite?.id === invite.id) fresh.invite = null;
+      toast.success(`The invite${invite.label ? ' "' + invite.label + '"' : ''} has been revoked. That code stopped working immediately.`);
     }, 'Revoke invite');
+
+    /** What an invite is for, in words: its label, or its role. */
+    const inviteName = (invite) => invite.label || `${roleLabel(invite.role)} invite`;
 
     /* --------------------------------------------------------------- copying */
 
@@ -385,7 +396,7 @@ export const UsersView = {
       passwordFor, passwordDraft, openPassword, savePassword,
       deleting, deleteChoice, transferTo, typedName, inheritors, needsTyping, deleteReady,
       openDelete, confirmDelete,
-      inviteDraft, issueInvite, revokeInvite, confirmRevoke, TTL_CHOICES, MAX_INVITE_USES, passwordCardPending,
+      inviteDraft, issueInvite, revokeInvite, revoking, openInvites, inviteName, confirmRevoke, TTL_CHOICES, MAX_INVITE_USES, passwordCardPending,
       fresh, copy, copied, reload,
       formatDateTime, relativeTime, plural,
     };
@@ -438,10 +449,10 @@ export const UsersView = {
         <section v-if="fresh.invite" class="card card--pad col gap-3" style="border-color:var(--accent)">
           <div class="row gap-3">
             <span class="tile tile--accent"><app-icon name="ticket" :size="17"/></span>
-            <h2 class="t-md grow">An invite is open</h2>
+            <h2 class="t-md grow">{{ fresh.invite.label ? 'Invite "' + fresh.invite.label + '" is open' : 'An invite is open' }}</h2>
           </div>
           <p class="hint c-warning">
-            This code is shown here once. It is also in the file below on the server, until it is used.
+            This code is shown here once and written nowhere else. Copy it now and pass it on.
           </p>
 
           <div class="form-row">
@@ -455,22 +466,11 @@ export const UsersView = {
             <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ fresh.invite.code }}</pre>
           </div>
 
-          <div class="form-row">
-            <label class="row between">
-              <span>Written to</span>
-              <button class="btn btn--ghost btn--sm" @click="copy(fresh.invite.path, 'Path')">
-                <app-icon :name="copied === 'Path' ? 'check' : 'copy'" :size="12"/>
-                {{ copied === 'Path' ? 'copied' : 'copy' }}
-              </button>
-            </label>
-            <pre class="log" style="white-space:pre-wrap;word-break:break-all">{{ fresh.invite.path }}</pre>
-          </div>
-
           <p class="hint">
             <template v-if="fresh.invite.max_uses > 1">
               It creates {{ fresh.invite.max_uses }} accounts in all<template v-if="fresh.invite.expires_at">,
               and stops working on {{ formatDateTime(fresh.invite.expires_at) }} even if places are left</template>.
-              Until the last one is taken, anybody who can read that file can take one of the others.
+              Until the last one is taken, anybody who holds the code can take one of the others.
             </template>
             <template v-else-if="fresh.invite.expires_at">
               It stops working on {{ formatDateTime(fresh.invite.expires_at) }}, or the moment somebody uses it -
@@ -483,7 +483,7 @@ export const UsersView = {
         </section>
 
         <!-- who can sign in --------------------------------------------------- -->
-        <section class="card" style="overflow:hidden">
+        <section class="card" style="overflow:hidden" data-tour="users-list">
           <div class="card__head">
             <span class="tile tile--accent"><app-icon name="users" :size="17"/></span>
             <div class="card__heading">
@@ -610,7 +610,7 @@ export const UsersView = {
         </section>
 
         <!-- add somebody ------------------------------------------------------ -->
-        <section class="card card--pad col gap-4">
+        <section class="card card--pad col gap-4" data-tour="users-add">
           <div class="row-top gap-3">
             <span class="tile tile--accent"><app-icon name="user-plus" :size="17"/></span>
             <div>
@@ -686,15 +686,15 @@ export const UsersView = {
         </section>
 
         <!-- invite ------------------------------------------------------------- -->
-        <section class="card card--pad col gap-4">
+        <section class="card card--pad col gap-4" data-tour="users-invite">
           <div class="row-top gap-3">
             <span class="tile tile--accent"><app-icon name="ticket" :size="17"/></span>
             <div>
             <h2 class="t-md">Invite somebody</h2>
             <p class="hint mt-1">
-              An invite is a one-off code that lets a person create their own account, choosing their own
-              password, so it never passes through you or through a chat window. CourseForge writes the code
-              to a file on the server as well as showing it here.
+              An invite is a code that lets a person create their own account, choosing their own password, so
+              it never passes through you or through a chat window. Several can be open at once - one for each
+              group of people you are letting in - and each is shown here exactly once, written to no file.
             </p>
             <p class="hint mt-2">
               Whoever you send it to types it on the sign-in screen, under
@@ -711,32 +711,54 @@ export const UsersView = {
             </div>
           </div>
 
-          <div v-if="state.invite && state.invite.open" class="card card--flat card--pad col gap-2">
-            <div class="row gap-2">
-              <app-icon name="alert" :size="14" class="c-warning none"/>
-              <p class="t-sm grow">
-                An invite for {{ roleLabel(state.invite.role).toLowerCase() }} is already open.
-              </p>
-              <span v-if="state.invite.max_uses > 1" class="badge none">
-                {{ state.invite.uses }} of {{ state.invite.max_uses }} used
-              </span>
-              <button class="btn btn--ghost btn--sm none" :disabled="busy" @click="confirmRevoke = true">
-                <app-icon name="trash" :size="13"/> Revoke
-              </button>
+          <div v-if="openInvites.length" class="card card--flat" style="overflow:hidden">
+            <div class="scroll-x">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Open invite</th>
+                    <th style="width:130px">Creates</th>
+                    <th style="width:110px">Places</th>
+                    <th style="width:160px">Until</th>
+                    <th style="width:120px">Issued by</th>
+                    <th style="width:90px"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="invite in openInvites" :key="invite.id">
+                    <td>
+                      <div class="row gap-2">
+                        <span class="tile tile--sm tile--accent none"><app-icon name="ticket" :size="13"/></span>
+                        <div style="min-width:0">
+                          <div class="strong truncate">{{ inviteName(invite) }}</div>
+                          <p class="t-xs faint">
+                            issued {{ relativeTime(invite.created_at) }}<template v-if="invite.path"> · in {{ invite.path }}<template v-if="invite.file_present === false"> (file gone)</template></template>
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="badge" :class="invite.role === 'admin' ? 'badge--accent' : ''">{{ roleLabel(invite.role) }}</span></td>
+                    <td class="t-xs nums">{{ invite.uses_left }} left<span class="dim"> of {{ invite.max_uses }}</span></td>
+                    <td class="t-xs dim">{{ invite.expires_at ? formatDateTime(invite.expires_at) : 'no expiry' }}</td>
+                    <td class="t-xs dim truncate">{{ invite.issued_by || '—' }}</td>
+                    <td>
+                      <button class="btn btn--ghost btn--sm" :disabled="busy" @click="revoking = invite"
+                              :aria-label="'Revoke the invite ' + inviteName(invite)" title="Take this invite back. The code stops working at once.">
+                        <app-icon name="trash" :size="13"/> Revoke
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <p class="hint">
-              Its code is in <span class="mono">{{ state.invite.path }}</span
-              ><template v-if="state.invite.file_present === false"> - except that the file is no longer
-              there, so the code cannot be read by anybody, including you</template>.
-              <template v-if="state.invite.expires_at">
-                It stops working on {{ formatDateTime(state.invite.expires_at) }}.
-              </template>
-              <template v-else>It does not expire.</template>
-              Issuing a new one below replaces it; <strong>Revoke</strong> takes it back and leaves none open.
-            </p>
           </div>
 
           <div class="row wrap gap-3 items-end">
+            <div class="form-row grow" style="min-width:200px">
+              <label for="invite-label">Who is it for <span class="faint">(optional)</span></label>
+              <input id="invite-label" v-model="inviteDraft.label" maxlength="80" placeholder="the marketing team"
+                     autocomplete="off" @keydown.enter="!busy && !fresh.invite && issueInvite()">
+            </div>
             <div class="form-row none" style="min-width:200px">
               <label for="invite-role">The account it creates will be</label>
               <select id="invite-role" v-model="inviteDraft.role">
@@ -760,22 +782,22 @@ export const UsersView = {
               </div>
             </div>
             <button class="btn none push" :disabled="busy || fresh.invite"
-                    :title="fresh.invite ? 'Pass on the open invite above first - issuing another replaces it.' : ''"
+                    :title="fresh.invite ? 'Copy the code shown above and confirm you have passed it on before issuing another, so it is not lost.' : ''"
                     @click="issueInvite">
               <app-icon name="ticket" :size="14"/> Issue an invite
             </button>
           </div>
           <p v-if="fresh.invite" class="hint">
-            The invite above is the open one. Issuing another replaces it - and its code, which is shown once -
-            so copy that one first, or revoke it.
+            The code above is shown once. Copy it and press <strong>I have passed it on</strong> before issuing
+            the next one, so it is not lost under a new card.
           </p>
 
           <p class="hint">
-            Only one invite is ever open at a time, and it is deleted the moment the last account it is good for
-            is created. Leave <strong>Good for</strong> at one unless you are expecting a group: the code sits in
-            a plain file on the server, and a code worth ten accounts is worth ten accounts to whoever finds it.
-            At most {{ MAX_INVITE_USES }}. An invite you have sent to the wrong person is taken back with
-            <strong>Revoke</strong>, above, which deletes the file as well as closing the code.
+            An invite closes the moment the last account it is good for is created, or when it expires. Leave
+            <strong>Good for</strong> at one unless you are expecting a group: a code worth ten accounts is worth
+            ten accounts to whoever ends up holding it. At most {{ MAX_INVITE_USES }} places, and at most
+            twenty-five invites open at once. An invite sent to the wrong person is taken back with
+            <strong>Revoke</strong>, which closes the code at once and leaves the others alone.
           </p>
         </section>
       </div>
@@ -922,18 +944,18 @@ export const UsersView = {
       </template>
     </app-modal>
 
-    <!-- take the open invite back ---------------------------------------------- -->
-    <app-modal v-if="confirmRevoke" title="Revoke the open invite?" icon="alert" @close="confirmRevoke = false">
+    <!-- take an open invite back ----------------------------------------------- -->
+    <app-modal v-if="revoking" :title="'Revoke the invite ' + inviteName(revoking) + '?'" icon="alert" @close="revoking = null">
       <p class="t-sm">
-        The code stops working immediately, wherever it has already been sent, and
-        <span class="mono">{{ state.invite ? state.invite.path : '' }}</span> is deleted.
-        Accounts already created with it are not touched.
+        The code stops working immediately, wherever it has already been sent<template v-if="revoking.path">, and
+        <span class="mono">{{ revoking.path }}</span> is deleted</template>. Accounts already created with it
+        are not touched, and the other open invites are left alone.
       </p>
       <p class="hint mt-2">
         There is no way to bring the same code back - you would issue a new one, and send that instead.
       </p>
       <template #footer>
-        <button class="btn" @click="confirmRevoke = false">Leave it open</button>
+        <button class="btn" @click="revoking = null">Leave it open</button>
         <button class="btn btn--danger" :disabled="busy" @click="revokeInvite">
           <app-icon name="trash" :size="14"/> Revoke the invite
         </button>

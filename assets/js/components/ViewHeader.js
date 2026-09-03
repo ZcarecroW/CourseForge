@@ -22,7 +22,7 @@ export const ViewHeader = {
     return { state };
   },
   template: `
-    <header class="topbar">
+    <header class="topbar" data-tour="view-header">
       <button class="btn btn--ghost btn--icon menu-toggle none" aria-label="Open navigation"
               @click="state.sidebarOpen = true">
         <app-icon name="menu" :size="18"/>

@@ -203,15 +203,19 @@ final class AdminTools
                 name: 'issue_invite',
                 scope: Scopes::ADMIN,
                 title: 'Issue an invite code',
-                description: 'Writes a fresh INVITE-CODE.txt on the server and returns the code here exactly once, so '
-                    . 'somebody can create their own account from the setup screen rather than being handed a '
-                    . 'password over a chat. The database keeps only a hash, so the code cannot be read back later - '
-                    . 'pass it on now, or read the file on the server. Only one invite is ever open, so this cancels '
-                    . 'any earlier one. It is good for a single account unless max_uses says otherwise. Costs nothing.',
+                description: 'Returns a fresh invite code exactly once, so somebody can create their own account '
+                    . 'from the sign-in screen rather than being handed a password over a chat. The database keeps '
+                    . 'only a hash, so the code cannot be read back later - pass it on now. Several invites may be '
+                    . 'open at once, each with its own label, role, expiry and number of places; issuing one leaves '
+                    . 'the others alone. It is good for a single account unless max_uses says otherwise. Costs nothing.',
                 properties: [
                     'role' => Schema::enum(
                         'The role the account created with this code gets. Defaults to user.',
                         [Actor::ROLE_USER, Actor::ROLE_ADMIN]
+                    ),
+                    'label' => Schema::string(
+                        'Who this invite is for - "marketing team", "the contractor" - so it can be told from the '
+                        . 'others in list_users and revoked by name. Up to ' . Invite::MAX_LABEL . ' characters.'
                     ),
                     'ttl_hours' => Schema::int(
                         'How long the code stays valid. Defaults to ' . Invite::DEFAULT_TTL_HOURS . ' hours.',
@@ -234,14 +238,17 @@ final class AdminTools
             new Tool(
                 name: 'revoke_invite',
                 scope: Scopes::ADMIN,
-                title: 'Revoke the open invite code',
-                description: 'Cancels the invite code that is currently open, so the link stops working and nobody '
-                    . 'else can redeem it. Only one invite is ever open at a time, so this is the one issue_invite '
-                    . 'last handed out. Accounts already created from it keep working - revoking closes the door, it '
-                    . 'does not undo who came through. Refused when there is no open invite. Costs nothing.',
-                properties: [],
+                title: 'Revoke an open invite code',
+                description: 'Cancels an open invite, so the code stops working and nobody else can redeem it. '
+                    . 'list_users shows the open invites with their ids and labels; name one with invite_id, or '
+                    . 'leave it out to revoke the newest. Accounts already created from it keep working - revoking '
+                    . 'closes the door, it does not undo who came through. Refused when there is no open invite. '
+                    . 'Costs nothing.',
+                properties: [
+                    'invite_id' => Schema::int('The invite to revoke, from list_users. Omit for the newest open one.'),
+                ],
                 required: [],
-                handler: static fn(Actor $actor, array $args): array => self::revokeInvite($actor),
+                handler: static fn(Actor $actor, array $args): array => self::revokeInvite($actor, Args::of($args)),
                 admin: true,
                 destructive: true,
             ),
@@ -809,8 +816,9 @@ final class AdminTools
             'content_summary' => $summary,
             'message' => $content === 'transfer'
                 ? 'The account is gone. Its ' . $summary['courses'] . ' course(s), ' . $summary['profiles']
-                    . ' profile(s), ' . $summary['tags'] . ' tag(s) and ' . $summary['connections']
-                    . ' connection(s) now belong to ' . $transferTo . '.'
+                    . ' profile(s) and ' . $summary['tags'] . ' tag(s) now belong to ' . $transferTo . '; its '
+                    . $summary['connections'] . ' connection(s) were revoked, because a token is a credential of '
+                    . 'the account that made it and not a possession to hand on.'
                 : 'The account is gone, along with its ' . $summary['courses'] . ' course(s), ' . $summary['pages']
                     . ' page(s), ' . $summary['profiles'] . ' profile(s) and ' . $summary['tags']
                     . ' tag(s). Anything already published to BookStack was not touched.',
@@ -827,6 +835,7 @@ final class AdminTools
             max(1, min(720, $args->int('ttl_hours', Invite::DEFAULT_TTL_HOURS))),
             $actor->username,
             max(1, min(Invite::MAX_USES, $args->int('max_uses', 1))),
+            $args->str('label'),
         );
 
         $maxUses = (int)$issued['max_uses'];
@@ -835,38 +844,38 @@ final class AdminTools
             $actor->username,
             'user.invite',
             $issued['role'],
-            'written to ' . $issued['path'] . ', good for ' . $maxUses . ' account(s)',
+            ($issued['label'] !== '' ? '"' . $issued['label'] . '", ' : '') . 'good for ' . $maxUses . ' account(s)',
             'mcp'
         );
 
         return [
+            'invite_id' => $issued['id'],
             'code' => $issued['code'],
+            'label' => $issued['label'],
             'role' => $issued['role'],
             'max_uses' => $maxUses,
             'expires_at' => $issued['expires_at'],
             'expires' => self::when((int)$issued['expires_at']),
-            'file' => $issued['path'],
-            'note' => 'The code was written to ' . $issued['path'] . ' on the server and is returned here exactly '
-                . 'once - the database keeps only a hash of it. Any invite issued earlier has been cancelled.',
-            'next' => 'Whoever holds this code opens the installation in a browser and types it into the setup '
-                . 'screen. ' . ($maxUses > 1
-                    ? 'It creates ' . $maxUses . ' accounts in all, and the code and its file are removed when the '
-                        . 'last of them is made - until then anyone who can read that file can take one of the '
-                        . 'remaining places.'
-                    : 'The code and its file are removed the moment an account is created with it.'),
+            'note' => 'The code is returned here exactly once - the database keeps only a hash of it, and it is '
+                . 'written to no file. Invites issued earlier stay open.',
+            'next' => 'Whoever holds this code opens the installation in a browser, presses "I have an invite '
+                . 'code" on the sign-in screen and types it in. ' . ($maxUses > 1
+                    ? 'It creates ' . $maxUses . ' accounts in all and closes when the last of them is made.'
+                    : 'It closes the moment an account is created with it.'),
         ];
     }
 
     /** @return array<string,mixed> */
-    private static function revokeInvite(Actor $actor): array
+    private static function revokeInvite(Actor $actor, Args $args): array
     {
         $actor->requireAdmin();
 
-        $revoked = Invite::revoke();
+        $id = $args->optionalId('invite_id');
+        $revoked = Invite::revoke($id);
         if ($revoked === null) {
-            throw HttpException::notFound(
-                'There is no open invite to revoke. issue_invite opens one; only ever one at a time.'
-            );
+            throw HttpException::notFound($id === null
+                ? 'There is no open invite to revoke. issue_invite opens one.'
+                : 'There is no open invite #' . $id . '. list_users shows the ones that are open.');
         }
 
         $uses = (int)$revoked['uses'];
@@ -883,6 +892,8 @@ final class AdminTools
 
         return [
             'revoked' => true,
+            'invite_id' => (int)$revoked['id'],
+            'label' => (string)($revoked['label'] ?? ''),
             'role' => (string)$revoked['role'],
             'issued_by' => (string)$revoked['issued_by'],
             'used' => $uses,

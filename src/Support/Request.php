@@ -41,8 +41,19 @@ final class Request
             $path = trim((string)($_GET['r'] ?? ''), '/');
         }
 
-        return new self($method, $path, self::decodeBody((string)file_get_contents('php://input')));
+        // A body is read whole and decoded, so its size is bounded here rather
+        // than by memory_limit. Sixteen megabytes is more than the largest
+        // legitimate body - a course outline, a page - by a wide margin.
+        $length = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+        if ($length > self::MAX_BODY_BYTES) {
+            throw new HttpException('The request body is too large.', 413);
+        }
+
+        return new self($method, $path, self::decodeBody((string)file_get_contents('php://input', false, null, 0, self::MAX_BODY_BYTES + 1)));
     }
+
+    /** The largest request body that is read at all. */
+    public const MAX_BODY_BYTES = 16 * 1024 * 1024;
 
     /**
      * Turns a raw request body into the field map the accessors read.
@@ -57,6 +68,9 @@ final class Request
     {
         if (trim($raw) === '') {
             return [];
+        }
+        if (strlen($raw) > self::MAX_BODY_BYTES) {
+            throw new HttpException('The request body is too large.', 413);
         }
 
         $decoded = json_decode($raw, true);

@@ -196,7 +196,7 @@ test('the endpoint serves the loader to an allowed origin and refuses everybody 
     $ok = lookRespond(['k' => $key], ['HTTP_ORIGIN' => 'https://alpha.example.com']);
     same(200, $ok['status'], 'the instance wearing the look is served');
     same('https://alpha.example.com', $ok['headers']['Access-Control-Allow-Origin'], 'and told so, for the browser');
-    same('Origin', $ok['headers']['Vary'], 'and caches keep origins apart');
+    same('Origin, Referer', $ok['headers']['Vary'], 'and caches keep origins apart, whichever header decided');
     ok(str_starts_with($ok['headers']['Content-Type'], 'text/javascript'), 'as JavaScript');
     ok(str_contains($ok['body'], 'window.__cfBookStackDev = {'), 'with the boot object in front');
     ok(str_contains($ok['body'], '"key":"' . $key . '"'), 'carrying the key for the modules');
@@ -213,7 +213,7 @@ test('the endpoint serves the loader to an allowed origin and refuses everybody 
     $wrong = lookRespond(['k' => $key], ['HTTP_ORIGIN' => 'https://beta.example.com:8443']);
     same(403, $wrong['status'], 'an instance that does not wear the look is refused');
     ok(str_contains($wrong['body'], 'https://beta.example.com:8443'), 'by name');
-    ok(str_contains($wrong['body'], 'Served'), 'and the look is named too');
+    ok(!str_contains($wrong['body'], 'Reviewed look') && str_contains($wrong['body'], 'not allowed on'), 'and the refusal names the address but never the look - the key is public');
     ok(!isset($wrong['headers']['Access-Control-Allow-Origin']), 'without a CORS grant');
 
     same(403, lookRespond(['k' => $key])['status'], 'a request that says nothing about its page is refused');

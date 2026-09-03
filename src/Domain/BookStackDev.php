@@ -463,6 +463,7 @@ final class BookStackDev
     public static function create(string $username, string $name, array $settings = [], array $origins = []): array
     {
         $name = self::cleanName($name);
+        self::assertSafeSettings($settings);
         $now = time();
         Db::run(
             'INSERT INTO bookstackdev_profiles (username, name, key, settings, origins, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
@@ -481,6 +482,9 @@ final class BookStackDev
     {
         $row = self::require($username, $id);
         $name = array_key_exists('name', $fields) ? self::cleanName((string)$fields['name']) : (string)$row['name'];
+        if (array_key_exists('settings', $fields)) {
+            self::assertSafeSettings((array)$fields['settings']);
+        }
         $settings = array_key_exists('settings', $fields)
             ? self::normalise(self::merge($row['settings'], (array)$fields['settings']))
             : $row['settings'];
@@ -631,6 +635,73 @@ final class BookStackDev
         }
     }
 
+    /**
+     * The hosts a look may load its libraries from.
+     *
+     * Four of a look's settings are script addresses, and the loader runs
+     * whatever they point at inside every wiki wearing the look - with the
+     * wiki's own script permissions, because the loader is trusted there. A
+     * look belongs to one account, so an address typed into it is that
+     * account's word, and a stolen or careless account must not be able to
+     * turn every reader's browser into its own. The libraries come from the
+     * public module CDNs, or from this installation, and from nowhere else.
+     */
+    private const LIBRARY_HOSTS = ['esm.sh', 'cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com'];
+
+    /**
+     * Refuses a settings document whose addresses point somewhere a look must
+     * not send a browser.
+     *
+     * @param array<string,mixed> $settings as sent, before merging
+     */
+    public static function assertSafeSettings(array $settings): void
+    {
+        foreach ($settings as $group => $fields) {
+            if (!is_array($fields)) {
+                continue;
+            }
+            foreach ($fields as $key => $value) {
+                $key = (string)$key;
+                if (!is_string($value) || trim($value) === '') {
+                    continue;
+                }
+                $isScript = $key === 'url' || str_ends_with($key, 'Url');
+                $isImage = $key === 'backgroundImage';
+                if (!$isScript && !$isImage) {
+                    continue;
+                }
+                $parts = parse_url(trim($value));
+                $scheme = strtolower((string)($parts['scheme'] ?? ''));
+                $host = strtolower((string)($parts['host'] ?? ''));
+                $label = (string)$group . '.' . $key;
+
+                if ($scheme !== 'https' || $host === '') {
+                    throw HttpException::unprocessable(
+                        'The address in ' . $label . ' has to start with https:// - it is loaded into every wiki '
+                        . 'wearing this look, over the page\'s own connection.'
+                    );
+                }
+                if ($isScript && !self::libraryHost($host)) {
+                    throw HttpException::unprocessable(
+                        'The address in ' . $label . ' points at ' . $host . ', and a look may only load its '
+                        . 'libraries from ' . implode(', ', self::LIBRARY_HOSTS) . ' or from this installation. '
+                        . 'A script loaded from anywhere else would run inside every wiki wearing the look.'
+                    );
+                }
+            }
+        }
+    }
+
+    /** One of the library CDNs, or this installation's own address. */
+    private static function libraryHost(string $host): bool
+    {
+        if (in_array($host, self::LIBRARY_HOSTS, true)) {
+            return true;
+        }
+        $own = strtolower((string)parse_url(PublicUrl::base(), PHP_URL_HOST));
+        return $own !== '' && $host === $own;
+    }
+
     /* -------------------------------------------------------------- origins */
 
     /**
@@ -672,6 +743,13 @@ final class BookStackDev
      */
     public static function allowedOrigins(array $row): array
     {
+        // Asked several times per request - the gate, the CORS headers, the
+        // refusal - and each ask walks every profile of the owner. Once is
+        // enough; the answer cannot change inside one request.
+        $memo = (int)$row['id'] . ':' . md5((string)json_encode($row['origins'] ?? []));
+        if (isset(self::$originsMemo[$memo])) {
+            return self::$originsMemo[$memo];
+        }
         $origins = [];
         foreach (self::instancesUsing((string)$row['username'], (int)$row['id']) as $instance) {
             if ($instance['origin'] !== '') {
@@ -681,8 +759,11 @@ final class BookStackDev
         foreach ((array)$row['origins'] as $origin) {
             $origins[] = (string)$origin;
         }
-        return array_values(array_unique($origins));
+        return self::$originsMemo[$memo] = array_values(array_unique($origins));
     }
+
+    /** @var array<string,string[]> */
+    private static array $originsMemo = [];
 
     /** @param array<string,mixed> $row */
     public static function allows(array $row, string $origin): bool
@@ -737,23 +818,31 @@ final class BookStackDev
                 'Content-Type' => 'text/javascript; charset=utf-8',
                 'X-Content-Type-Options' => 'nosniff',
                 'Cache-Control' => 'no-store',
-                'Vary' => 'Origin',
+                // The decision reads the Referer when there is no Origin, so
+                // a shared cache has to key on both or it would hand one
+                // wiki's answer to the next.
+                'Vary' => 'Origin, Referer',
             ],
             'body' => $body,
         ];
 
         $method = strtoupper((string)($server['REQUEST_METHOD'] ?? 'GET'));
         if ($method === 'OPTIONS') {
-            return [
-                'status' => 204,
-                'headers' => [
-                    'Access-Control-Allow-Origin' => self::requestOrigin($server) ?: '*',
-                    'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS',
-                    'Access-Control-Max-Age' => '86400',
-                    'Vary' => 'Origin',
-                ],
-                'body' => '',
+            // A preflight is answered for an origin the look allows, and for
+            // nobody else: the check is the same one the GET makes, so the
+            // preflight never promises what the request would refuse.
+            $key = is_string($query['k'] ?? null) ? trim($query['k']) : '';
+            $row = $key === '' ? null : self::byKey($key);
+            $origin = self::requestOrigin($server);
+            $headers = [
+                'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS',
+                'Access-Control-Max-Age' => '86400',
+                'Vary' => 'Origin, Referer',
             ];
+            if ($row !== null && $origin !== '' && self::allows($row, $origin)) {
+                $headers['Access-Control-Allow-Origin'] = $origin;
+            }
+            return ['status' => 204, 'headers' => $headers, 'body' => ''];
         }
         if ($method !== 'GET' && $method !== 'HEAD') {
             return $js(405, '/* CourseForge BookStackDev: only GET is served here. */', ['Allow' => 'GET, HEAD, OPTIONS']);
@@ -772,9 +861,12 @@ final class BookStackDev
                 . 'shows it, with crossorigin="anonymous". */');
         }
         if (!self::allows($row, $origin)) {
-            return $js(403, '/* CourseForge BookStackDev: the look "' . self::comment((string)$row['name']) . '" is not allowed on '
-                . self::comment($origin) . '. Add that address under BookStackDev in CourseForge, or use a link '
-                . 'generated for this wiki. */');
+            // The refusal names the address and not the look: the key is in
+            // every page of every wiki wearing it, so whoever holds it may be
+            // anybody, and a look's name is its owner's business.
+            return $js(403, '/* CourseForge BookStackDev: this look is not allowed on ' . self::comment($origin)
+                . '. Add that address to the look under BookStackDev in CourseForge, or use a link generated '
+                . 'for this wiki. */');
         }
 
         $cors = [

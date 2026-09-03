@@ -339,9 +339,10 @@ final class Server
         // stops it blocking everything else the account has in flight.
         Runtime::beginLongRequest();
 
+        $previousClient = Scopes::usingClient((int)$context['client_id']);
         try {
             return self::toolResult(
-                Tools::call($context['actor'], $name, $arguments, $context['scopes']),
+                self::bounded(Tools::call($context['actor'], $name, $arguments, $context['scopes']), $name),
                 false
             );
         } catch (NeedsInput $e) {
@@ -358,7 +359,39 @@ final class Server
             ], true);
         } finally {
             Ask::end();
+            Scopes::usingClient($previousClient);
         }
+    }
+
+    /**
+     * A tool result cut to the size the tool declared, on the server.
+     *
+     * The declared size is a hint to the client, and a hint is not a bound: a
+     * course with five hundred written pages is a tool result of many
+     * megabytes, built in memory, sent whole, and then thrown away by a client
+     * that truncates at a fraction of it. So it is cut here, at the same
+     * number the client was told, with a line saying so - a result that ends
+     * mid-sentence with no warning is what a model reads as the whole answer.
+     *
+     * @param array{text:string,data:mixed} $result
+     * @return array{text:string,data:mixed}
+     */
+    private static function bounded(array $result, string $name): array
+    {
+        $tool = Tools::registry()[$name] ?? null;
+        $cap = $tool !== null && $tool->maxResultChars > 0 ? min($tool->maxResultChars, 500000) : 120000;
+        $text = (string)($result['text'] ?? '');
+        if (strlen($text) <= $cap) {
+            return $result;
+        }
+        $result['text'] = mb_strcut($text, 0, $cap)
+            . "\n\n[CourseForge: the result was " . number_format(strlen($text))
+            . ' characters and was cut at ' . number_format($cap) . '. Ask for less at a time - a page rather '
+            . 'than the course, a chapter rather than everything.]';
+        // The structured copy would carry the whole thing regardless; the
+        // client is told to read the text.
+        $result['data'] = null;
+        return $result;
     }
 
     /**
@@ -773,7 +806,18 @@ final class Server
             return true;
         }
         $host = strtolower((string)parse_url($origin, PHP_URL_HOST));
-        $self = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+
+        // "Same origin" is measured against the address this installation is
+        // configured to have, when it has one. The Host header is what the
+        // client sent, and a page that made a browser send a Host matching its
+        // own Origin - by resolving its name to this server - would pass a
+        // check made of two things it chose.
+        $configured = trim(Config::str('mcp.public_url', '')) !== ''
+            ? trim(Config::str('mcp.public_url', ''))
+            : trim(Config::str('app.public_url', ''));
+        $self = $configured !== ''
+            ? strtolower((string)parse_url($configured, PHP_URL_HOST))
+            : strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
         $self = (string)preg_replace('/:\d+$/', '', $self);
 
         // Each configured entry is normalised the same way the incoming Origin

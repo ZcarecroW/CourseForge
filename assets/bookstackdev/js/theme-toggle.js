@@ -61,7 +61,10 @@
   /* BookStack may live under a sub-path; it publishes its root as a meta tag.
      Falling back to '' reproduces the old absolute '/preferences/...' path. */
   function bookstackUrl(path) {
-    var meta = document.querySelector('meta[name="base-url"]');
+    /* Only the head is asked: a page body is written by whoever edits the
+       wiki, and a meta tag in it must not be able to redirect a request that
+       carries the reader's CSRF token. */
+    var meta = document.head ? document.head.querySelector('meta[name="base-url"]') : null;
     var root = (meta && meta.getAttribute('content')) || '';
     return root.replace(/\/+$/, '') + path;
   }

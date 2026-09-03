@@ -169,38 +169,38 @@ final class UserController
             max(1, min(24 * 30, (int)($request->intOrNull('ttl_hours') ?? Invite::DEFAULT_TTL_HOURS))),
             $me->username,
             max(1, min(Invite::MAX_USES, (int)($request->intOrNull('max_uses') ?? 1))),
+            $request->str('label'),
         );
 
         Audit::record(
             $me->username,
             'user.invite',
             $issued['role'],
-            'written to ' . $issued['path'] . ', good for ' . $issued['max_uses'] . ' account(s)'
+            ($issued['label'] !== '' ? '"' . $issued['label'] . '", ' : '')
+                . 'good for ' . $issued['max_uses'] . ' account(s)'
         );
 
-        // The code goes back once, so the administrator can pass it on without
-        // having to open a file on the server.
-        return ['invite' => $issued];
+        // The code goes back once. It is written to no file: the screen that
+        // asked is the one place it is ever shown, and the database keeps only
+        // its hash.
+        return ['invite' => $issued, 'invites' => Invite::status()];
     }
 
     /**
-     * Takes the open invite back.
-     *
-     * Issuing a second invite always closed the first, so "cancel that one"
-     * could be done - but only by leaving a fresh live code in a file on the
-     * server that nobody meant to hand out, which is the opposite of what was
-     * being asked for. This closes the row and deletes the file, and afterwards
-     * the installation has no open invite at all.
+     * Takes an open invite back.
      *
      * A code already sent to somebody stops working the moment this returns,
      * which is the entire point: it is what an administrator reaches for when
-     * the invite went to the wrong address.
+     * the invite went to the wrong address. Several invites may be open, so the
+     * route names the one to close; without an id the newest one goes, which
+     * is what the route meant when only one could be open.
      */
     public static function revokeInvite(Request $request, ?Actor $actor): array
     {
         $me = self::admin($actor);
 
-        $revoked = Invite::revoke();
+        $id = $request->param('id');
+        $revoked = Invite::revoke($id === '' ? null : ($request->id('id')));
         if ($revoked === null) {
             throw HttpException::notFound('There is no open invite to revoke.');
         }
@@ -209,7 +209,8 @@ final class UserController
             $me->username,
             'invite.revoke',
             (string)$revoked['role'],
-            'issued by ' . (string)$revoked['issued_by'] . ', ' . (int)$revoked['uses']
+            ((string)($revoked['label'] ?? '') !== '' ? '"' . (string)$revoked['label'] . '", ' : '')
+                . 'issued by ' . (string)$revoked['issued_by'] . ', ' . (int)$revoked['uses']
                 . ' of ' . (int)$revoked['max_uses'] . ' place(s) had been used'
         );
 

@@ -6,6 +6,7 @@ namespace CourseForge\Api;
 use CourseForge\Ai\Run\RunManager;
 use CourseForge\Domain\Details;
 use CourseForge\Security\Actor;
+use CourseForge\Security\Hardening;
 use CourseForge\Support\Audit;
 use CourseForge\Support\Config;
 use CourseForge\Support\Cron;
@@ -78,6 +79,11 @@ final class SettingsController
             // form could not have shown it in the first place.
             if ($field['type'] === 'secret' && trim((string)$value) === '') {
                 continue;
+            }
+            // A new secret is written to data/config.json, which is only safe
+            // on a server that refuses to serve that file.
+            if ($field['type'] === 'secret') {
+                Hardening::assertSecretsWritable();
             }
             $write[$key] = Settings::coerce($key, $value);
             $changed[] = $key;
@@ -195,6 +201,7 @@ final class SettingsController
     public static function cronToken(Request $request, ?Actor $actor): array
     {
         $me = self::admin($actor);
+        Hardening::assertSecretsWritable();
 
         $token = bin2hex(random_bytes(24));
         Config::set('app.cron_token', $token);

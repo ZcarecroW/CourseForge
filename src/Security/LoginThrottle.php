@@ -61,7 +61,13 @@ final class LoginThrottle
         $max = self::maxAttempts();
 
         $remaining = self::lockFor('ip = ?', [$ip], self::maxAddressAttempts(), $window, $lock);
-        if ($username !== '') {
+        // The account lock holds against every address - that is what makes
+        // it a lock - except the addresses this account has actually signed
+        // in from lately. Five wrong guesses from anywhere on the internet
+        // must not be able to keep the real owner out of their own account
+        // from their own desk, which is the denial of service the hard lock
+        // otherwise hands to anybody who knows a user name.
+        if ($username !== '' && !self::trusted($ip, $username)) {
             $remaining = max(
                 $remaining,
                 self::lockFor('username = ? COLLATE NOCASE', [$username], $max, $window, $lock)
@@ -117,6 +123,16 @@ final class LoginThrottle
     }
 
     /* -------------------------------------------------------------- helpers */
+
+    /** Whether this address has signed in to this account in the last day. */
+    private static function trusted(string $ip, string $username): bool
+    {
+        $row = Db::row(
+            'SELECT COUNT(*) AS n FROM login_attempts WHERE ip = ? AND username = ? COLLATE NOCASE AND ok = 1 AND ts > ?',
+            [$ip, $username, time() - 86400]
+        );
+        return (int)($row['n'] ?? 0) > 0;
+    }
 
     private static function window(): int
     {

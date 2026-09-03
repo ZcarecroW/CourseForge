@@ -113,27 +113,32 @@ abstract class HttpProvider implements Provider
         if ($res->status === 401 || $res->status === 403) {
             throw HttpException::badRequest(
                 $this->label() . ': ' . $what . ' was refused (HTTP ' . $res->status . '). '
-                . 'Check the API key and its permissions. ' . $res->message(300)
+                . 'Check the API key and its permissions. ' . $res->errorMessage(300)
             );
         }
         if ($res->status === 429) {
             throw HttpException::badRequest(
-                $this->label() . ': rate limited (HTTP 429) during ' . $what . '. ' . $res->message(300)
+                $this->label() . ': rate limited (HTTP 429) during ' . $what . '. ' . $res->errorMessage(300)
             );
         }
         if (!$res->ok()) {
             throw HttpException::badRequest(
-                $this->label() . ': ' . $what . ' failed (HTTP ' . $res->status . '): ' . $res->message(500)
+                $this->label() . ': ' . $what . ' failed (HTTP ' . $res->status . '): ' . $res->errorMessage(500)
             );
         }
     }
 
+    /**
+     * The body itself never reaches the caller here, only what kind of thing
+     * it was: the address is typed by a person, and a wrong one would
+     * otherwise have whatever it points at quoted back through CourseForge.
+     */
     protected function assertJson(HttpResult $res, string $what): void
     {
         if (!is_array($res->data)) {
             throw HttpException::badRequest(
                 $this->label() . ': ' . $what . ' did not return JSON (HTTP ' . $res->status . '). '
-                . 'Response started with: ' . Text::snippet($res->raw)
+                . $res->errorMessage(200)
             );
         }
     }

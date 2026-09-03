@@ -386,9 +386,11 @@ final class Runs
                    FROM batch_items i
                    JOIN batch_jobs j ON j.id = i.job_id
                   WHERE j.mode = ? AND j.status IN (?,?) AND i.status = ?
-                  ORDER BY j.created_at, i.id
+                  ORDER BY (SELECT COUNT(*) FROM batch_items w JOIN batch_jobs wj ON wj.id = w.job_id
+                             WHERE wj.username = j.username AND w.status = ?),
+                           j.created_at, i.id
                   LIMIT 1',
-                [self::MODE_LIVE, self::SUBMITTED, self::RUNNING, self::ITEM_PENDING]
+                [self::MODE_LIVE, self::SUBMITTED, self::RUNNING, self::ITEM_PENDING, self::ITEM_WORKING]
             );
             if ($row === null) {
                 return null;

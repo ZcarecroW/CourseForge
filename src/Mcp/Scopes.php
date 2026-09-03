@@ -208,6 +208,21 @@ final class Scopes
         return self::$current;
     }
 
+    /** The connection running this call, or 0 outside one. */
+    private static int $currentClient = 0;
+
+    public static function usingClient(int $clientId): int
+    {
+        $previous = self::$currentClient;
+        self::$currentClient = $clientId;
+        return $previous;
+    }
+
+    public static function currentClientId(): int
+    {
+        return self::$currentClient;
+    }
+
     /** Whether the connection running this call holds one group. */
     public static function holds(string $scope): bool
     {

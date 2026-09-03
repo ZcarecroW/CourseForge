@@ -243,8 +243,11 @@ class BookStackClient
     {
         $res = Http::json($method, $this->baseUrl . '/api' . $path, $this->headers(), $payload, $this->timeout);
         if (!$res->ok()) {
+            // BookStack's own words when it gave any - a validation message is
+            // what makes a refused page fixable - and never the raw body, which
+            // for a base URL pointed at the wrong thing is somebody else's page.
             throw HttpException::badRequest(
-                'BookStack ' . $method . ' ' . $path . ' failed (HTTP ' . $res->status . '): ' . $res->message()
+                'BookStack ' . $method . ' ' . $path . ' failed (HTTP ' . $res->status . '): ' . $res->errorMessage()
             );
         }
         return is_array($res->data) ? $res->data : [];

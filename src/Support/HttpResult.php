@@ -41,6 +41,39 @@ final class HttpResult
         return $this->status !== 0 && $this->errno !== 0;
     }
 
+    /**
+     * The error the server put in its JSON envelope, and nothing else.
+     *
+     * message() falls back to the raw body when there is no envelope, which is
+     * right for a log and wrong for a sentence shown to whoever typed the
+     * address: a base URL pointed at something that is not a provider would
+     * have its answer quoted back, and reading a stranger's answer through
+     * CourseForge is exactly what an address field must not be good for. So
+     * an error that reaches a person carries the envelope's message or a
+     * description of what arrived - never the body.
+     */
+    public function errorMessage(int $length = 300): string
+    {
+        if (is_array($this->data)) {
+            foreach ([['error', 'message'], ['error'], ['message'], ['detail']] as $path) {
+                $node = $this->data;
+                foreach ($path as $key) {
+                    $node = is_array($node) && array_key_exists($key, $node) ? $node[$key] : null;
+                }
+                if (is_string($node) && trim($node) !== '') {
+                    return mb_substr(trim($node), 0, $length);
+                }
+            }
+            return 'The answer was JSON without an error message.';
+        }
+        if ($this->raw === '') {
+            return $this->error !== '' ? $this->error : 'The answer was empty.';
+        }
+        $looksHtml = preg_match('/<\s*(html|!doctype|body|head)\b/i', substr($this->raw, 0, 512)) === 1;
+        return ($looksHtml ? 'The answer was an HTML page' : 'The answer was not JSON')
+            . ' (' . strlen($this->raw) . ' bytes), which is not what a provider sends - check the address.';
+    }
+
     /** Best-effort error text from the usual JSON error envelopes. */
     public function message(int $length = 400): string
     {

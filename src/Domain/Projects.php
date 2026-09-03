@@ -591,11 +591,16 @@ final class Projects
         $targetIndex = [];
         $targetItems = [];
         $targetStats = [];
+        $targetLinks = [];
         foreach ($targetRows as $target) {
             $targetId = (int)$target['id'];
             $targetIndex[$targetId] = LinkIndex::forTarget($id, $targetId);
             $targetItems[$targetId] = Targets::items($targetId);
-            $targetStats[$targetId] = ['chapters' => 0, 'chapters_dirty' => 0, 'pages' => 0, 'pages_dirty' => 0];
+            $targetStats[$targetId] = [
+                'chapters' => 0, 'chapters_dirty' => 0, 'chapters_missing' => 0,
+                'pages' => 0, 'pages_dirty' => 0, 'pages_missing' => 0,
+            ];
+            $targetLinks[$targetId] = ['markers' => 0, 'resolved' => 0, 'pending' => 0];
         }
 
         $pagesByChapter = [];
@@ -637,20 +642,27 @@ final class Projects
                 // everywhere, and rendering it again per target would be work
                 // with a guaranteed answer.
                 $hasMarkers = AutoLinker::hasMarkers($content);
+                $markers = $hasMarkers ? AutoLinker::countMarkers($content) : 0;
                 $perPage = [];
                 foreach ($targetRows as $target) {
                     $targetId = (int)$target['id'];
-                    $rendered = $hasMarkers
-                        ? AutoLinker::apply($content, $targetIndex[$targetId], $pageId)['content']
-                        : $applied['content'];
+                    // Each wiki resolves the same markers against its own
+                    // index, so the counts are per wiki as well as the text.
+                    $appliedHere = $hasMarkers
+                        ? AutoLinker::apply($content, $targetIndex[$targetId], $pageId)
+                        : $applied;
                     $state = self::itemState(
                         $targetItems[$targetId]['page'][$pageId] ?? null,
-                        Pages::pushHash((string)$page['title'], $rendered, $effectiveTags),
+                        Pages::pushHash((string)$page['title'], $appliedHere['content'], $effectiveTags),
                         $summary['has_content'],
                     );
                     $perPage[] = ['target_id' => $targetId, 'enabled' => (int)$target['enabled'] === 1] + $state;
                     $targetStats[$targetId]['pages'] += $state['pushed'] ? 1 : 0;
                     $targetStats[$targetId]['pages_dirty'] += $state['dirty'] ? 1 : 0;
+                    $targetStats[$targetId]['pages_missing'] += ($summary['has_content'] && !$state['pushed']) ? 1 : 0;
+                    $targetLinks[$targetId]['markers'] += $markers;
+                    $targetLinks[$targetId]['resolved'] += (int)$appliedHere['resolved'];
+                    $targetLinks[$targetId]['pending'] += (int)$appliedHere['pending'];
                 }
                 $summary = self::fold($summary, $perPage, $manyTargets);
             }
@@ -698,6 +710,7 @@ final class Projects
                     $perChapter[] = ['target_id' => $targetId, 'enabled' => (int)$target['enabled'] === 1] + $state;
                     $targetStats[$targetId]['chapters'] += $state['pushed'] ? 1 : 0;
                     $targetStats[$targetId]['chapters_dirty'] += $state['dirty'] ? 1 : 0;
+                    $targetStats[$targetId]['chapters_missing'] += $state['pushed'] ? 0 : 1;
                 }
                 $entry = self::fold($entry, $perChapter, $manyTargets);
             }
@@ -714,7 +727,18 @@ final class Projects
             $targetId = (int)$target['id'];
             $described = Targets::describe($target, $instances);
             $described['dirty'] = $described['book_id'] !== null && $described['pushed_hash'] !== $bookHash;
-            $described['stats'] = $targetStats[$targetId] ?? ['chapters' => 0, 'chapters_dirty' => 0, 'pages' => 0, 'pages_dirty' => 0];
+            $described['stats'] = $targetStats[$targetId] ?? [
+                'chapters' => 0, 'chapters_dirty' => 0, 'chapters_missing' => 0,
+                'pages' => 0, 'pages_dirty' => 0, 'pages_missing' => 0,
+            ];
+            $described['links'] = $targetLinks[$targetId] ?? ['markers' => 0, 'resolved' => 0, 'pending' => 0];
+            // A push to this wiki would write something: the book, a changed
+            // item, or a written page it does not hold yet.
+            $described['outstanding'] = $described['dirty']
+                || $described['stats']['pages_dirty'] > 0
+                || $described['stats']['chapters_dirty'] > 0
+                || $described['stats']['pages_missing'] > 0
+                || $described['book_id'] === null;
             unset($described['pushed_hash']); // a fingerprint is server business
             $targets[] = $described;
         }

@@ -24,13 +24,14 @@ use CourseForge\Support\HttpException;
  * administrator who issued it - a code is never an argument about what it is
  * worth.
  *
- * The plain code is in that file and nowhere else - the database keeps a hash,
- * the same way it does for a password or a connection token. An invite carries
- * a number of uses and, unless it is the first one, an expiry; the ordinary
- * invite is worth one account, and an administrator can issue one worth more
- * when a whole group is being let in at once. A code worth five accounts is
- * worth five accounts to whoever finds the file, which is why the ceiling is
- * low and the file is still the only place the code exists.
+ * Several of those may be open at once - one for the marketing team, one for
+ * a contractor, one for a colleague who needs to be an administrator - each
+ * with its own label, expiry and number of places. An invite an administrator
+ * issues is shown exactly once, on the screen that issued it, and written to
+ * no file: the database keeps its hash, the same way it does for a password
+ * or a connection token, and the administrator passes the code on. Only the
+ * very first invite is different: there is no screen to show it on yet, so it
+ * goes into the file, and the file is the only place it exists.
  */
 final class Invite
 {
@@ -43,11 +44,17 @@ final class Invite
      * The most accounts one code may ever create.
      *
      * Not a technical limit - the counter would hold any number. It is a blast
-     * radius: the code sits in a plain file, and whoever finds that file gets
+     * radius: a code is passed around, and whoever ends up holding it gets
      * every remaining use of it. Fifty is enough for a cohort and small enough
      * that leaving one open is not the same as leaving the door open.
      */
     public const MAX_USES = 50;
+
+    /** How many invites may be open at once. Enough for any real group of people. */
+    public const MAX_OPEN = 25;
+
+    /** A label is a short note to the administrator - who this one is for. */
+    public const MAX_LABEL = 80;
 
     /**
      * Makes sure a brand-new installation has an open invite and a file to read
@@ -68,21 +75,25 @@ final class Invite
         if ($open !== null) {
             Db::run('UPDATE invites SET used_at = ?, used_by = ? WHERE id = ?', [time(), 'file lost', (int)$open['id']]);
         }
-        self::issue(Actor::ROLE_ADMIN, 0, 'first start');
+        self::issue(Actor::ROLE_ADMIN, 0, 'first start', 1, 'the first administrator', true);
     }
 
     /**
-     * Writes a new invite and its file.
+     * Writes a new invite.
      *
      * @param int $ttlHours 0 for an invite that does not expire (the first one)
      * @param int $maxUses how many accounts this one code may create
-     * @return array{code:string,path:string,role:string,expires_at:int,max_uses:int}
+     * @param bool $toFile publish the code in INVITE-CODE.txt as well - only the
+     *        first-run invite, which has no screen to be shown on
+     * @return array{id:int,code:string,path:string,role:string,expires_at:int,max_uses:int,label:string}
      */
     public static function issue(
         string $role,
         int $ttlHours = self::DEFAULT_TTL_HOURS,
         string $issuedBy = '',
         int $maxUses = 1,
+        string $label = '',
+        bool $toFile = false,
     ): array {
         $role = Actor::normaliseRole($role);
         $code = self::freshCode();
@@ -90,39 +101,80 @@ final class Invite
         // Clamped rather than refused: every caller already clamps at its own
         // edge, and this is the one place none of them can bypass.
         $maxUses = max(1, min(self::MAX_USES, $maxUses));
+        $label = mb_substr(trim($label), 0, self::MAX_LABEL);
 
-        // Only one invite is ever open: the file holds exactly one code, so a
-        // second open row would be a code nobody can read.
-        Db::run('UPDATE invites SET used_at = ?, used_by = ? WHERE used_at = 0', [time(), 'superseded']);
+        if (count(self::openAll()) >= self::MAX_OPEN) {
+            throw HttpException::unprocessable(
+                self::MAX_OPEN . ' invites are already open. Revoke one that is no longer needed before issuing another.'
+            );
+        }
+
+        // The first-run invite is the one whose code lives in a file, and a
+        // file holds one code: an earlier first-run row is superseded rather
+        // than kept beside it. Invites issued from the app are shown once and
+        // stand on their own, so they leave each other alone.
+        if ($toFile) {
+            Db::run(
+                'UPDATE invites SET used_at = ?, used_by = ? WHERE used_at = 0 AND file_path <> ?',
+                [time(), 'superseded', '']
+            );
+        }
+
         Db::run(
-            'INSERT INTO invites (code_hash, role, created_at, expires_at, issued_by, max_uses) '
-                . 'VALUES (?, ?, ?, ?, ?, ?)',
-            [self::hash($code), $role, time(), $expires, $issuedBy, $maxUses]
+            'INSERT INTO invites (code_hash, role, created_at, expires_at, issued_by, max_uses, label) '
+                . 'VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [self::hash($code), $role, time(), $expires, $issuedBy, $maxUses, $label]
         );
+        $id = Db::lastId();
 
-        $path = self::write(Db::lastId(), $code, $role, $expires, $maxUses);
+        $path = $toFile ? self::write($id, $code, $role, $expires, $maxUses) : '';
         return [
-            'code' => $code, 'path' => $path, 'role' => $role,
-            'expires_at' => $expires, 'max_uses' => $maxUses,
+            'id' => $id, 'code' => $code, 'path' => $path, 'role' => $role,
+            'expires_at' => $expires, 'max_uses' => $maxUses, 'label' => $label,
         ];
     }
 
     /**
-     * The invite that is currently open, if there is one.
+     * The invites that are currently open, newest first.
+     *
+     * Two conditions, and both are needed. "uses < max_uses" is what runs out
+     * on its own; "used_at = 0" is still how a row is closed by hand - revoked,
+     * superseded, or abandoned because its file was lost - and such a row can
+     * be closed with slots still on it.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function openAll(): array
+    {
+        return Db::rows(
+            'SELECT * FROM invites WHERE used_at = 0 AND uses < max_uses '
+                . 'AND (expires_at = 0 OR expires_at > ?) ORDER BY id DESC',
+            [time()]
+        );
+    }
+
+    /**
+     * The newest open invite, if there is one.
+     *
+     * What the first run reads: while there are no accounts there is at most
+     * one, and it is the one in the file.
      *
      * @return array<string,mixed>|null
      */
     public static function open(): ?array
     {
-        // Two conditions, and both are needed. "uses < max_uses" is what runs
-        // out on its own; "used_at = 0" is still how a row is closed by hand -
-        // superseded by a newer invite, or abandoned because its file was lost -
-        // and such a row can be closed with slots still on it.
-        return Db::row(
-            'SELECT * FROM invites WHERE used_at = 0 AND uses < max_uses '
-                . 'AND (expires_at = 0 OR expires_at > ?) ORDER BY id DESC LIMIT 1',
-            [time()]
-        );
+        return self::openAll()[0] ?? null;
+    }
+
+    /** One open invite by id, or null. @return array<string,mixed>|null */
+    public static function openById(int $id): ?array
+    {
+        foreach (self::openAll() as $invite) {
+            if ((int)$invite['id'] === $id) {
+                return $invite;
+            }
+        }
+        return null;
     }
 
     /** The person on the first-run screen: they installed this and can read files on the server. */
@@ -132,28 +184,37 @@ final class Invite
     public const AUDIENCE_HOLDER = 'holder';
 
     /**
-     * Checks a code against the open invite.
+     * Checks a code against the open invites and hands back the one it opens.
      *
-     * The refusal is worded for whoever is reading it, which is not the same
-     * person at the two doors. On the first run it is the installer, who can
-     * open INVITE-CODE.txt and should be told to. On the other it is somebody
-     * who was sent a code and has no account, no shell and no reason to have
-     * heard of that file - pointing them at it sends them looking for something
-     * they cannot reach, which is worse than saying nothing.
+     * Looked up by hash, so a hundred open invites cost the same as one and no
+     * comparison leaks which of them a wrong code was closest to. The refusal
+     * is worded for whoever is reading it, which is not the same person at the
+     * two doors. On the first run it is the installer, who can open
+     * INVITE-CODE.txt and should be told to. On the other it is somebody who
+     * was sent a code and has no account, no shell and no reason to have heard
+     * of that file - pointing them at it sends them looking for something they
+     * cannot reach, which is worse than saying nothing.
      *
      * @return array<string,mixed> the invite row
      */
     public static function verify(string $code, string $audience = self::AUDIENCE_INSTALLER): array
     {
         $code = self::normalise($code);
-        $invite = self::open();
+        $hash = self::hash($code);
 
-        // Always spend the comparison, so a wrong code and no invite at all
-        // are indistinguishable from the outside.
-        $expected = (string)($invite['code_hash'] ?? str_repeat('0', 64));
-        $matches = hash_equals($expected, self::hash($code));
+        $invite = null;
+        foreach (self::openAll() as $candidate) {
+            // Constant-time either way; the loop costs the same whether the
+            // match is first or last, because it never stops early.
+            if (hash_equals((string)$candidate['code_hash'], $hash) && $invite === null) {
+                $invite = $candidate;
+            }
+        }
+        // Always spend a comparison, so a wrong code and no invite at all are
+        // indistinguishable from the outside.
+        hash_equals(str_repeat('0', 64), $hash);
 
-        if ($invite === null || !$matches) {
+        if ($invite === null || $code === '') {
             throw HttpException::forbidden(
                 'That invite code is not valid. ' . ($audience === self::AUDIENCE_HOLDER
                     ? 'Check you have copied all six groups of it, and ask whoever sent it to you for a new one '
@@ -198,53 +259,59 @@ final class Invite
      * Separate from consume() because a transaction can be rolled back and an
      * unlinked file cannot: the code lives in that file and nowhere else, so
      * deleting it before the account is certain would leave an invite nobody
-     * can read. Both fixed locations are swept as well as the recorded one, so
-     * that a file left behind by an earlier invite cannot outlive it.
+     * can read. An invite with slots left keeps its file, for the same reason:
+     * the code is in it and nowhere else, and the next person to redeem it has
+     * to be able to be sent it. The row is re-read rather than trusted from the
+     * caller's copy, which was fetched before the slot was taken and would still
+     * say the invite is open even on the redemption that closed it.
      *
-     * An invite with slots left keeps its file, for the same reason: the code is
-     * in it and nowhere else, and the next person to redeem it has to be able to
-     * be sent it. The row is re-read rather than trusted from the caller's copy,
-     * which was fetched before the slot was taken and would still say the invite
-     * is open even on the redemption that closed it.
+     * Only the file this invite was written to is removed. An invite issued
+     * from the app was written to none, and the fixed locations belong to the
+     * first-run invite - which may still be open, on an installation where an
+     * administrator issued an invite before anybody redeemed the first one.
      */
     public static function discard(array $invite): void
     {
-        $row = Db::row('SELECT used_at FROM invites WHERE id = ?', [(int)($invite['id'] ?? 0)]);
+        $row = Db::row('SELECT used_at, file_path FROM invites WHERE id = ?', [(int)($invite['id'] ?? 0)]);
         if ($row !== null && (int)$row['used_at'] === 0) {
             return;
         }
 
-        @unlink(self::pathOf($invite));
-        @unlink(CF_ROOT . '/' . self::FILE);
-        @unlink(CF_DATA . '/' . self::FILE);
+        $path = trim((string)($row['file_path'] ?? $invite['file_path'] ?? ''));
+        if ($path !== '') {
+            @unlink($path);
+        }
+        // The first-run invite is the only one ever written to a file, and it
+        // is written to one of two fixed places. Once it is spent, both are
+        // swept, so a copy left behind by an earlier attempt cannot outlive it.
+        if ($path !== '' || (string)($invite['issued_by'] ?? '') === 'first start') {
+            @unlink(CF_ROOT . '/' . self::FILE);
+            @unlink(CF_DATA . '/' . self::FILE);
+        }
     }
 
     /**
-     * Takes the open invite back, before anybody has spent it.
-     *
-     * The one thing an administrator could not do from the application. An
-     * invite sent to the wrong person, or issued for the wrong role, could only
-     * be answered by issuing a second one - which closes the first row but
-     * leaves a live code sitting in INVITE-CODE.txt for whoever finds it, and
-     * leaves the installation with an open invite nobody meant to be open.
+     * Takes an open invite back, before anybody has spent it.
      *
      * Closing the row is the whole of the guarantee: verify() reads the open
-     * row and there is no longer one to match, so the code is worthless the
-     * instant this returns. Deleting the file is tidiness on top of that, and
-     * discard() is what does it - the row is closed first precisely so that its
-     * "only unlink the file of a closed row" rule lets it through.
+     * rows and there is no longer one to match, so the code is worthless the
+     * instant this returns. Deleting the file, for the one invite that has
+     * one, is tidiness on top of that - and discard() is what does it, which is
+     * why the row is closed first: its "only unlink the file of a closed row"
+     * rule then lets it through.
      *
      * `used_by` is written as the bare word "revoked" rather than as a
      * sentence, because Db::migrate() reads that column to tell a row closed
      * administratively from one somebody actually spent, and it matches on
      * exact names. Who did it is the invite.revoke line in the audit log.
      *
+     * @param int|null $id the invite to take back, or null for the newest open one
      * @return array<string,mixed>|null the row that was closed, or null when
      *                                  there was nothing open to take back
      */
-    public static function revoke(): ?array
+    public static function revoke(?int $id = null): ?array
     {
-        $invite = self::open();
+        $invite = $id === null ? self::open() : self::openById($id);
         if ($invite === null) {
             return null;
         }
@@ -258,16 +325,22 @@ final class Invite
         )->rowCount() > 0;
 
         // Only the caller that actually closed the row may sweep the file.
-        // Losing the race here does not mean losing it to a redemption: it also
-        // means losing it to issue(), which supersedes this row and writes a
-        // NEW code into the very same file. Unlinking unconditionally would
-        // have deleted that one - leaving an invite open in the database whose
-        // code nobody, including the administrator who had just issued it,
-        // could ever read.
         if ($closed) {
             self::discard($invite);
         }
         return $closed ? $invite : null;
+    }
+
+    /** Takes every open invite back. @return int how many were closed */
+    public static function revokeAll(): int
+    {
+        $closed = 0;
+        foreach (self::openAll() as $invite) {
+            if (self::revoke((int)$invite['id']) !== null) {
+                $closed++;
+            }
+        }
+        return $closed;
     }
 
     /** Where the file for this invite was written, as recorded on the row. */
@@ -277,26 +350,62 @@ final class Invite
         return $path !== '' ? $path : CF_ROOT . '/' . self::FILE;
     }
 
-    /** What the setup screen and the admin screen are allowed to know. */
+    /**
+     * What the setup screen and the admin screen are allowed to know.
+     *
+     * `open`, `path`, `role` and the counts describe the newest open invite,
+     * which is what every reader before 5.2 asked about and what the setup
+     * screen still needs. `invites` lists all of them.
+     *
+     * @return array<string,mixed>
+     */
     public static function status(): array
     {
-        $invite = self::open();
-        if ($invite === null) {
+        $all = self::openAll();
+        $invites = array_map(static fn(array $row): array => self::describe($row), $all);
+        $newest = $invites[0] ?? null;
+
+        if ($newest === null) {
             return [
                 'open' => false, 'path' => '', 'role' => '', 'expires_at' => 0,
-                'uses' => 0, 'max_uses' => 0, 'uses_left' => 0,
+                'uses' => 0, 'max_uses' => 0, 'uses_left' => 0, 'count' => 0, 'invites' => [],
             ];
         }
-        $path = self::pathOf($invite);
-        $uses = (int)$invite['uses'];
-        $maxUses = (int)$invite['max_uses'];
         return [
             'open' => true,
+            'path' => $newest['path'],
+            'file_present' => $newest['file_present'],
+            'role' => $newest['role'],
+            'created_at' => $newest['created_at'],
+            'expires_at' => $newest['expires_at'],
+            'uses' => $newest['uses'],
+            'max_uses' => $newest['max_uses'],
+            'uses_left' => $newest['uses_left'],
+            'count' => count($invites),
+            'invites' => $invites,
+        ];
+    }
+
+    /**
+     * One open invite, without its hash.
+     *
+     * @param array<string,mixed> $row
+     * @return array<string,mixed>
+     */
+    public static function describe(array $row): array
+    {
+        $path = trim((string)($row['file_path'] ?? ''));
+        $uses = (int)$row['uses'];
+        $maxUses = (int)$row['max_uses'];
+        return [
+            'id' => (int)$row['id'],
+            'label' => (string)($row['label'] ?? ''),
+            'role' => (string)$row['role'],
+            'issued_by' => (string)($row['issued_by'] ?? ''),
             'path' => $path,
-            'file_present' => is_file($path),
-            'role' => (string)$invite['role'],
-            'created_at' => (int)$invite['created_at'],
-            'expires_at' => (int)$invite['expires_at'],
+            'file_present' => $path !== '' && is_file($path),
+            'created_at' => (int)$row['created_at'],
+            'expires_at' => (int)$row['expires_at'],
             'uses' => $uses,
             'max_uses' => $maxUses,
             'uses_left' => max(0, $maxUses - $uses),
@@ -326,7 +435,9 @@ final class Invite
     /** Upper-cased and stripped of everything that is not part of the alphabet. */
     public static function normalise(string $code): string
     {
-        $code = strtoupper(trim($code));
+        // Bounded before anything else looks at it: a code is 24 characters,
+        // and a body of a few megabytes is not one that was mistyped.
+        $code = strtoupper(trim(mb_substr($code, 0, 200)));
         $code = (string)preg_replace('/[^A-Z0-9]/', '', $code);
         return trim(chunk_split($code, 4, '-'), '-');
     }

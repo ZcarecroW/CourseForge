@@ -204,6 +204,25 @@
   color: var(--danger);
 }
 
+/* -- the Security screen ----------------------------------------------------
+   The verdict card takes the colour of the verdict on its left edge, so the
+   answer is visible before the sentence is read; the confirmation code is
+   set large enough to be typed from across the room. */
+.verdict { border-left: 4px solid var(--border-strong); }
+.verdict--success { border-left-color: var(--success); }
+.verdict--warning { border-left-color: var(--warning); }
+.verdict--danger { border-left-color: var(--danger); }
+.ack-code {
+  padding: 2px 8px;
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: var(--t-lg);
+  letter-spacing: 0.12em;
+  color: var(--danger);
+  user-select: all;
+}
+
 /* -- the update history -----------------------------------------------------
    Updates. Extends .log from components.css with the three things an install
    record is made of: when it happened, what was added, what was taken away.

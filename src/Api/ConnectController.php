@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace CourseForge\Api;
 
 use CourseForge\Domain\McpClients;
+use CourseForge\Mcp\Scopes;
 use CourseForge\Security\Access;
 use CourseForge\Security\Actor;
 use CourseForge\Support\Audit;
@@ -11,6 +12,7 @@ use CourseForge\Support\Config;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Request;
 use CourseForge\Support\Runtime;
+use CourseForge\Support\SafeUrl;
 use Throwable;
 
 /**
@@ -84,7 +86,7 @@ final class ConnectController
             );
         }
 
-        $scopes = self::requestedScopes($request);
+        $scopes = self::requestedScopes($request, $me);
         $ttlDays = max(0, min(self::MAX_TTL_DAYS, $request->intOrNull('ttl_days') ?? 0));
 
         // A connection is always issued to the account that asked for it. An
@@ -257,7 +259,7 @@ final class ConnectController
      *
      * @return string[]
      */
-    private static function requestedScopes(Request $request): array
+    private static function requestedScopes(Request $request, ?Actor $actor = null): array
     {
         $scopes = [];
         foreach ($request->arr('scopes') as $value) {
@@ -269,7 +271,17 @@ final class ConnectController
                 $scopes[] = $scope;
             }
         }
-        return array_values(array_unique($scopes));
+        $scopes = array_values(array_unique($scopes));
+
+        // A group the account does not hold is not stored either. `admin` in
+        // particular: it grants nothing today, and would grant everything the
+        // day the account is promoted - to a token that may by then be in
+        // somebody else's hands, issued as "read-only".
+        if ($actor !== null) {
+            $ceiling = Scopes::forActor($actor);
+            $scopes = array_values(array_intersect($scopes, $ceiling));
+        }
+        return $scopes;
     }
 
     /**
@@ -291,8 +303,14 @@ final class ConnectController
             || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'
             || (int)($_SERVER['SERVER_PORT'] ?? 0) === 443;
 
-        $host = (string)($_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost');
-        $host = trim(explode(',', $host)[0]);
+        // Never X-Forwarded-Host: this URL is shown beside a token that is
+        // readable once, and a header any client can send must not decide
+        // where that token is pasted. A proxy that rewrites the host has
+        // mcp.public_url for exactly that.
+        $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+        if (!SafeUrl::isHostShaped($host)) {
+            $host = 'localhost';
+        }
 
         // The app lives wherever index.html does, and api/mcp.php sits beside
         // the front controller. The last two segments are cut off by hand

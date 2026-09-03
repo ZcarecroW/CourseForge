@@ -44,9 +44,12 @@ final class Audit
     {
         $limit = max(1, min(1000, $limit));
         if ($action !== '') {
+            // The filter is a prefix, so the two LIKE wildcards in it are
+            // characters to match rather than patterns.
+            $pattern = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $action) . '%';
             return Db::rows(
-                'SELECT * FROM audit_log WHERE action LIKE ? ORDER BY id DESC LIMIT ' . $limit,
-                [$action . '%']
+                "SELECT * FROM audit_log WHERE action LIKE ? ESCAPE '\\' ORDER BY id DESC LIMIT " . $limit,
+                [$pattern]
             );
         }
         return Db::rows('SELECT * FROM audit_log ORDER BY id DESC LIMIT ' . $limit);

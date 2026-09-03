@@ -57,6 +57,137 @@ models, language), create a **Course**, generate the **Structure**, write the
 Full documentation, including the nginx configuration and the technical
 background, is in [docs.md](docs.md).
 
+## A look around
+
+Every screen below is the application as it ships, in the dark theme it opens
+with (there is a light one, and an automatic one that follows the system).
+
+![The course list](docs/screenshots/courses.png)
+
+**Courses** is everything being written on the installation: how far each has
+got, which profile writes it, how many wikis it publishes to. A course starts as
+one line - *"Vue.js, beginner to professional; IDE: PhpStorm"* - and the AI
+designs the outline from it.
+
+![The Content tab: editor and preview](docs/screenshots/content.png)
+
+**Content** is where the pages are written: by hand in the Markdown editor, one
+at a time while you watch, or in a background run that carries on after the
+laptop is shut. The preview renders code, diagrams and formulas exactly as
+BookStack will, and the two halves scroll together.
+
+![The Publish tab: every destination, and the log](docs/screenshots/publish.png)
+
+**Publish** sends the book to BookStack - one wiki or several. Since 5.2 a push
+is a task the scheduler works, so you can close the tab; a wiki that stops
+answering half way is picked up again from the page it stopped at, and the log
+of every push is kept on the server. Each destination has a card of its own.
+
+![One destination's card](docs/screenshots/publish-destinations.png)
+
+Per wiki: the book, the shelf, how many pages it holds, what is out of sync,
+what has never been pushed, how its cross references resolve, and what last
+happened to it - with **Publish here** for that wiki alone.
+
+![The guided tour](docs/screenshots/tour.png)
+
+The **guided tour** starts by itself the first time an account signs in and
+walks through every screen and every setting - forty-odd steps for an
+administrator, fewer for a user - lighting up each section as it explains it.
+Open it again any time from the button above the theme switch.
+
+![Administration › Security](docs/screenshots/security.png)
+
+**Security** asks the server for CourseForge's own private files over HTTP and
+reports which came back. On nginx, Caddy, IIS or a misconfigured Apache the
+`.htaccess` files that protect the data directory are ignored, and the verdict
+says so - with the configuration block to paste for the server it detected.
+Until the verdict is *secure*, every API key and token field is locked.
+
+![What the server was asked for](docs/screenshots/security-probes.png)
+
+![Accounts, with the open invites](docs/screenshots/accounts.png)
+
+**Accounts** is who may sign in. Several invites can be open at once, each with
+a label, a role, an expiry and a number of places - one for the marketing team,
+one for a contractor, one for a colleague who should be an administrator.
+
+![Profiles, with the key fields locked](docs/screenshots/profiles.png)
+
+**Profiles** bundle the AI accounts, the BookStack instances, the models, the
+language, the content defaults and the prompt wording a course is written with.
+The key fields are greyed out with a red mark until the server has passed the
+security check - a secret must not be written into a database anybody can
+download.
+
+![Settings: the scheduler](docs/screenshots/settings.png)
+
+**Settings** holds everything the installation can be told to do differently,
+one card per group. The scheduler card is the one that matters most: your host
+calls `cron.php` once a minute, and from then on runs and publishing carry on
+with the browser closed.
+
+## What is new in 5.2
+
+**Publishing is a task, not a request.** Pressing Publish writes a task down
+and returns; the scheduler works it in slices of one tick each, and the tab can
+be closed. A push interrupted half way - a wiki that stopped answering, a host
+time limit, a process that died - is picked up again from the page it stopped
+at, never from the start, with a growing pause between attempts and a ceiling
+you can set. One wiki failing does not stop the others, and only the failed one
+is tried again. On an installation with no scheduler the browser works a queued
+task itself, one bounded slice per request, and says so.
+
+**The publish log lives on the server.** Every line a task says is written down
+as it is said, with the wiki it belongs to, and shown whenever the tab is
+opened - including the pushes that ran while nobody was looking. Stop and Retry
+are yours; Retry carries on from where the task got to.
+
+**Each destination has its own card.** The book, the shelf, pages published,
+out of sync, never published, how the cross references resolve, and the last
+outcome - per wiki, beside a card that speaks for all of them. *Publish here*,
+*Book only* and *Resolve links here* act on one wiki.
+
+**Several invites at once.** An invite carries a label - who it is for - and
+any number may be open together. A code issued from the app is shown exactly
+once and written to no file; only the first-run invite still goes into
+`INVITE-CODE.txt`. Revoke one and the others stand.
+
+**A guided tour.** It starts by itself the first time an account signs in and
+walks through every screen and every setting, spotlighting each section as it
+explains it. An administrator and a user get different tours. Cancel it at any
+time; open it again from the button above the theme switch.
+
+**Administration › Security.** CourseForge asks the server for its own private
+files over HTTP and reports which came back - the data directory, the
+database, the deny file, the configuration. Until every one is refused, every
+field that would store a secret is locked and carries a red mark that leads to
+the screen; the screen names the server it detected and gives the configuration
+block for it, and the one arrangement that is safe everywhere. An administrator
+who has verified the server by hand can accept the risk by typing a code shown
+on the screen, which is recorded with their name.
+
+**A security review, applied.** Addresses a profile carries are vetted before
+they are called and never have their answers quoted back; the shared cURL
+wrapper speaks HTTP only; a blank secret is carried forward only for the address
+it was stored against; `Host` is used only when it looks like a host and
+`X-Forwarded-Host` never; sessions use strict mode and are renewed on a password
+change; password changes are throttled like sign-ins, in the browser and over
+MCP; an account lock no longer shuts out the address the owner signs in from;
+request bodies are capped; connection tokens minted over MCP die with the
+connection that minted them and never carry a scope the account lacks; the MCP
+origin check measures against the configured address; tool results are cut at
+the size the tool declared; a look may load its libraries only from the module
+CDNs or the installation itself; the BookStackDev endpoint varies its cache on
+the header that decided, answers preflights only for allowed origins, and no
+longer names the look in a refusal; embeds run sandboxed; the deny lists gained
+`.git`, `.github` and `.tmp`; and a content security policy is sent.
+
+Upgrading from 5.1 is a normal update: the database gains two tables and three
+columns on first start. The first sign-in afterwards starts the tour once, and
+the key fields stay locked until Administration › Security has been opened - the
+check runs there by itself.
+
 ## What is new in 5.1
 
 **BookStackDev lives in CourseForge.** The BookStack enhancements — Shiki code

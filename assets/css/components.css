@@ -527,13 +527,100 @@ button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2p
 .log__line--warn { color: var(--warning); }
 .log__line--error { color: var(--danger); }
 
-/* One BookStack destination on the Publish tab. A course may have several, and
-   without a rule between them the two selects of one wiki read as belonging to
-   the wiki above. */
-.target-row + .target-row {
-  padding-top: var(--s-4);
-  border-top: 1px solid var(--border-soft);
+/* -- one BookStack destination on the Publish tab ----------------------------
+   A card per wiki, with its facts, its outcome and its own buttons. A wiki
+   that is switched off fades, so a course with four destinations and one on
+   reads at a glance. */
+.destination { transition: opacity var(--speed) var(--ease), border-color var(--speed) var(--ease); }
+.destination.is-off { opacity: 0.6; }
+.destination.is-off .card__body { display: none; }
+.destination .card__title { min-width: 0; }
+
+/* -- the publish log ---------------------------------------------------------
+   One entry per task: a head with its state and the wikis it covers, and the
+   lines it said underneath. The left rule takes the task's colour, so a
+   failed push can be found in a column of successes. */
+.task-log { max-height: 70vh; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+.task-entry {
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
 }
+.task-entry--running, .task-entry--queued { border-left-color: var(--accent); }
+.task-entry--done { border-left-color: var(--success); }
+.task-entry--failed { border-left-color: var(--danger); }
+.task-entry--canceled { border-left-color: var(--warning); }
+.task-entry__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-3) var(--s-2);
+}
+.task-entry__icon { margin-top: 3px; flex: none; color: var(--text-dim); }
+.task-entry--running .task-entry__icon { color: var(--accent); }
+.task-entry--done .task-entry__icon { color: var(--success); }
+.task-entry--failed .task-entry__icon { color: var(--danger); }
+.task-entry__lines { max-height: 320px; border-radius: 0 0 var(--r-md) 0; border-width: 1px 0 0 0; }
+.log__wiki {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--neutral-soft);
+  color: var(--text-dim);
+  font-size: var(--t-2xs);
+  font-family: var(--font);
+  vertical-align: 1px;
+}
+.log__line--done { color: var(--success); font-weight: 600; }
+.log__line--links { color: var(--accent); }
+
+/* -- a field that holds a secret, while secrets are locked -------------------
+   The box is greyed out and framed in red, and the mark beside it is the
+   button that explains why. `position: relative` on the field so the mark
+   sits inside the box's right edge whatever the field is. */
+.secret-field { position: relative; }
+.secret-field.is-locked > input {
+  padding-right: 34px;
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  opacity: 0.7;
+}
+.secret-lock {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  animation: cf-pulse 2.4s ease-in-out infinite;
+}
+.secret-lock:hover { background: var(--danger-soft); animation: none; }
+.row > .secret-lock { position: static; transform: none; }
+
+/* The banner at the top of every screen while secrets are locked. */
+.security-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex: none;
+  padding: var(--s-3) var(--s-5);
+  background: var(--danger-soft);
+  border-bottom: 1px solid var(--danger-line);
+  color: var(--text);
+  font-size: var(--t-sm);
+}
+.security-banner > .icon { color: var(--danger); }
+@media (max-width: 640px) { .security-banner { padding-inline: var(--s-3); font-size: var(--t-xs); } }
 
 .kbd {
   padding: 1px 5px;
