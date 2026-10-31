@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accounts and roles - CourseForge docs</title>
+<meta name="description" content="The first administrator, invites, the two roles, who owns what, deleting an account, handing a course to somebody else, and the audit log.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/accounts/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="Accounts and roles">
+<meta property="og:description" content="The first administrator, invites, the two roles, who owns what, deleting an account, handing a course to somebody else, and the audit log.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/accounts/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.3.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/">Profiles</a></li><li><a href="../outline/">The outline (Structure)</a></li><li><a href="../writing-pages/">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/">Connect an AI client</a></li><li><a href="../mcp-tools/">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/" aria-current="page">Accounts and roles</a></li><li><a href="../settings/">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p>
+<h1>Accounts and roles</h1>
+<p class="lead">The first administrator, invites, the two roles, who owns what, deleting an account, handing a course to somebody else, and the audit log.</p>
+<p>CourseForge has real accounts, stored in its database, with two roles: <strong>user</strong> and <strong>administrator</strong>. They are all managed from <strong>Administration › Accounts</strong>.</p>
+<figure class="shot"><a href="../images/accounts.webp" class="shot__link"><img src="../images/accounts.webp" alt="Accounts, with the open invites" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption>Administration › Accounts: everybody who may sign in, and the invites still open.</figcaption></figure>
+<h2 id="the-first-administrator">The first administrator<a class="anchor" href="#the-first-administrator" aria-label="Link to this section">#</a></h2>
+<p>A fresh installation has no accounts. Its setup screen asks for the code in <code>INVITE-CODE.txt</code> - a file CourseForge writes next to <code>index.html</code>, or into <code>data/</code> when the install root is not writable - and creates the first administrator from it. See <a href="../installation/#why-a-code-in-a-file">Installation</a> for why that is enough.</p>
+<ul>
+<li><strong>Only the hash is stored.</strong> The plain code exists in that file and nowhere else.</li>
+<li><strong>It is spent on use.</strong> The file is deleted the moment the account is created.</li>
+<li><strong>The door closes for good.</strong> Once any account exists, setup reports <code>needs_setup: false</code> and refuses to create anything.</li>
+<li><strong>It can be taken back.</strong> <strong>Revoke</strong> beside the open invite closes it and deletes its file.</li>
+</ul>
+<p>On Apache the shipped <code>.htaccess</code> refuses every <code>.txt</code> file, so the code cannot be downloaded even while it sits in the document root. <strong>nginx, Caddy and IIS ignore <code>.htaccess</code></strong>: on those, configure the server first (<a href="../security/">Security</a>) or move the data directory out of the web root.</p>
+<p>If every administrator password is lost, recover from the database: delete the rows in <code>users</code>, and the setup screen and a fresh code come back.</p>
+<h2 id="adding-people">Adding people<a class="anchor" href="#adding-people" aria-label="Link to this section">#</a></h2>
+<p>There are two ways, and they differ in who ends up knowing the password:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>How it works</th>
+<th>Use it when</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Create an account</strong></td>
+<td>You set a password, or leave it blank and CourseForge generates one. It is shown once, and the account must choose its own at first sign-in.</td>
+<td>You hand somebody an account face to face.</td>
+</tr>
+<tr>
+<td><strong>Issue an invite</strong></td>
+<td>A code shown once, with a <strong>label</strong> (who it is for), a <strong>role</strong>, an <strong>expiry</strong> (48 hours by default, 30 days at most) and a number of <strong>places</strong>. The holder creates their own account with it.</td>
+<td>You would rather not send a password over chat.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Several invites can be open at once - up to twenty-five - each with its own <strong>Revoke</strong>. Revoking one closes it immediately, wherever the code has been sent, and leaves accounts already created with it and the other invites alone. An invite worth more than one account (<strong>Good for</strong>, up to fifty) lets a whole group in with one code; raise it only for a group you are expecting, because the code is worth that many accounts to whoever holds it.</p>
+<p>A password needs at least ten characters and is stored with PHP&#39;s <code>password_hash()</code>, rehashed on sign-in whenever PHP&#39;s default cost moves. A user name may hold letters, digits, spaces and <code>. _ @ + -</code>, starts with a letter or digit, and can never change.</p>
+<p>Sign-in is throttled per account and per address: five failures inside fifteen minutes lock that address out for fifteen minutes (all three numbers are under <strong>Settings › Security</strong>). A locked account stays reachable from the address its owner last signed in from, so wrong guesses from elsewhere cannot lock the owner out. A missing account costs a full hash comparison, so &quot;no such user&quot; and &quot;wrong password&quot; take the same time.</p>
+<h2 id="the-two-roles">The two roles<a class="anchor" href="#the-two-roles" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>A user</th>
+<th>An administrator</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Their own courses, profiles, tags, connections</td>
+<td>yes</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Everybody&#39;s courses</td>
+<td>no</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Accounts, invites, roles</td>
+<td>no</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Settings, the prompt library, the cron token</td>
+<td>no</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Diagnostics, the audit log, security, updates</td>
+<td>no</td>
+<td>yes</td>
+</tr>
+</tbody></table>
+</div>
+<p>The Administration group appears in the sidebar only for an administrator, and every route behind it is checked twice - by the router and inside the handler. A role is read from the database on <strong>every</strong> request rather than kept in the session or a token, so demoting, disabling or deleting somebody takes effect on their next request, including on MCP connections they already made.</p>
+<h2 id="who-owns-what">Who owns what<a class="anchor" href="#who-owns-what" aria-label="Link to this section">#</a></h2>
+<p>Every course, profile, tag, connection and run belongs to the account that created it. Two questions are kept apart:</p>
+<ul>
+<li><strong>May you reach this?</strong> - asked of <em>you</em>, the actor.</li>
+<li><strong>Whose is it?</strong> - everything downstream uses the <em>owner&#39;s</em> data.</li>
+</ul>
+<p>So an administrator who opens somebody else&#39;s course works with <strong>that course&#39;s</strong> profile, tags and BookStack instance, never their own. Generating a page there spends the owner&#39;s AI account, and an administrator cannot lend their own API key to somebody else&#39;s course by assigning one of their profiles to it.</p>
+<p>A row you may not reach is reported as <strong>not found</strong> rather than forbidden: telling somebody that course 47 exists but is not theirs is a small leak that costs nothing to avoid.</p>
+<h3 id="what-widens-for-an-administrator">What widens for an administrator<a class="anchor" href="#what-widens-for-an-administrator" aria-label="Link to this section">#</a></h3>
+<ul>
+<li><strong>Courses</strong> widens by itself to every account, each row marked with its owner, with a filter to narrow it back. A course list is an inventory, and that is what an administrator is for.</li>
+<li><strong>Profiles, tags and connections</strong> stay the administrator&#39;s own in the browser - they are working sets, and somebody else&#39;s profile in your picker is a trap. Add <code>?owner=name</code> for one other account, or <code>?all=1</code> for everybody.</li>
+<li>Over MCP, <code>list_profiles</code> and <code>list_tags</code> make the opposite choice for an administrator and return every account&#39;s rows, marked with their owner.</li>
+</ul>
+<h2 id="deleting-an-account">Deleting an account<a class="anchor" href="#deleting-an-account" aria-label="Link to this section">#</a></h2>
+<p>Deleting an account never silently deletes its courses. The dialog counts what the account owns and asks which you mean:</p>
+<ul>
+<li><strong>transfer</strong> hands the courses, profiles, runs and connections to another account, and merges the tag library into theirs by name;</li>
+<li><strong>delete</strong> removes all of it, cascading through chapters, pages, tag links and runs.</li>
+</ul>
+<p>Destroying anything asks for the user name to be typed first. Three things the server refuses whatever the browser sends: deleting or disabling the account you are signed in with, removing your own administrator rights, and deleting, disabling or demoting <strong>the last enabled administrator</strong>.</p>
+<h2 id="handing-one-course-to-somebody-else">Handing one course to somebody else<a class="anchor" href="#handing-one-course-to-somebody-else" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>What happens to it</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>The course, its chapters and pages</td>
+<td>move</td>
+</tr>
+<tr>
+<td>The run history</td>
+<td>moves, so the course does not look never-generated to its new owner</td>
+</tr>
+<tr>
+<td>The tag links</td>
+<td>are re-pointed at the receiving library by name; missing tags are created</td>
+</tr>
+<tr>
+<td>The profile</td>
+<td>is <strong>cleared</strong>, not shared - it carries an API key. The new owner picks one of their own.</td>
+</tr>
+<tr>
+<td>The published book</td>
+<td>is untouched. Publishing again needs a profile with a BookStack instance of the same name.</td>
+</tr>
+</tbody></table>
+</div>
+<p>A tag that exists in the receiving library with a <strong>different value</strong> keeps the receiving value, so the pages carrying it go out of sync and the next push rewrites the tag. A course with a <strong>run in flight</strong> refuses to move: that run is billed to the old owner&#39;s account.</p>
+<p>There is no button for this in the browser. It is <code>transfer_course</code> over MCP, or <code>POST api/projects/{id}/transfer</code>, both for administrators.</p>
+<h2 id="the-audit-log">The audit log<a class="anchor" href="#the-audit-log" aria-label="Link to this section">#</a></h2>
+<p>One line per administrative act - an account created, a role changed, a setting saved, a connection issued or revoked, an invite revoked, a security risk accepted, an update installed or rolled back - with who, when, from which address, and whether it came from the web, MCP, cron or the command line. Five thousand entries are kept. Nothing secret is ever written to it: a setting change records the key, never the value.</p>
+<h2 id="over-mcp">Over MCP<a class="anchor" href="#over-mcp" aria-label="Link to this section">#</a></h2>
+<p><code>list_users</code>, <code>create_user</code>, <code>update_user</code>, <code>delete_user</code>, <code>issue_invite</code> (with <code>label</code> and <code>max_uses</code>), <code>revoke_invite</code>, <code>transfer_course</code> and <code>get_audit_log</code>, all in the <code>admin</code> group. See the <a href="../mcp-tools/#administration">MCP tool reference</a>.</p>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/accounts.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.3.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../mcp-tools/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>MCP tool reference</strong></a><a class="pager__next" href="../settings/"><span>Next<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12L21 12L20.5 12"/><path d="M14 19L21 12L14 5"/></svg></span><strong>Settings</strong></a></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#the-first-administrator">The first administrator</a></li><li class="toc--2"><a href="#adding-people">Adding people</a></li><li class="toc--2"><a href="#the-two-roles">The two roles</a></li><li class="toc--2"><a href="#who-owns-what">Who owns what</a></li><li class="toc--2"><a href="#deleting-an-account">Deleting an account</a></li><li class="toc--2"><a href="#handing-one-course-to-somebody-else">Handing one course to somebody else</a></li><li class="toc--2"><a href="#the-audit-log">The audit log</a></li><li class="toc--2"><a href="#over-mcp">Over MCP</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>

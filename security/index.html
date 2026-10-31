@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security - CourseForge docs</title>
+<meta name="description" content="The self-check that locks secrets until the server is safe, configuration for nginx, Caddy and IIS, keeping data out of the web root, and the hardening applied everywhere.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/security/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="Security">
+<meta property="og:description" content="The self-check that locks secrets until the server is safe, configuration for nginx, Caddy and IIS, keeping data out of the web root, and the hardening applied everywhere.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/security/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.3.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/">Profiles</a></li><li><a href="../outline/">The outline (Structure)</a></li><li><a href="../writing-pages/">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/">Connect an AI client</a></li><li><a href="../mcp-tools/">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/">Accounts and roles</a></li><li><a href="../settings/">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/" aria-current="page">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p>
+<h1>Security</h1>
+<p class="lead">The self-check that locks secrets until the server is safe, configuration for nginx, Caddy and IIS, keeping data out of the web root, and the hardening applied everywhere.</p>
+<p>CourseForge keeps everything in <code>data/</code>: the SQLite database with every password hash and, <strong>in plain text, every AI key and BookStack token</strong> the installation has been given. They are never sent back to a browser and never written to the audit log, but at rest they are readable by anyone who can read the file. So the one thing that must never be true is that <code>data/app.sqlite</code> can be fetched over HTTP.</p>
+<p>CourseForge protects itself with <code>.htaccess</code> files - and a file the server may not read is not a promise. So it checks.</p>
+<h2 id="administration-security">Administration › Security<a class="anchor" href="#administration-security" aria-label="Link to this section">#</a></h2>
+<figure class="shot"><a href="../images/security.webp" class="shot__link"><img src="../images/security.webp" alt="Administration › Security" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption>The verdict, the server CourseForge detected, and the configuration to paste for it.</figcaption></figure>
+<p>The installation writes a small probe file into the data directory and fetches it - along with the database, the deny file, the shipped configuration, the invite file while there is one, and a few files that should not be served - from its own public address, reading a few kilobytes of each. The <strong>verdict</strong>:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Verdict</th>
+<th>Means</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>secure</strong></td>
+<td>every file that holds a secret was refused. Keys and tokens may be stored.</td>
+</tr>
+<tr>
+<td><strong>exposed</strong></td>
+<td>at least one came back. Nothing that would store a secret is allowed to, and anything already stored should be treated as read.</td>
+</tr>
+<tr>
+<td><strong>unverified</strong></td>
+<td>the server could not reach itself: no public address is known (set <code>app.public_url</code>), or the host blocks requests to its own name.</td>
+</tr>
+<tr>
+<td><strong>unknown</strong></td>
+<td>nobody has checked yet. The check runs the first time the screen opens, then every six hours from the scheduler.</td>
+</tr>
+</tbody></table>
+</div>
+<figure class="shot"><a href="../images/security-probes.webp" class="shot__link"><img src="../images/security-probes.webp" alt="What the server was asked for" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption>Each file the check asked for, and what came back.</figcaption></figure>
+<p><strong>Until the verdict is secure, every field that would store a secret is locked</strong>: API keys and BookStack tokens on profiles, the cron and GitHub tokens in Settings. They are greyed out with a red mark, an administrator sees a banner on every screen, and the API refuses the write whichever door it comes through, MCP included. Nothing already stored stops working.</p>
+<p>The screen names the server it detected - Apache, LiteSpeed, nginx, Caddy, IIS or PHP&#39;s own - with the configuration block to paste for it (switchable by hand, because a proxy can make the detection wrong), lists every file it asked for and what came back, and repeats the one arrangement that is safe on any server: the data directory outside the web root.</p>
+<h3 id="accepting-the-risk">Accepting the risk<a class="anchor" href="#accepting-the-risk" aria-label="Link to this section">#</a></h3>
+<p>At the bottom, framed in red, an administrator who has verified the server by hand - behind a proxy that will not let it fetch itself, say - can <strong>accept the risk</strong> by typing back a six-character code shown on the screen. The fields unlock, and the acceptance is written to the audit log with their name. It can be withdrawn, and the lock holds again.</p>
+<h2 id="the-safest-arrangement-data-outside-the-web-root">The safest arrangement: data outside the web root<a class="anchor" href="#the-safest-arrangement-data-outside-the-web-root" aria-label="Link to this section">#</a></h2>
+<p>Point CourseForge at a data directory the web server does not serve, and the question of what refuses <code>data/</code> stops arising:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">Apache</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k4">SetEnv</span><span class="k5"> COURSEFORGE_DATA_DIR /var/lib/courseforge</span></span></code></pre></div>
+<div class="code"><div class="code__bar"><span class="code__lang">nginx</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k4">fastcgi_param </span><span class="k5">COURSEFORGE_DATA_DIR /var/lib/courseforge;</span></span></code></pre></div>
+<p>Then only <code>index.html</code>, <code>assets/</code>, <code>api/</code>, <code>cron.php</code> and <code>bs.php</code> need to be public. <code>config/</code> must remain readable by PHP but not by the web.</p>
+<h2 id="serving-it-somewhere-other-than-apache">Serving it somewhere other than Apache<a class="anchor" href="#serving-it-somewhere-other-than-apache" aria-label="Link to this section">#</a></h2>
+<p><strong>nginx, Caddy, IIS and PHP&#39;s built-in server ignore <code>.htaccess</code> entirely.</strong> On those you reproduce the protection yourself. The shipped rules do five things:</p>
+<ol>
+<li>route <code>/api/…</code> to <code>api/index.php</code>, and <code>/mcp</code> to <code>api/mcp.php</code>;</li>
+<li>leave <code>api/mcp.php</code> alone - it is a second front door with its own authentication;</li>
+<li>deny all access to <code>data/</code>, <code>config/</code>, <code>src/</code>, <code>tools/</code> and <code>tests/</code>;</li>
+<li>deny <code>*.sqlite</code> (and its <code>-wal</code>, <code>-shm</code>, <code>-journal</code> files), <code>*.db</code>, <code>*.json</code>, <code>*.md</code>, <code>*.log</code>, <code>*.ini</code>, <code>*.txt</code>, <code>*.zip</code>, <code>*.tar</code>, <code>*.gz</code>, <code>*.bak</code>, <code>*.sql</code> and <code>*.sh</code> everywhere;</li>
+<li>re-expose the <code>Authorization</code> header, which Apache drops under CGI/FastCGI - without it every MCP request looks unauthenticated.</li>
+</ol>
+<p><code>.php</code> is deliberately not on the deny list, because the application is made of PHP files. Routing itself is optional - the app calls <code>api/index.php?r=&lt;route&gt;</code> and works with no rewrite rules at all - but the directory and file-type protection is not.</p>
+<h3 id="nginx">nginx<a class="anchor" href="#nginx" aria-label="Link to this section">#</a></h3>
+<div class="code"><div class="code__bar"><span class="code__lang">nginx</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k3"># Block the private directories outright</span></span>
+<span class="line"><span class="k4">location</span><span class="k4"> ^~</span><span class="k1"> /data/   </span><span class="k5">{</span><span class="k4"> deny </span><span class="k2">all</span><span class="k5">; </span><span class="k4">return</span><span class="k2"> 403</span><span class="k5">; }</span></span>
+<span class="line"><span class="k4">location</span><span class="k4"> ^~</span><span class="k1"> /config/ </span><span class="k5">{</span><span class="k4"> deny </span><span class="k2">all</span><span class="k5">; </span><span class="k4">return</span><span class="k2"> 403</span><span class="k5">; }</span></span>
+<span class="line"><span class="k4">location</span><span class="k4"> ^~</span><span class="k1"> /src/    </span><span class="k5">{</span><span class="k4"> deny </span><span class="k2">all</span><span class="k5">; </span><span class="k4">return</span><span class="k2"> 403</span><span class="k5">; }</span></span>
+<span class="line"><span class="k4">location</span><span class="k4"> ^~</span><span class="k1"> /tools/  </span><span class="k5">{</span><span class="k4"> deny </span><span class="k2">all</span><span class="k5">; </span><span class="k4">return</span><span class="k2"> 403</span><span class="k5">; }</span></span>
+<span class="line"><span class="k4">location</span><span class="k4"> ^~</span><span class="k1"> /tests/  </span><span class="k5">{</span><span class="k4"> deny </span><span class="k2">all</span><span class="k5">; </span><span class="k4">return</span><span class="k2"> 403</span><span class="k5">; }</span></span>
+<span class="line"></span>
+<span class="line"><span class="k3"># Block sensitive file types anywhere. .txt is here for INVITE-CODE.txt.</span></span>
+<span class="line"><span class="k4">location</span><span class="k4"> ~*</span><span class="k1"> \.(sqlite|sqlite3|sqlite-wal|sqlite-shm|sqlite-journal|db|db-wal|db-shm|json|md|log|ini|txt|zip|tar|gz|bak|sql|sh)$ </span><span class="k5">{</span></span>
+<span class="line"><span class="k4">    deny </span><span class="k2">all</span><span class="k5">; </span><span class="k4">return</span><span class="k2"> 403</span><span class="k5">;</span></span>
+<span class="line"><span class="k5">}</span></span>
+<span class="line"></span>
+<span class="line"><span class="k3"># API front controller. The regex location below matches .php first, so</span></span>
+<span class="line"><span class="k3"># api/mcp.php is handed to PHP rather than routed into index.php.</span></span>
+<span class="line"><span class="k4">location</span><span class="k0"> /api/ </span><span class="k5">{</span></span>
+<span class="line"><span class="k4">    try_files </span><span class="k5">$uri /api/index.php$is_args$args;</span></span>
+<span class="line"><span class="k5">}</span></span>
+<span class="line"></span>
+<span class="line"><span class="k4">location</span><span class="k4"> =</span><span class="k1"> /mcp </span><span class="k5">{ </span><span class="k4">rewrite</span><span class="k5"> ^ /api/mcp.php </span><span class="k4">last</span><span class="k5">; }</span></span>
+<span class="line"></span>
+<span class="line"><span class="k4">location</span><span class="k4"> ~</span><span class="k1"> \.php$ </span><span class="k5">{</span></span>
+<span class="line"><span class="k4">    include </span><span class="k5">fastcgi_params;</span></span>
+<span class="line"><span class="k4">    fastcgi_pass </span><span class="k5">unix:/run/php/php-fpm.sock;</span></span>
+<span class="line"><span class="k4">    fastcgi_param </span><span class="k5">SCRIPT_FILENAME $document_root$fastcgi_script_name;</span></span>
+<span class="line"><span class="k4">    fastcgi_read_timeout </span><span class="k2">1800</span><span class="k5">;          </span><span class="k3"># a page generation may take minutes</span></span>
+<span class="line"><span class="k5">}</span></span></code></pre></div>
+<h3 id="caddy">Caddy<a class="anchor" href="#caddy" aria-label="Link to this section">#</a></h3>
+<div class="code"><div class="code__bar"><span class="code__lang">Caddyfile</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line">courseforge.example.com {</span>
+<span class="line">    root * /var/www/courseforge</span>
+<span class="line"></span>
+<span class="line">    @privateDirs path /data/* /config/* /src/* /tools/* /tests/*</span>
+<span class="line">    respond @privateDirs 403</span>
+<span class="line"></span>
+<span class="line">    @privateFiles path *.sqlite *.sqlite3 *.sqlite-wal *.sqlite-shm *.sqlite-journal *.db *.db-wal *.db-shm *.json *.md *.log *.ini *.txt *.zip *.tar *.gz *.bak *.sql *.sh</span>
+<span class="line">    respond @privateFiles 403</span>
+<span class="line"></span>
+<span class="line">    rewrite /mcp /api/mcp.php</span>
+<span class="line">    php_fastcgi unix//run/php/php-fpm.sock</span>
+<span class="line">    file_server</span>
+<span class="line">}</span></code></pre></div>
+<h3 id="iis">IIS<a class="anchor" href="#iis" aria-label="Link to this section">#</a></h3>
+<p>Use <code>&lt;requestFiltering&gt;&lt;hiddenSegments&gt;</code> for the five directories and <code>&lt;fileExtensions&gt;</code> for the suffixes, in <code>web.config</code>. IIS does not read <code>.htaccess</code> and does not fall back to it, so nothing is protected until that file exists.</p>
+<h3 id="phps-built-in-server">PHP&#39;s built-in server<a class="anchor" href="#phps-built-in-server" aria-label="Link to this section">#</a></h3>
+<p><code>tools/router-dev.php</code> reproduces the directory rules and the database suffixes for development, but not the <code>.json</code>, <code>.txt</code> or <code>.md</code> deny - under <code>php -S</code>, <code>config/defaults.json</code> and <code>INVITE-CODE.txt</code> can be downloaded. Fine on a laptop; not a way to serve anybody else.</p>
+<h2 id="the-data-directory-guards-itself">The data directory guards itself<a class="anchor" href="#the-data-directory-guards-itself" aria-label="Link to this section">#</a></h2>
+<p>The release ships <code>data/.htaccess</code>, which denies everything in that directory. Because there are ordinary ways to end up without it - PHP creating a missing directory empty, an update never writing into <code>data/</code>, a deploy tool that skips <code>data/</code> - CourseForge writes the file itself, from a constant in the code, on the way to opening the database. A file already there is left alone, including one you edited. A missing <code>data/.htaccess</code> is therefore reported as a <strong>failure</strong> by the installation check: it can only mean PHP was refused permission to write it.</p>
+<h2 id="hardening-applied-regardless-of-the-server">Hardening applied regardless of the server<a class="anchor" href="#hardening-applied-regardless-of-the-server" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Sessions:</strong> the cookie is <code>HttpOnly</code>, <code>SameSite=Lax</code>, scoped to the install directory, and <code>Secure</code> whenever HTTPS is detected (including behind a proxy that sets <code>X-Forwarded-Proto</code>). Strict mode, so a made-up session id is never adopted; the id is renewed on sign-in and on a password change.</li>
+<li><strong>Requests:</strong> every non-GET request needs a CSRF token; bodies above 16 MB are refused before they are read.</li>
+<li><strong>Headers:</strong> every response sends <code>X-Content-Type-Options: nosniff</code> and <code>Cache-Control: no-store</code>; on Apache also <code>X-Frame-Options: SAMEORIGIN</code>, <code>Referrer-Policy: same-origin</code> and a <code>Content-Security-Policy</code> of <code>frame-ancestors &#39;self&#39;; base-uri &#39;none&#39;; object-src &#39;none&#39;; form-action &#39;self&#39;</code>. A <code>script-src</code> is deliberately not sent: the import map is inline and changes every release, and Vue&#39;s runtime template compiler needs <code>&#39;unsafe-eval&#39;</code>.</li>
+<li><strong>Outbound addresses</strong> a profile carries are vetted before they are stored: <code>http</code> or <code>https</code> only, a host, no credentials in the address, never the cloud metadata range (a local model server on the same machine is allowed). What an address answers is never quoted back verbatim. The HTTP client speaks HTTP and HTTPS only and follows redirects only to HTTPS, only for BookStack.</li>
+<li><strong>Secrets on profiles</strong> are kept only for the address they were stored against.</li>
+<li><strong>Host headers:</strong> <code>Host</code> is used for the addresses CourseForge hands out only when it looks like a host, and <code>X-Forwarded-Host</code> never; behind a rewriting proxy set <code>app.public_url</code> and <code>mcp.public_url</code>.</li>
+<li><strong>Throttling:</strong> sign-ins and password changes are throttled per account and per address, in the browser and over MCP.</li>
+<li><strong>Rendering:</strong> previews are sanitised with DOMPurify with <code>&lt;style&gt;</code>, forms and inline <code>style</code> attributes forbidden, because the author of the text is a language model and the preview lives in the application&#39;s own origin. MathJax runs without the packages that could fetch extensions or create <code>javascript:</code> links.</li>
+<li><strong>MCP:</strong> a bearer token, an <code>Origin</code> check against <code>mcp.allowed_origins</code>, scopes that only narrow, and connection tokens minted over MCP that die with the connection that minted them.</li>
+</ul>
+<p>Always serve CourseForge over <strong>HTTPS</strong> - API tokens and session cookies travel with every request.</p>
+<h2 id="backups">Backups<a class="anchor" href="#backups" aria-label="Link to this section">#</a></h2>
+<p><code>data/</code> is the installation: <code>app.sqlite</code> and <code>config.json</code>. Back it up like the secret it is - a copy of the database holds every API key in plain text. The update backups under <code>data/backups/</code> are single zip archives on purpose: a backup tree would be a runnable second copy of the application under <code>data/</code>.</p>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/security.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.3.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../scheduler/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>The scheduler</strong></a><a class="pager__next" href="../updates/"><span>Next<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12L21 12L20.5 12"/><path d="M14 19L21 12L14 5"/></svg></span><strong>Updates</strong></a></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#administration-security">Administration › Security</a></li><li class="toc--2"><a href="#the-safest-arrangement-data-outside-the-web-root">The safest arrangement: data outside the web root</a></li><li class="toc--2"><a href="#serving-it-somewhere-other-than-apache">Serving it somewhere other than Apache</a></li><li class="toc--2"><a href="#the-data-directory-guards-itself">The data directory guards itself</a></li><li class="toc--2"><a href="#hardening-applied-regardless-of-the-server">Hardening applied regardless of the server</a></li><li class="toc--2"><a href="#backups">Backups</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>

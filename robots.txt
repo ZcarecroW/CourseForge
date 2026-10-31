@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://zcarecrow.github.io/CourseForge/sitemap.xml

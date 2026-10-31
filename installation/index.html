@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installation - CourseForge docs</title>
+<meta name="description" content="Requirements, putting the files on a server, the first administrator, PHP limits and the three things to do once it runs.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/installation/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="Installation">
+<meta property="og:description" content="Requirements, putting the files on a server, the first administrator, PHP limits and the three things to do once it runs.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/installation/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.3.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/" aria-current="page">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/">Profiles</a></li><li><a href="../outline/">The outline (Structure)</a></li><li><a href="../writing-pages/">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/">Connect an AI client</a></li><li><a href="../mcp-tools/">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/">Accounts and roles</a></li><li><a href="../settings/">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p>
+<h1>Installation</h1>
+<p class="lead">Requirements, putting the files on a server, the first administrator, PHP limits and the three things to do once it runs.</p>
+<p>CourseForge is a folder of files. There is no installer, no package manager and no build step: copy the folder to a PHP host, make one directory writable and open it in a browser. Everything else - AI accounts, BookStack instances, the scheduler, the security policy, the prompt library - is set from inside the application.</p>
+<h2 id="requirements">Requirements<a class="anchor" href="#requirements" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Needed</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>PHP</strong></td>
+<td>8.1 or newer</td>
+<td>8.4 or 8.5 is faster and is what CourseForge is developed on. An 8.0 interpreter cannot even parse the code and serves a blank page.</td>
+</tr>
+<tr>
+<td><strong>Extensions</strong></td>
+<td>cURL, PDO SQLite, mbstring, json, session</td>
+<td>All five ship with almost every PHP build.</td>
+</tr>
+<tr>
+<td><strong>Web server</strong></td>
+<td>anything that serves files and runs PHP</td>
+<td>Apache and LiteSpeed read the shipped <code>.htaccess</code>. nginx, Caddy and IIS need <a href="../security/#serving-it-somewhere-other-than-apache">a few lines of configuration</a>.</td>
+</tr>
+<tr>
+<td><strong>Network</strong></td>
+<td>outbound HTTPS</td>
+<td>To your AI provider and your BookStack instance.</td>
+</tr>
+<tr>
+<td><strong>Browser</strong></td>
+<td>import-map support</td>
+<td>Chrome/Edge 89+, Firefox 108+, Safari 16.4+. Diagrams in the preview need Safari 17.4+.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Optional, only for the features that use them:</p>
+<ul>
+<li><strong>A scheduler</strong> that calls a URL once a minute (a control-panel cron) or a real crontab. Without it, pages are still written, but only while a browser tab is open: no background runs, no batch collection, no unattended updates. See <a href="../scheduler/">The scheduler</a>.</li>
+<li><strong><code>ext-zip</code></strong>, to install updates from GitHub.</li>
+<li><strong><code>proc_open</code></strong> enabled, so that an update can test the new release&#39;s database migration in a child process before accepting it. Where it is disabled, that one check is skipped and the update log says so.</li>
+</ul>
+<div class="callout callout--note" role="note"><p class="callout__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m12,17v-5.5c0-.276-.224-.5-.5-.5h-1.5"/><circle cx="12" cy="7.25" r="1.25" fill="currentColor" stroke="none"/></svg>Note</p><p>There is no Composer, no npm and no compile step - in development or in production. The browser loads Vue and every other library as ES modules through an import map, so deploying is copying files.</p>
+</div>
+<h2 id="install">Install<a class="anchor" href="#install" aria-label="Link to this section">#</a></h2>
+<div class="steps"><ol>
+<li><p><strong>Download a release.</strong> Take the latest zip from <a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener">GitHub Releases</a> (&quot;Source code (zip)&quot;), or clone the repository:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">bash</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k0">git</span><span class="k1"> clone</span><span class="k1"> https://github.com/ZcarecroW/CourseForge.git</span><span class="k1"> courseforge</span></span></code></pre></div>
+</li>
+<li><p><strong>Copy the files to your web root</strong>, or to a subdirectory of it. The document root is the folder holding <code>index.html</code> and <code>api/</code>. A subdirectory works as it is: every URL is relative.</p>
+</li>
+<li><p><strong>Make <code>data/</code> writable</strong> by the user PHP runs as. The SQLite database (<code>data/app.sqlite</code>, created and migrated on first open), the settings this installation changes, the staged updates and the backups all live there.</p>
+<div class="code"><div class="code__bar"><span class="code__lang">bash</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k0">chmod</span><span class="k2"> 775</span><span class="k1"> data</span><span class="k3">        # or chown it to the PHP user</span></span></code></pre></div>
+</li>
+<li><p><strong>Open the address in a browser.</strong> CourseForge writes a one-time code to <code>INVITE-CODE.txt</code> next to <code>index.html</code> - or into <code>data/</code> if the install root is not writable - and shows the setup screen, which names the path it used.</p>
+</li>
+<li><p><strong>Create the first administrator.</strong> Copy the code out of that file into the setup screen, with a user name and a password of at least ten characters. That account is the first administrator and is signed in straight away. The file is deleted the moment it is used.</p>
+</li>
+</ol>
+</div><div class="callout callout--tip" role="note"><p class="callout__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 17.7131L8.49996 23H15.5L16 17.7131"/><path d="M12 19C15.866 19 19 15.866 19 12C19 8.13401 15.866 5 12 5C8.13401 5 5 8.13401 5 12C5 15.866 8.13401 19 12 19Z"/><path d="M12 1V1.01"/><path d="M23.005 12.005L22.995 12.005"/><path d="M0.994995 12.005L1.005 12.005"/><path d="M19.7817 4.2233L19.7747 4.23037"/><path d="M4.21826 4.22327L4.22533 4.23034"/></svg>Tip</p><p>If you have a shell, <code>php tools/diagnose.php</code> checks the installation and prints what is wrong: a read-only data directory, a missing extension, a scheduler that has never ticked. The same rows are on <strong>Administration › Settings › Diagnostics</strong> for hosts with no shell.</p>
+</div>
+<h3 id="why-a-code-in-a-file">Why a code in a file?<a class="anchor" href="#why-a-code-in-a-file" aria-label="Link to this section">#</a></h3>
+<p>A fresh installation is a web address with no accounts and a form that creates the first one. Whoever reaches that form first would own the installation, and bots scanning for new hosts are faster than people. The code lives only in a file on the server, so only somebody who could put files on the server can use it. It is six groups of four characters from an alphabet without look-alikes (no <code>I</code>, <code>O</code>, <code>0</code> or <code>1</code>); case, spaces and hyphens are ignored when you type it.</p>
+<p>Once any account exists, the setup route refuses to create anything, for good. If the file is lost before it is used, delete the open row from the <code>invites</code> table and reload: a fresh code is written. More on accounts in <a href="../accounts/">Accounts and roles</a>.</p>
+<h2 id="after-the-first-sign-in">After the first sign-in<a class="anchor" href="#after-the-first-sign-in" aria-label="Link to this section">#</a></h2>
+<p>A guided tour starts by itself and walks through every screen. Then do these three things, in this order.</p>
+<div class="steps"><ol>
+<li><strong>Pass the security check.</strong> Open <strong>Administration › Security</strong>. CourseForge asks the server for its own private files over HTTP and reports which came back. Until every one is refused, all fields that would store an API key or a token stay locked, with a red mark. On Apache with the shipped <code>.htaccess</code> this passes by itself; on nginx, Caddy or IIS paste the configuration block the screen gives you. See <a href="../security/">Security</a>.</li>
+<li><strong>Set up the scheduler.</strong> Open <strong>Administration › Settings › Scheduler</strong>, generate a cron token and paste the URL it gives you into your host&#39;s cron, every minute. See <a href="../scheduler/">The scheduler</a>.</li>
+<li><strong>Create a profile</strong> with an AI account and, if you publish, a BookStack instance. Then create your first course. The <a href="../quick-start/">Quick start</a> walks through it.</li>
+</ol>
+</div><h2 id="php-limits-set-up-php">PHP limits: Set up PHP<a class="anchor" href="#php-limits-set-up-php" aria-label="Link to this section">#</a></h2>
+<p>Shared hosting usually hands out limits chosen for a blog: sixty seconds of execution, a socket timeout shorter than a model takes to write a page, 128 MB of memory. <strong>Administration › Settings › Set up PHP</strong> measures what the host gives and writes a <code>.user.ini</code> that raises exactly the limits that are too low. It runs by itself the first time an administrator opens the application.</p>
+<p><strong>Every number is a floor, never a value</strong>: a host that gives 768 MB keeps 768 MB; a host that gives 128 MB is asked for 256 MB. Nothing is ever lowered.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Directive</th>
+<th>Floor</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>memory_limit</code></td>
+<td>256M</td>
+<td>A course tree, its pages and an update archive are held at once.</td>
+</tr>
+<tr>
+<td><code>max_execution_time</code></td>
+<td>300</td>
+<td>Writing a page, publishing a book and installing an update all take longer than a minute.</td>
+</tr>
+<tr>
+<td><code>default_socket_timeout</code></td>
+<td>300</td>
+<td>A model can take minutes to answer; at sixty seconds the page is cut off and recorded as failed.</td>
+</tr>
+<tr>
+<td><code>max_input_time</code></td>
+<td>300</td>
+<td>How long PHP spends reading a request body.</td>
+</tr>
+<tr>
+<td><code>post_max_size</code></td>
+<td>32M</td>
+<td>A finished page, its outline and its tags arrive in one request.</td>
+</tr>
+<tr>
+<td><code>upload_max_filesize</code></td>
+<td>32M</td>
+<td>Restoring a backup means uploading the archive an update made.</td>
+</tr>
+<tr>
+<td><code>max_input_vars</code></td>
+<td>5000</td>
+<td>A course with hundreds of pages sends more fields than the default thousand.</td>
+</tr>
+<tr>
+<td><code>display_errors</code></td>
+<td>Off</td>
+<td>An error page that prints a file path tells a stranger where the database is.</td>
+</tr>
+<tr>
+<td><code>log_errors</code></td>
+<td>On</td>
+<td>What is not displayed still has to go somewhere.</td>
+</tr>
+<tr>
+<td><code>output_buffering</code></td>
+<td>Off</td>
+<td>A long answer held in a buffer is held in memory twice.</td>
+</tr>
+</tbody></table>
+</div>
+<p><code>.user.ini</code> is read by the CGI, FastCGI and FPM SAPIs. Under <strong>mod_php</strong> it is ignored; CourseForge then tells you which <code>php_value</code> lines to add to <code>.htaccess</code> and leaves the adding to you, because one wrong <code>php_value</code> takes the whole site down. A directive the host locks at system level is listed as <em>host decides</em> rather than written. Anything you write outside the managed block is never touched.</p>
+<div class="callout callout--warning" role="note"><p class="callout__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="16.75" r="1.25" fill="currentColor" stroke="none"/><line x1="12" y1="13" x2="12" y2="9"/><path d="m10.171,4.06l-7.899,13.783c-.806,1.406.209,3.157,1.829,3.157h15.798c1.62,0,2.635-1.751,1.829-3.157l-7.899-13.783c-.81-1.413-2.849-1.413-3.659,0Z"/></svg>Warning</p><p>Your web server has its own time limit too: <code>fastcgi_read_timeout</code> on nginx, a proxy timeout, a hosting panel setting. The smallest limit wins. A limit below a few minutes is the most common cause of &quot;generation stops half way&quot; on a new installation. See <a href="../troubleshooting/">Troubleshooting</a>.</p>
+</div>
+<h2 id="keep-the-data-directory-out-of-the-web-root">Keep the data directory out of the web root<a class="anchor" href="#keep-the-data-directory-out-of-the-web-root" aria-label="Link to this section">#</a></h2>
+<p><code>data/app.sqlite</code> holds every password hash and, in plain text, every AI key and BookStack token the installation has been given. The shipped <code>.htaccess</code> denies it, and CourseForge rewrites <code>data/.htaccess</code> itself if it goes missing - but the arrangement that is safe on <strong>every</strong> server is a data directory that is not under the document root at all:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">Apache</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k4">SetEnv</span><span class="k5"> COURSEFORGE_DATA_DIR /var/lib/courseforge</span></span></code></pre></div>
+<div class="code"><div class="code__bar"><span class="code__lang">nginx</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k4">fastcgi_param </span><span class="k5">COURSEFORGE_DATA_DIR /var/lib/courseforge;</span></span></code></pre></div>
+<p>Then only <code>index.html</code>, <code>assets/</code>, <code>api/</code>, <code>cron.php</code> and <code>bs.php</code> need to be public. <code>config/</code> must stay readable by PHP but not by the web. The invite code goes into the data directory in this arrangement, since the install root is usually not writable.</p>
+<h2 id="trying-it-on-your-own-machine">Trying it on your own machine<a class="anchor" href="#trying-it-on-your-own-machine" aria-label="Link to this section">#</a></h2>
+<p>PHP&#39;s built-in server is enough to evaluate CourseForge on a laptop:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">bash</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k2">cd</span><span class="k1"> courseforge</span></span>
+<span class="line"><span class="k0">php</span><span class="k2"> -S</span><span class="k1"> 127.0.0.1:8080</span><span class="k2"> -t</span><span class="k1"> .</span><span class="k1"> tools/router-dev.php</span></span></code></pre></div>
+<p>Then open <code>http://127.0.0.1:8080/</code>. <code>tools/router-dev.php</code> reproduces the most important <code>.htaccess</code> rules, but not all of them: under <code>php -S</code>, <code>config/defaults.json</code> and <code>INVITE-CODE.txt</code> can be downloaded. That is fine on a laptop and not a way to serve CourseForge to anybody else.</p>
+<p>To keep the database away from the code while you try things, point the data directory elsewhere:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">bash</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k5">COURSEFORGE_DATA_DIR</span><span class="k4">=</span><span class="k1">/tmp/cf-data</span><span class="k0"> php</span><span class="k2"> -S</span><span class="k1"> 127.0.0.1:8080</span><span class="k2"> -t</span><span class="k1"> .</span><span class="k1"> tools/router-dev.php</span></span></code></pre></div>
+<h2 id="where-things-live">Where things live<a class="anchor" href="#where-things-live" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What it is</th>
+<th>Who writes it</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>index.html</code>, <code>assets/</code></td>
+<td>The single-page application and its vendored libraries</td>
+<td>the release</td>
+</tr>
+<tr>
+<td><code>api/index.php</code></td>
+<td>The JSON API the browser talks to</td>
+<td>the release</td>
+</tr>
+<tr>
+<td><code>api/mcp.php</code></td>
+<td>The MCP endpoint AI clients connect to</td>
+<td>the release</td>
+</tr>
+<tr>
+<td><code>cron.php</code></td>
+<td>The scheduler endpoint a control-panel cron calls</td>
+<td>the release</td>
+</tr>
+<tr>
+<td><code>bs.php</code></td>
+<td>Serves BookStackDev looks to your wikis</td>
+<td>the release</td>
+</tr>
+<tr>
+<td><code>config/defaults.json</code></td>
+<td>Shipped settings, content details and the whole prompt library</td>
+<td>the release, replaced by every update</td>
+</tr>
+<tr>
+<td><code>src/</code></td>
+<td>The PHP application</td>
+<td>the release</td>
+</tr>
+<tr>
+<td><code>tools/</code></td>
+<td>Command-line helpers: <code>diagnose.php</code>, <code>cron.php</code>, <code>update.php</code></td>
+<td>the release</td>
+</tr>
+<tr>
+<td><code>data/</code></td>
+<td><code>app.sqlite</code>, <code>config.json</code> (your overrides), backups, staged updates</td>
+<td>this installation, never an update</td>
+</tr>
+</tbody></table>
+</div>
+<p>Updates replace everything except <code>data/</code>, <code>INVITE-CODE.txt</code>, <code>.git</code> and <code>.github</code>. See <a href="../updates/">Updates</a>.</p>
+<h2 id="upgrading-an-existing-installation">Upgrading an existing installation<a class="anchor" href="#upgrading-an-existing-installation" aria-label="Link to this section">#</a></h2>
+<p>From any 5.x release, use <strong>Administration › Updates</strong> or <code>php tools/update.php --install</code>. The database migrates itself on first start. Coming from 4.x, 3.x or 2.x? See <a href="../upgrading/">Upgrading</a>.</p>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/installation.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.3.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../introduction/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>Introduction</strong></a><a class="pager__next" href="../quick-start/"><span>Next<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12L21 12L20.5 12"/><path d="M14 19L21 12L14 5"/></svg></span><strong>Quick start</strong></a></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#requirements">Requirements</a></li><li class="toc--2"><a href="#install">Install</a></li><li class="toc--2"><a href="#after-the-first-sign-in">After the first sign-in</a></li><li class="toc--2"><a href="#php-limits-set-up-php">PHP limits: Set up PHP</a></li><li class="toc--2"><a href="#keep-the-data-directory-out-of-the-web-root">Keep the data directory out of the web root</a></li><li class="toc--2"><a href="#trying-it-on-your-own-machine">Trying it on your own machine</a></li><li class="toc--2"><a href="#where-things-live">Where things live</a></li><li class="toc--2"><a href="#upgrading-an-existing-installation">Upgrading an existing installation</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>

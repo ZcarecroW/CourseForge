@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Changelog - CourseForge docs</title>
+<meta name="description" content="What changed in each release, newest first. Taken from the release notes in the README.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/changelog/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="Changelog">
+<meta property="og:description" content="What changed in each release, newest first. Taken from the release notes in the README.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/changelog/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.3.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/">Profiles</a></li><li><a href="../outline/">The outline (Structure)</a></li><li><a href="../writing-pages/">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/">Connect an AI client</a></li><li><a href="../mcp-tools/">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/">Accounts and roles</a></li><li><a href="../settings/">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/" aria-current="page">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p>
+<h1>Changelog</h1>
+<p class="lead">What changed in each release, newest first. Taken from the release notes in the README.</p>
+<p>Every installation offers new releases on <strong>Administration › Updates</strong>; see <a href="../updates/">Updates</a> and, for older versions, <a href="../upgrading/">Upgrading</a>. Downloads are on <a href="https://github.com/ZcarecroW/CourseForge/releases" rel="noopener">GitHub Releases</a>.</p>
+<h2 id="5-3">5.3<a class="anchor" href="#5-3" aria-label="Link to this section">#</a></h2>
+<p><strong>Every page knows what every other page teaches.</strong> The outline now carries a
+<em>scope</em> under each page - one line naming what that page and no other page
+teaches - and every page is written from a course map that shows every page with
+its scope. A page that needs a concept another page owns builds on it or names
+that page, instead of explaining it again. The AI plans the scopes together when
+it designs the outline; <strong>Plan missing scopes</strong> fills them in for an outline that
+has none in one request. A page also sees the section headings of the pages
+already written in its chapter, which is where plans drift.</p>
+<p><strong>A third of the prompt, and most of it cached.</strong> The page prompt used to carry
+the whole outline - six hundred words per chapter - with every page. It now
+carries the compact map and its own chapter, measured at 47,000 characters
+instead of 139,000 per page on a course of 20 chapters × 7 pages. The shared part
+comes first, is byte-identical from page to page, and is marked for each
+provider&#39;s prompt cache: breakpoints for Anthropic, explicit cache points and a
+cache key for OpenAI&#39;s gpt-5.6 and later, cache markers through OpenRouter, the
+right order for Gemini and every gateway. On a live run with Anthropic the billed
+input falls by a little over nine tenths. The cache breakpoint 5.2 set was on a
+part of the prompt that differed for every page as soon as pages had tags, so it
+paid the cache-write premium on every page and was never read back.</p>
+<p><strong>Connected clients read the map once.</strong> <code>get_page_brief</code> hands out the shared
+context with ids, and a client that passes them back as <code>known_context</code> is not
+sent the same text again. <code>plan_page_scopes</code> and <code>update_page</code>&#39;s new <code>scope</code> give
+a client what the browser has.</p>
+<p><strong>The providers as they are today.</strong> OpenAI&#39;s GPT-6 family (<code>gpt-6-sol</code>,
+<code>gpt-6-luna</code>, <code>gpt-6-astra</code>, <code>gpt-6.1-sol</code>, <code>gpt-6.1-terra</code>) was hidden from the
+model picker and, typed in by hand, sent parameters it refuses; it is offered and
+handled as the reasoning family it is. Gemini&#39;s batch queue knows <code>gemini-4-argon</code>
+and <code>gemini-3.8-flash</code>; Anthropic&#39;s offline fallback names the current models.
+Claude is now asked on API version <code>2026-10-21</code>, which refuses <code>temperature</code>,
+<code>top_p</code> and <code>top_k</code> on every model, so none is sent: the profile&#39;s temperature no
+longer applies to Claude. Current Claude models already refused a custom value,
+so pages they write read the same; Claude 4.6 and Haiku 4.5 now sample at their
+default.</p>
+<p><strong>Libraries current.</strong> Vue 3.5.44, marked 18.1.2, DOMPurify 3.4.17, CodeMirror
+(with the new <code>@codemirror/streamparser</code> it now needs), Shiki 4.5.0 and
+Mermaid 12.2.0. Mermaid is vendored as its ES build: a flowchart in the preview
+now fetches 863 KB instead of the 3.5 MB single file of 11 - or the 5.5 MB one
+of 12. Diagrams keep the 11.x look and layout, in the preview and through
+BookStackDev, because 12 changed four defaults that doubled a small flowchart.</p>
+<p><strong>Fixed.</strong> Saving or resetting the update token, repository or channel in
+Settings ended in a fatal error after the change was written. A diagram, a
+formula or highlighted code that arrived while you were on another tab was
+thrown away, and the block stayed raw when you came back. A page stored over MCP
+was left with a status nothing else uses. A clean clone on Windows failed two
+tests before anything had been changed, because Git rewrote line endings; files
+are now checked out exactly as committed.</p>
+<p>Upgrading from 5.2 is a normal update: the database gains one column on first
+start. Existing courses have no scopes until the outline is revised or <strong>Plan
+missing scopes</strong> is pressed; they are written as before, with the compact map,
+in the meantime.</p>
+<h2 id="5-2">5.2<a class="anchor" href="#5-2" aria-label="Link to this section">#</a></h2>
+<p><strong>Publishing is a task, not a request.</strong> Pressing Publish writes a task down
+and returns; the scheduler works it in slices of one tick each, and the tab can
+be closed. A push interrupted half way - a wiki that stopped answering, a host
+time limit, a process that died - is picked up again from the page it stopped
+at, never from the start, with a growing pause between attempts and a ceiling
+you can set. One wiki failing does not stop the others, and only the failed one
+is tried again. On an installation with no scheduler the browser works a queued
+task itself, one bounded slice per request, and says so.</p>
+<p><strong>The publish log lives on the server.</strong> Every line a task says is written down
+as it is said, with the wiki it belongs to, and shown whenever the tab is
+opened - including the pushes that ran while nobody was looking. Stop and Retry
+are yours; Retry carries on from where the task got to.</p>
+<p><strong>Each destination has its own card.</strong> The book, the shelf, pages published,
+out of sync, never published, how the cross references resolve, and the last
+outcome - per wiki, beside a card that speaks for all of them. <em>Publish here</em>,
+<em>Book only</em> and <em>Resolve links here</em> act on one wiki.</p>
+<p><strong>Several invites at once.</strong> An invite carries a label - who it is for - and
+any number may be open together. A code issued from the app is shown exactly
+once and written to no file; only the first-run invite still goes into
+<code>INVITE-CODE.txt</code>. Revoke one and the others stand.</p>
+<p><strong>A guided tour.</strong> It starts by itself the first time an account signs in and
+walks through every screen and every setting, spotlighting each section as it
+explains it. An administrator and a user get different tours. Cancel it at any
+time; open it again from the button above the theme switch.</p>
+<p><strong>Administration › Security.</strong> CourseForge asks the server for its own private
+files over HTTP and reports which came back - the data directory, the
+database, the deny file, the configuration. Until every one is refused, every
+field that would store a secret is locked and carries a red mark that leads to
+the screen; the screen names the server it detected and gives the configuration
+block for it, and the one arrangement that is safe everywhere. An administrator
+who has verified the server by hand can accept the risk by typing a code shown
+on the screen, which is recorded with their name.</p>
+<p><strong>A security review, applied.</strong> Addresses a profile carries are vetted before
+they are called and never have their answers quoted back; the shared cURL
+wrapper speaks HTTP only; a blank secret is carried forward only for the address
+it was stored against; <code>Host</code> is used only when it looks like a host and
+<code>X-Forwarded-Host</code> never; sessions use strict mode and are renewed on a password
+change; password changes are throttled like sign-ins, in the browser and over
+MCP; an account lock no longer shuts out the address the owner signs in from;
+request bodies are capped; connection tokens minted over MCP die with the
+connection that minted them and never carry a scope the account lacks; the MCP
+origin check measures against the configured address; tool results are cut at
+the size the tool declared; a look may load its libraries only from the module
+CDNs or the installation itself; the BookStackDev endpoint varies its cache on
+the header that decided, answers preflights only for allowed origins, and no
+longer names the look in a refusal; embeds run sandboxed; the deny lists gained
+<code>.git</code>, <code>.github</code> and <code>.tmp</code>; and a content security policy is sent.</p>
+<p>Upgrading from 5.1 is a normal update: the database gains two tables and three
+columns on first start. The first sign-in afterwards starts the tour once, and
+the key fields stay locked until Administration › Security has been opened - the
+check runs there by itself.</p>
+<h2 id="5-1">5.1<a class="anchor" href="#5-1" aria-label="Link to this section">#</a></h2>
+<p><strong>BookStackDev lives in CourseForge.</strong> The BookStack enhancements — Shiki code
+highlighting in every language it ships, Mermaid diagrams, MathJax formulas,
+link embeds, an audio player, external-link marks, a light/dark toggle, page
+styling — are configured on a new <strong>BookStackDev</strong> screen as <em>looks</em>: every
+value a card, every feature a switch, defaults exactly as the standalone script
+ships them. A look gives you one line for BookStack&#39;s custom head, served by
+<code>bs.php</code>, and that line works only on the wikis the look allows: the instances
+in your profiles that wear it, plus any origin you add by hand. One look serves
+any number of wikis. A conventions check compares each look with the prompts of
+the profiles using it and offers the wording that keeps them in agreement — on
+the look, in the profile&#39;s prompts and in the administration prompts.</p>
+<p><strong>The Structure tab is a split view.</strong> The outline is edited in the Markdown
+editor with its markers highlighted, and beside it is what Apply would make of
+it, parsed as you type: chapters, pages, what is new, moved or removed. The
+halves scroll together. The AI moved to a panel on the right, so the outline
+has the width.</p>
+<p><strong>Defaults you can start with.</strong> New courses ask for 3,000 to 15,000 words a
+page, five Anki cards and as many searches as the model sees fit; the Anthropic
+output ceiling is 32,000 tokens so a long page is not cut short. The time-zone
+setting is a fuzzy search over the whole list, and the Settings screen itself
+has a search box.</p>
+<p><strong>The Claude subscription provider is retired.</strong> CourseForge runs on ordinary
+web servers, which cannot hold a desktop sign-in. An account of that kind is
+kept and shown as retired so nothing referring to it breaks; give the profile
+an API account to write with.</p>
+<p><strong>Libraries current.</strong> Shiki 4, highlight.js 11, Mermaid 11, MathJax 4 and
+Font Awesome 7 on the wiki side, and an unlabelled code block is recognised by
+CourseForge&#39;s own detector before highlight.js is asked — which stops six lines
+of Python being coloured as a DNS zone file.</p>
+<p>Upgrading from 5.0 is a normal update: the database gains one table on first
+start, and nothing else changes shape.</p>
+<h2 id="5-0">5.0<a class="anchor" href="#5-0" aria-label="Link to this section">#</a></h2>
+<p>A release about the interface: what it looks like, how it is organised, and
+whether it can be used without a mouse. No pipeline changes and no schema
+change - but a profile can now decide what every course written with it
+starts from, which is the one new thing under the surface.</p>
+<h4 id="an-interface-that-can-be-read-before-it-is-read">An interface that can be read before it is read<a class="anchor" href="#an-interface-that-can-be-read-before-it-is-read" aria-label="Link to this section">#</a></h4>
+<p>Every screen, every card, every setting and every tab now carries a glyph
+from the Nucleo icon set, drawn to one grid and one stroke, so a list is
+skimmed by its pictures before a single label is read. A hundred icons, each
+named in <code>assets/js/components/AppIcon.js</code> by the Nucleo id it came from,
+inlined as SVG that takes the text colour around it - no font, no CDN, no
+flash of missing glyphs.</p>
+<p>The sidebar is divided into <strong>Workspace</strong> and <strong>Administration</strong>, each
+destination has a hint, and the account entry at the foot shows who is signed
+in, as an avatar, a name and a role. The theme control has three positions -
+light, dark and <strong>Auto</strong>, which follows the system and keeps following it -
+instead of a toggle that took the choice away. Every screen opens with a line
+saying what it is for.</p>
+<p><strong>Settings</strong> gained an index down its side that follows the scroll, marks the
+group on screen, and counts what this installation has changed in each - so an
+inherited installation can be surveyed without reading a single row. Every
+setting has a glyph that says what kind of thing it is, and every switch is a
+switch rather than a checkbox that had to be read to be understood.</p>
+<p><strong>Courses</strong> cards carry a tile that says where each course stands - being
+written, written but not published, published, a run open, a page failed -
+and an empty course list explains the whole application in five steps. The
+course header says how big the course is; the Details tab says what its
+&quot;inherit&quot; position points at, and can take you there.</p>
+<h4 id="course-defaults-look-like-the-details-tab-because-they-are-the-same-list">Course defaults look like the Details tab, because they are the same list<a class="anchor" href="#course-defaults-look-like-the-details-tab-because-they-are-the-same-list" aria-label="Link to this section">#</a></h4>
+<p>The fourteen elements and eight values a course can decide were drawn on the
+Settings screen as a plain list of settings rows - a checkbox called &quot;Learning
+objectives&quot; with no glyph, a number box called &quot;Minimum length&quot; - that looked
+nothing like the Details tab the same fourteen elements are switched on a
+course with. They are now drawn as that tab draws them: the same rows, the same
+tiles, the same order, the same words. What differs is the control, and it
+differs for a reason: every other level has three answers - on, off, or follow
+the level above - and this level has nothing above it, so its switch has two.</p>
+<h4 id="a-profile-decides-what-every-course-on-it-starts-from">A profile decides what every course on it starts from<a class="anchor" href="#a-profile-decides-what-every-course-on-it-starts-from" aria-label="Link to this section">#</a></h4>
+<p>Until now the only way to give twenty courses the same house style -
+objectives on, 1,500 words, a standing audience of working developers - was
+twenty Details tabs. The profile is what those courses already share, so it is
+where a default belongs. A profile has a fourth tab, <strong>Content defaults</strong>, with
+the same editor as a course, one level up; the chain is now</p>
+<div class="code"><div class="code__bar"><span class="code__lang">text</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line">installation  →  profile  →  course  →  chapter  →  page</span></code></pre></div>
+<p>and the value that wins is the one closest to the page. Only deviations are
+stored at every level, so a course that never disagreed with its profile
+follows it when it changes, a profile that never disagreed with the
+installation follows that, and a course whose profile is deleted goes back to
+the installation. A course&#39;s Details tab says which of the two its &quot;inherit&quot;
+position points at, and one button opens the profile on the right tab.</p>
+<p>Over MCP the same thing is <code>set_profile_details</code>: features as 1, -1 or 0,
+values as numbers or text, <code>reset_all</code> to drop what the profile decided, and
+the crossed-lengths refusal every other door to that pair has. <code>get_profile</code>
+reports the decisions, and <code>get_details</code> on a course names the profile as
+where an inherited answer comes from.</p>
+<h4 id="usable-without-a-mouse-and-readable-without-sight">Usable without a mouse, and readable without sight<a class="anchor" href="#usable-without-a-mouse-and-readable-without-sight" aria-label="Link to this section">#</a></h4>
+<p>Every icon-only button has a name. Every tab bar is a tab list, every
+segmented control a radio group, every switch a switch, and the current
+navigation entry says so. Progress bars carry their numbers. A skip link
+takes the keyboard past the navigation to the page. Error strips are
+announced. A decorative icon is hidden from assistive technology; one that
+stands for something on its own is named.</p>
+<h4 id="upgrading">Upgrading<a class="anchor" href="#upgrading" aria-label="Link to this section">#</a></h4>
+<p>Nothing to do, and no schema change. A profile gains its content-defaults
+layer the first time it is saved, and an empty layer means exactly what no
+layer meant: whatever the installation says.</p>
+<p>383 tests pass, 4 of them new in <code>tests/profile-defaults.test.php</code>. Every
+Vue template was compiled with the shipped Vue before release, and every
+screen was driven in a browser against a scratch installation - dark and
+light, desktop and phone width.</p>
+<h2 id="4-10">4.10<a class="anchor" href="#4-10" aria-label="Link to this section">#</a></h2>
+<p>Eleven readers went over the whole application with one instruction — find
+what is actually wrong, not what could be tidier — and this release is what
+they found. Twenty-odd fixes and no features; the ones worth knowing about are
+below, in the order of the damage they did.</p>
+<h4 id="stopping-a-batch-threw-away-the-pages-it-had-already-written">Stopping a batch threw away the pages it had already written<a class="anchor" href="#stopping-a-batch-threw-away-the-pages-it-had-already-written" aria-label="Link to this section">#</a></h4>
+<p>&quot;Stop this run&quot; on a batch asked the provider to cancel and then closed the run
+on the spot: every page still waiting was released, and the run was over. But a
+cancel is asynchronous everywhere, and a batch keeps whatever it answered before
+the request landed — pages that were paid for. Nothing could download them while
+the batch was still winding down, and nothing ever tried afterwards, because a
+closed run is never polled. So the button reliably discarded finished work, and
+on OpenRouter — which has no cancel route at all — it closed the run while the
+batch ran on, billing, with nobody left to collect it.</p>
+<p>The run now stays open until the provider has said its last word. The next check
+collects the pages that were finished, releases only the ones that never ran,
+and closes the run then. A provider that cannot be stopped says so, and its run
+stays open for the same reason.</p>
+<h4 id="a-book-created-twice-once-per-retry">A book created twice, once per retry<a class="anchor" href="#a-book-created-twice-once-per-retry" aria-label="Link to this section">#</a></h4>
+<p>A course&#39;s first publish created its book, attached it to the shelf, and then
+wrote the book&#39;s id down. A shelf that had been deleted, or a token not allowed
+to edit shelves, failed the middle step — and the id was thrown away with the
+exception. The next push found no book on record, created another, and failed
+the same way: one orphaned book per attempt until somebody fixed the shelf and
+deleted the extras by hand. The id is now written down the moment the book
+exists.</p>
+<h4 id="a-setting-saved-and-lost-to-a-page-load">A setting saved, and lost to a page load<a class="anchor" href="#a-setting-saved-and-lost-to-a-page-load" aria-label="Link to this section">#</a></h4>
+<p>Reading <code>data/config.json</code> rewrote it, on every request, whenever the file held
+a <code>prompts</code> key at its top level — which is not only a 3.x document but any
+installation that has overridden a single prompt. The rewrite took no lock. A
+request that read the file just before an administrator saved a setting wrote
+its stale copy back just after: HTTP 200 for the save, and the setting gone.
+Reading no longer writes anything, and the one-time reduction of a 3.x document
+happens under the same lock as every other write.</p>
+<h4 id="deleting-a-profile-stranded-the-batch-running-under-it">Deleting a profile stranded the batch running under it<a class="anchor" href="#deleting-a-profile-stranded-the-batch-running-under-it" aria-label="Link to this section">#</a></h4>
+<p>The Profiles screen deleted a profile without looking. The next poll of a run
+submitted under it found no credentials, wrote the run off as failed, and
+stopped asking — while the batch went on running at the provider with nobody
+left to collect it. A profile with an open run under it is now refused, on both
+surfaces, with the count.</p>
+<h4 id="the-course-editor-was-the-one-screen-that-never-asked">The course editor was the one screen that never asked<a class="anchor" href="#the-course-editor-was-the-one-screen-that-never-asked" aria-label="Link to this section">#</a></h4>
+<p>Every other screen asks &quot;Leave without saving?&quot; before it throws unsaved work
+away. The course editor did not: a page edited and not saved, an outline edited
+and not applied, a destinations list not saved — one click on the sidebar or
+the back arrow, and it was gone. All five tabs now ask, and the back arrow asks
+the way the sidebar does. Two more things in the same tab: <strong>Rewrite
+everything</strong> now asks before it starts from the two primary buttons, as it
+always did from the third, and an edit to the outline is no longer discarded
+when a title is renamed on the Content tab.</p>
+<h4 id="smaller-and-still-real">Smaller, and still real<a class="anchor" href="#smaller-and-still-real" aria-label="Link to this section">#</a></h4>
+<ul>
+<li><code>create_course</code> over MCP let an administrator create a course under their own
+name pointing at somebody else&#39;s profile — a course that then failed &quot;Profile
+not found&quot; on every call after. It is refused, as the browser refuses it.</li>
+<li><code>update_profile</code> ignored <code>preset_key</code>, the per-kind extras and
+<code>bookstack_name</code> when adding a profile&#39;s <em>first</em> account or instance — which
+is every profile made in the browser. A Groq account asked for that way was
+stored as &quot;custom&quot; with an empty endpoint, and no error.</li>
+<li><code>gpt-5-chat-latest</code> was taken for a reasoning model and had its temperature
+stripped before the first request went out.</li>
+<li>The Claude subscription account passed the model id to the command line
+unchecked. A model id is letters, digits and a few separators; anything else
+is refused before it goes anywhere near a shell.</li>
+<li>The word count for Chinese and Japanese counted a whole sentence as one word.
+Each character counts, as every word processor counts them.</li>
+<li>A four-backtick fence quoting a three-backtick example inside it was closed
+at the example, and the rest of the block was set as prose.</li>
+<li>A placeholder inside a <em>value</em> — a page about Vue templates quoting its own
+<code>{{tags}}</code> back for a rewrite — had the real tag list written into it before
+the model saw it.</li>
+<li>A course update refused for its shelf had already renamed the course.</li>
+<li>Publishing one page or one chapter from the Content tab reported success when
+one of several wikis had failed.</li>
+<li>Creating a second account with a generated password, or a second connection,
+replaced the card holding the first password or token — the only copy there
+was. Both wait now until the card has been acknowledged.</li>
+<li>Mermaid and MathJax, once they failed to load for any reason but the network,
+stayed failed until the page was reloaded. The editor&#39;s language modes had the
+same memory.</li>
+<li>A batch the provider accepted but the database could not record is withdrawn
+from the provider rather than left running under an id nothing knows.</li>
+<li><code>tools/deploy.php --full --prune</code> pruned nothing; the development router could
+be walked past with <code>/x/../</code>; two workers adding the same column after an
+upgrade no longer answer one of them with a 500.</li>
+</ul>
+<p>Nothing to do when upgrading, and no schema change.</p>
+<h2 id="4-9">4.9<a class="anchor" href="#4-9" aria-label="Link to this section">#</a></h2>
+<h4 id="two-page-counts-disagreed-and-the-wrong-one-was-believed">Two page counts disagreed, and the wrong one was believed<a class="anchor" href="#two-page-counts-disagreed-and-the-wrong-one-was-believed" aria-label="Link to this section">#</a></h4>
+<p><code>list_pages</code> reported seven finished pages of a course as 194, 283 and 954 words
+long. They were 3,893, 4,677 and more. Nothing was lost — the count was wrong,
+and it was wrong in the direction that gets work destroyed: a model reading that
+list sees pages that look like failed generations and rewrites them, spending
+money to replace text that was already there.</p>
+<p>The count ran the Markdown through <code>strip_tags</code> first. Markdown is not HTML:
+<code>List&lt;String&gt;</code>, <code>Map&lt;String, Object&gt;</code> and a written-out <code>&lt;div class=&quot;card&quot;&gt;</code> are
+prose <em>about</em> code, and <code>strip_tags</code> removes each of them along with everything
+up to the next <code>&gt;</code>. Worse, a single <code>a&lt;b</code> with no later <code>&gt;</code> anywhere on the page
+is an unterminated tag, so the rest of the document is discarded — a 2,408-word
+page came back as two words.</p>
+<p>It now counts the page as it is stored, which is what <code>get_page</code> and the browser
+have always counted. Three surfaces answering &quot;how long is this page&quot; differently
+is worse than any one of them being wrong, because the difference reads as
+information.</p>
+<h4 id="everything-the-browser-can-do-a-connected-client-can-do">Everything the browser can do, a connected client can do<a class="anchor" href="#everything-the-browser-can-do-a-connected-client-can-do" aria-label="Link to this section">#</a></h4>
+<p>That was the claim. It was audited screen by screen against the tool registry,
+and it was untrue in eighteen places, so this release closes them. Thirteen new
+tools, and arguments added to five that existed.</p>
+<p>The one that prompted it: a profile could be given its <strong>first</strong> BookStack
+instance and never a second, because <code>update_profile</code> names <em>the</em> instance of a
+profile that has one. 4.7 made publishing a course into several wikis at once a
+headline feature, and a client setting an installation up over MCP could
+configure exactly one of them. <code>add_bookstack_instance</code>,
+<code>delete_bookstack_instance</code>, <code>add_ai_account</code> and <code>delete_ai_account</code> are the
+Add and Remove buttons the browser has always had beside those two lists.</p>
+<p>Also new:</p>
+<ul>
+<li><strong><code>preset_key</code></strong> on <code>create_profile</code>, <code>add_ai_account</code> and <code>update_profile</code>.
+The browser&#39;s provider picker offers two dozen rows — Groq, Together,
+Fireworks, DeepSeek, a local llama.cpp — and most are the same
+OpenAI-compatible driver at a different endpoint. The tools took only the six
+raw driver kinds underneath them. So did <code>organization</code>, <code>cli_path</code>,
+<code>site_url</code> and <code>site_name</code>, the fields only some kinds use.</li>
+<li><strong><code>set_model_slot</code></strong>, which sets one slot alone — its account, its model, its
+temperature, its token ceiling. <code>update_profile</code> writes both together, which
+is right for a profile with one account and wrong the moment it has two.</li>
+<li><strong><code>set_profile_prompts</code></strong> and <strong><code>list_prompt_slots</code></strong>: a profile&#39;s prompt
+overrides were readable and not writable, and the library naming them needed
+an administrator to read. Overriding a slot for one profile is not the same
+power as rewriting it for everybody.</li>
+<li><strong><code>revoke_invite</code></strong>, because an invite could be issued and not withdrawn.</li>
+<li><strong><code>get_cron_url</code></strong>, because the scheduler URL could only be read by rotating
+the secret in it first — which stops every scheduler already using it.</li>
+<li><strong><code>list_detail_overrides</code></strong>, which answers &quot;what does this course override,
+anywhere&quot; in one call instead of one call per page.</li>
+<li><strong><code>publish_course</code> with <code>part: &quot;book&quot;</code></strong>, for a renamed course that needs its
+book updated and not its five hundred pages.</li>
+<li><strong><code>generate_page</code> with <code>extra_context</code></strong>, which the browser writes in the same
+click that generates.</li>
+<li><strong><code>create_my_connection</code></strong>, <strong><code>rename_my_connection</code></strong> and <strong><code>list_scopes</code></strong>.
+A connection may not issue a wider one than itself: the request is checked
+against the groups the calling connection holds, an omitted scope list means
+&quot;the same as mine&quot; rather than &quot;everything the account allows&quot;, and asking for
+a group this connection lacks is refused by name rather than quietly narrowed.
+A token can copy itself or make something smaller, never something larger.
+<code>update_profile</code> also finally takes <code>typography</code>, <code>ai_name</code> and
+<code>bookstack_name</code>.</li>
+</ul>
+<p>Three things the browser does have no MCP equal and never will: signing in,
+redeeming an invite and first-run setup all create or resume the very credential
+a tool call needs before it can happen.</p>
+<h2 id="4-8">4.8<a class="anchor" href="#4-8" aria-label="Link to this section">#</a></h2>
+<h4 id="the-punctuation-pass-reads-a-quotation-mark-the-way-a-reader-does">The punctuation pass reads a quotation mark the way a reader does<a class="anchor" href="#the-punctuation-pass-reads-a-quotation-mark-the-way-a-reader-does" aria-label="Link to this section">#</a></h4>
+<p>4.6 taught CourseForge to set a generated page&#39;s punctuation the way its
+language sets it. It read each mark by position — a mark after a space opens, a
+mark after a word closes — and position turned out not to be enough twice over.
+<code>**&quot;Wort&quot;**</code> came out as <code>**&quot;Wort“**</code>, because a Markdown asterisk stood where a
+space should have been and the opening rule declined the mark on its account.
+And correct French came out <em>wrong</em>: in <code>« bonjour » et</code>, the closing guillemet
+has a space on both sides, exactly like an opening one, so every <code>»</code> was turned
+back into a <code>«</code> — on text that had been right before the pass ran.</p>
+<p>The mark is now decided by three signals in order. <strong>Position</strong> first, with
+Markdown emphasis stepped over on the way to it, so a quotation with asterisks
+around it is still a quotation. <strong>Nesting depth</strong> second, which is what tells a
+closing guillemet from an opening one when both of its neighbours are spaces.
+<strong>The glyph</strong> last, for a mark that only ever points one way. And what gets
+written is not what was read: a closing mark takes the pair <em>its own opening
+mark</em> took, which is why <code>„Wort&quot;</code> comes out as a pair at all, and why a double
+quotation inside a double quotation comes out as <code>„… ‚…‘ …“</code> whichever character
+the model typed. The depth is forgotten at every blank line, heading, list item
+and table row, so one unbalanced mark costs its own paragraph instead of every
+paragraph after it.</p>
+<p>The rest of the pass grew with it, and all of it is code rather than a prompt —
+nothing here calls a model, and none of it costs anything:</p>
+<ul>
+<li>an em dash between two words becomes a spaced en dash in the languages that
+set one that way, which is the single most reliable thing an AI writing German
+reproduces from English;</li>
+<li><code>1990-2000</code> becomes a span, while <code>2026-09-01</code> and <code>T-34</code> are left alone;</li>
+<li><code>5&quot;</code> after a digit with no quotation open is a measurement and becomes <code>5″</code>,
+while the <code>&quot;</code> closing <code>&quot;42&quot;</code> stays a quotation mark;</li>
+<li><code>don&#39;t</code>, <code>&#39;90s</code>, <code>rock &#39;n&#39; roll</code> and <code>dogs&#39; bowls</code> each get the apostrophe
+they want, and none of them is mistaken for a quotation;</li>
+<li>four spaces become one, a space before a comma goes, <code>( innen )</code> closes on its
+content, three blank lines become one, and trailing whitespace goes — except
+the two spaces that are a line break in Markdown;</li>
+<li>HTML comments and characters escaped on purpose join fenced blocks, inline
+spans, links, addresses, tags, formulas and table alignment rows as things
+that are lifted out and put back untouched;</li>
+<li>and Polish, Czech, Slovak, Hungarian, Russian, Ukrainian, Greek, Swedish and
+Finnish now get their own marks rather than English ones.</li>
+</ul>
+<h4 id="and-it-can-be-pointed-at-a-course-that-is-already-written">…and it can be pointed at a course that is already written<a class="anchor" href="#and-it-can-be-pointed-at-a-course-that-is-already-written" aria-label="Link to this section">#</a></h4>
+<p>All of that runs when a page is stored, which was no help to the pages stored
+before it existed, stored with the setting off, or stored by 4.6 and 4.7.</p>
+<p><strong>Course → Settings → Punctuation</strong> now runs the same rules over a course that
+is already finished. One chapter and its pages have their own button beside
+<strong>Publish chapter</strong>; one page has one in the inspector. It asks first: the button
+runs the whole pass with the writing switched off and says how much would change
+— “of 41 pages and 6 chapters, this would change 12 pages and 1 chapter” — and
+only then offers to go through with it. The number in the dialog is the number
+that changes, because it comes from the same run.</p>
+<p>It runs whether or not the profile corrects new pages, which is the point: that
+setting answers “correct the pages I am about to generate”, and this button is
+somebody standing in front of a course they already have. It touches every
+page&#39;s Markdown and title, every chapter&#39;s title and description, and the book
+title and description, and it rewrites the outline from the titles afterwards. A
+page that needed nothing is not written at all, so nothing goes newly out of sync
+with a wiki over a change that never happened.</p>
+<p>Over MCP: <code>fix_typography</code>, with <code>course_id</code>, an optional <code>chapter_id</code> or
+<code>page_id</code>, an optional <code>language</code>, and <code>preview</code>.</p>
+<h2 id="4-7">4.7<a class="anchor" href="#4-7" aria-label="Link to this section">#</a></h2>
+<h4 id="a-course-can-be-published-into-more-than-one-bookstack">A course can be published into more than one BookStack<a class="anchor" href="#a-course-can-be-published-into-more-than-one-bookstack" aria-label="Link to this section">#</a></h4>
+<p>A course used to have one destination. Choosing a second one meant a second
+course: the same outline, the same brief, the same pages generated and paid for
+twice, and two things to keep in step by hand for the rest of their lives.</p>
+<p><strong>Course → Publish → Destinations</strong> is now a list. Add as many BookStack
+instances as the course&#39;s profile defines — a staging wiki and a live one, the
+wikis of two departments, a customer&#39;s install and your own — each with its own
+shelf. <strong>Publish everything</strong> goes to all of them; each one also has a button of
+its own, for the wiki that was behind. A destination has a switch: off keeps
+everything already published there on record and leaves it out of the next push,
+which is the difference between pausing a destination and removing one.</p>
+<p>Each destination holds its own book, and that is not a detail: the books have
+different ids and different slugs, and a page&#39;s cross references point <em>inside</em>
+the wiki it is in, so the same page is written slightly differently into each. A
+push knows what it last sent to each wiki separately, so the wiki that was
+already current is skipped there and rewritten here, and nothing is ever
+duplicated anywhere. A wiki that is down does not stop the others — its failure
+is named in the log, the rest still go out, and only a push where every
+destination failed is an error.</p>
+<p>The counts fold across the destinations that are on, which is what makes them
+worth reading: <strong>published</strong> means published in every one of them, <strong>out of sync</strong>
+means at least one would be written to. Add a second destination to a finished
+course and the whole course lights up as work outstanding, because it is.</p>
+<p>Over MCP: <code>set_publish_targets</code> writes the list, <code>get_publish_status</code> reports
+every destination with the book it holds and how much of the course is in it, and
+<code>publish_course</code> takes an <code>instances</code> list to push to some of them.
+<code>update_course</code>&#39;s <code>bookstack_instance</code> still works and still means what it meant
+in 4.6 — it <em>replaces</em> the course&#39;s first destination, so a client that switches
+from one wiki to another does not quietly end up publishing to both. Adding a
+second destination is <code>set_publish_targets</code>, which says out loud what leaving one
+off the list costs.</p>
+<h2 id="4-6">4.6<a class="anchor" href="#4-6" aria-label="Link to this section">#</a></h2>
+<h4 id="punctuation-set-the-way-the-language-sets-it">Punctuation set the way the language sets it<a class="anchor" href="#punctuation-set-the-way-the-language-sets-it" aria-label="Link to this section">#</a></h4>
+<p>A model writing German opens a quotation with <code>„</code> and closes it with a straight
+<code>&quot;</code>. The two are one keystroke apart in the training data, it is not wrong
+enough to notice while reading one page, and it is wrong on every page of a
+five-hundred-page book — exactly the kind of error worth fixing with code
+rather than with a sentence in a prompt, because a rule that runs beats a rule
+that is asked for.</p>
+<p>A generated page now has its punctuation set before it is stored: German gets
+<code>„Wort“</code>, French its guillemets and the narrow spaces its typography asks for,
+Spanish and Italian their own guillemets, English its curly marks and a real
+apostrophe in <code>don&#39;t</code>. Every language gets <code>...</code> as one character and a spaced
+hyphen as a dash.</p>
+<p>It never touches anything that is not prose. Fenced blocks, inline spans, links
+and their targets, bare addresses, HTML tags, formulas, a table&#39;s alignment row
+and CourseForge&#39;s own cross-reference and cloze markers are lifted out before
+the rules run and put back exactly as they were — a straight quote turned curly
+inside a JSON sample is not a typographic improvement, it is a broken example,
+and a course about a programming language is mostly examples. It reads position
+rather than order, which is what makes the half-corrected pair the models
+actually produce come out right. And it is idempotent, so a page written,
+regenerated and re-imported is byte-for-byte the page written once.</p>
+<p>Each profile decides for itself under <strong>Profiles → Correct the punctuation of a
+generated page</strong>; what a new profile starts with is a setting an administrator
+owns, and it is on.</p>
+<h4 id="the-baseline-every-course-starts-from-is-yours-to-set">The baseline every course starts from is yours to set<a class="anchor" href="#the-baseline-every-course-starts-from-is-yours-to-set" aria-label="Link to this section">#</a></h4>
+<p>Content details — learning objectives, a summary section, exercises, a minimum
+length, an audience — are inherited downwards: catalogue, then course, then
+chapter, then page. The catalogue end of that chain has always been a real
+setting; what it never had was a way in. An installation that teaches one
+subject to one audience had to open the file that ships with the release and
+edit it there, which the next update then replaced.</p>
+<p>Every element and every value is now a field on <strong>Administration → Settings</strong>,
+under <strong>Course defaults</strong>. Set <em>Learning objectives</em> on, or a house minimum
+length, or a standing audience, and every course that has not decided otherwise
+follows — which is what &quot;inherited&quot; meant all along. They are ordinary settings:
+only what you change is written, Reset hands the decision back to the release,
+and <code>set_settings</code> over MCP reaches them by the same keys. They are generated
+from the details catalogue rather than listed by hand, so an element added in a
+later release arrives with its own field already in place.</p>
+<h4 id="one-course-prompt-in-both-of-the-places-it-shows">One course prompt, in both of the places it shows<a class="anchor" href="#one-course-prompt-in-both-of-the-places-it-shows" aria-label="Link to this section">#</a></h4>
+<p>The prompt a course is designed from is on the <strong>Structure</strong> tab beside the
+outline and on the <strong>Settings</strong> tab, and it is one field — but each tab held its
+own copy of it and only re-read it when a different course was opened. Saving it
+in one place left the other showing what it had been, with <em>unsaved</em> lit up over
+a change nobody had made, and <strong>Save changes</strong> on the Settings tab would then
+push that stale prompt back over the one just saved next door.</p>
+<p>Both boxes now follow the stored value, without either of them dragging an
+unsaved outline or an unsaved course name along with it, and without either
+overwriting an edit typed into the other and not yet saved — two boxes
+disagreeing is a question for whoever typed in them, and silently answering it
+by throwing one away is the worse half. The Structure tab also says <em>unsaved</em>
+while an edit is only in the box, which is the state that made the two look as
+though they disagreed in the first place.</p>
+<h4 id="the-research-briefing-has-both-halves">The research briefing has both halves<a class="anchor" href="#the-research-briefing-has-both-halves" aria-label="Link to this section">#</a></h4>
+<p>Course → <strong>Details</strong> → <strong>Research</strong> was the one Markdown box in CourseForge that
+was still a plain textarea: headings, bullets and the list of sources all one
+wall of grey, and no way to see the rendering at all, while the page beside it
+has had both halves all along.</p>
+<p>It is now the same split the Content tab gives a page: Markdown on the left,
+highlighted as you type, rendered on the right, <strong>edit / split / preview</strong>, and
+the same linked scrolling that keeps the two on the same passage. The page-only
+markers are switched off — a cross reference and a cloze deletion mean nothing
+in a briefing — and CodeMirror is still fetched on demand, so nobody who never
+opens the tab pays for it.</p>
+<h4 id="an-invite-can-be-taken-back">An invite can be taken back<a class="anchor" href="#an-invite-can-be-taken-back" aria-label="Link to this section">#</a></h4>
+<p>Issuing an invite always closed the one before it, so cancelling one was
+possible — at the price of publishing a second live code to a file on the server,
+which is the opposite of what somebody who sent the first to the wrong address
+is asking for. <strong>Administration → Accounts</strong> now has <strong>Revoke</strong> beside the open
+invite: it closes the row and deletes <code>INVITE-CODE.txt</code> in one step, the code
+stops working immediately wherever it has already been sent, and afterwards
+there is no open invite at all. Accounts already created with it are untouched,
+and the withdrawal is in the audit log as <code>invite.revoke</code>.</p>
+<h2 id="4-5">4.5<a class="anchor" href="#4-5" aria-label="Link to this section">#</a></h2>
+<h4 id="descriptions-that-are-prose-read-as-prose">Descriptions that are prose, read as prose<a class="anchor" href="#descriptions-that-are-prose-read-as-prose" aria-label="Link to this section">#</a></h4>
+<p>4.5.0 escaped a description paragraph that began &quot;3. Install the plugin&quot; on the
+way out and read it back correctly — but only for outlines CourseForge had
+written itself. An outline written freehand, which is what a model or an MCP
+client produces, had nothing escaping it, and the length ceiling that was meant
+to be the net only caught paragraphs over 200 characters. The paragraph that
+actually turns up is one ordinary sentence of about a hundred and ten.</p>
+<p>The result, on a real 600-word outline: a chapter and three pages nobody asked
+for, and a book description cut from 835 words to 266. A title is now told from
+a paragraph by shape as well as length — a paragraph ends like a sentence and
+runs past a title&#39;s worth of words — and a freehand 600-word outline keeps every
+chapter, every page and every word.</p>
+<h4 id="research-the-subject-once-before-the-course-is-designed">Research the subject once, before the course is designed<a class="anchor" href="#research-the-subject-once-before-the-course-is-designed" aria-label="Link to this section">#</a></h4>
+<p>A course about WordPress, a framework, an API or a standard is out of date the
+moment the model&#39;s training data is. CourseForge could already tell whoever was
+writing a page to look things up first — but that is <em>per page</em>, so a
+two-hundred-page course researched that way searches the same handful of facts
+two hundred times and gets two hundred slightly different answers to &quot;which
+version are we teaching&quot;.</p>
+<p>4.5 moves the question up a level. The facts are established <strong>once</strong>, stored on
+the course with the date they were established, and read from then on by the
+outline and by every single page.</p>
+<p>The client does the searching, which is the point: connect <strong>Claude Code</strong> and
+it costs nothing.</p>
+<div class="code"><div class="code__bar"><span class="code__lang">text</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line">get_research_brief   →  the assignment: current stable version and when it</span>
+<span class="line">                        shipped, what changed recently enough that a model</span>
+<span class="line">                        would get it wrong, what was deprecated and what</span>
+<span class="line">                        replaced it, where the documentation now lives</span>
+<span class="line">        ↓  Claude Code searches the web with its own tools</span>
+<span class="line">store_research       →  the findings, stamped with today's date</span>
+<span class="line">        ↓</span>
+<span class="line">get_structure_brief  →  designs the outline *against those findings*</span>
+<span class="line">get_page_brief       →  every page carries them too</span></code></pre></div>
+<p><code>get_next_step</code> knows about it: a course that asks for research and has none is
+sent to find it <strong>before</strong> the outline, because the outline is the decision every
+page inherits — a chapter list built around a version that no longer exists
+cannot be repaired by researching the pages underneath it.</p>
+<ul>
+<li><strong><code>create_course</code> takes <code>web_research</code></strong>, so one call sets up a course whose
+every later brief asks for current facts.</li>
+<li><strong>Findings never expire on their own.</strong> Everything that reports them says how
+old they are — &quot;stored today&quot;, &quot;stored 95 days ago – worth refreshing&quot; — and
+deciding a briefing is too old is a person&#39;s call, not a timer&#39;s.</li>
+<li><strong>A new <code>research</code> connection scope</strong>, so a token that researches cannot also
+delete a course.</li>
+<li><strong>The browser has the same door.</strong> Course → Details → Research shows what a
+connected client found, and you can edit it or write your own.</li>
+<li><strong>Outline generation honours web research too.</strong> It reached only pages before,
+which meant a course could be told to stay current and then have its chapter
+list designed entirely from memory.</li>
+<li><strong>The Claude Code CLI provider can search.</strong> Running CourseForge on your own
+machine against your own subscription, <code>web_research</code> now hands the child
+process <code>WebSearch</code> and <code>WebFetch</code> and a turn budget to use them. It was the
+one provider that could genuinely go and look, and the one that had been told
+it had no tools.</li>
+</ul>
+<h4 id="descriptions-worth-reading">Descriptions worth reading<a class="anchor" href="#descriptions-worth-reading" aria-label="Link to this section">#</a></h4>
+<p>Book and chapter descriptions are now roughly <strong>600 words</strong> rather than a few
+hundred characters — the course&#39;s own prospectus: what the reader will be able
+to do, which ideas arrive in which order, what is assumed, what is commonly got
+wrong.</p>
+<p>That length breaks assumptions the outline format was built on, so the parser
+was rebuilt around it. A description can now run to several paragraphs and keep
+them; a paragraph that begins &quot;3. Install the plugin&quot; is escaped on the way out
+and read back as prose rather than becoming a page nobody asked for; and a list
+item too long to be a title is treated as the prose it is.</p>
+<blockquote><p><strong>BookStack caps a description at 2000 characters of HTML</strong> and answers 422 for
+anything longer. The full text stays whole in CourseForge — it is what the
+pages are written from — and the cover page gets as many whole paragraphs as
+fit, with the publish log saying how many were left off. Raise
+<code>app.bookstack_description_max</code> if your BookStack raised its own limit.</p>
+</blockquote>
+<h4 id="libraries">Libraries<a class="anchor" href="#libraries" aria-label="Link to this section">#</a></h4>
+<p><code>@codemirror/state</code> 6.7.2, <code>@codemirror/view</code> 6.43.10, <code>@codemirror/search</code>
+6.7.2 and <code>@lezer/php</code> 1.0.6. Everything else vendored was already current, and
+MathJax stays deliberately at 3.2.2 — version 4 fetches font ranges from a CDN
+at runtime, which an offline install cannot do. See
+<a href="assets/vendor/VENDOR.md">assets/vendor/VENDOR.md</a>.</p>
+<h2 id="4">4<a class="anchor" href="#4" aria-label="Link to this section">#</a></h2>
+<h4 id="the-whole-application-over-mcp">The whole application, over MCP<a class="anchor" href="#the-whole-application-over-mcp" aria-label="Link to this section">#</a></h4>
+<p>CourseForge 3.2 offered a connected client six tools, all of them variations on
+&quot;here is a writing brief, give me the page back&quot;. That is still here, and it is
+still the cheapest way to write a course: the writing happens inside the client,
+on your own subscription, and the server never holds a credential.</p>
+<p>Version 4 adds the other half — everything the browser can do:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">bash</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k0">claude</span><span class="k1"> mcp</span><span class="k1"> add</span><span class="k2"> --transport</span><span class="k1"> http</span><span class="k1"> courseforge</span><span class="k1"> https://your-install/api/mcp.php</span><span class="k4"> \</span></span>
+<span class="line"><span class="k2">  --header</span><span class="k1"> "Authorization: Bearer cf4_..."</span></span></code></pre></div>
+<p>The endpoint is ordinary streamable HTTP with a bearer token, so it is not a
+Claude feature — Codex takes the same connection in <code>~/.codex/config.toml</code>:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">toml</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k5">[</span><span class="k0">mcp_servers</span><span class="k5">.</span><span class="k0">courseforge</span><span class="k5">]</span></span>
+<span class="line"><span class="k5">url = </span><span class="k1">"https://your-install/api/mcp.php"</span></span>
+<span class="line"><span class="k5">bearer_token_env_var = </span><span class="k1">"COURSEFORGE_TOKEN"</span></span>
+<span class="line"><span class="k5">tool_timeout_sec = </span><span class="k2">1800</span></span></code></pre></div>
+<p>The <strong>Connect</strong> screen writes the exact configuration for whichever client you
+use, so neither of these has to be typed from memory.</p>
+<blockquote><p><em>&quot;Create a Vue 3 course in CourseForge, design the outline, then queue the
+whole thing to Anthropic&#39;s batch queue and tell me what it will cost.&quot;</em></p>
+</blockquote>
+<p>Create courses, research the subject against what the web says today, design
+outlines with the profile&#39;s own model, edit pages and chapters, set content
+details at any level, manage tags, start and watch generation runs, publish to
+BookStack, resolve cross references — and, for an administrator, manage
+accounts, change any setting, rotate the cron token, read the diagnostics and
+install an update. Eighty-odd tools in eleven groups.</p>
+<p>A connection can be <strong>narrowed to some of those groups</strong>, so a token that only
+writes pages cannot delete a course or read your settings. It inherits the role
+of the account that made it, and inherits it <em>on every request</em> — demote somebody
+and their connections lose the administrator tools immediately, rather than
+whenever they happen to reconnect.</p>
+<p>The endpoint speaks <strong>both eras of the protocol</strong>. Revision <code>2026-07-28</code> rebuilt
+MCP as a stateless protocol with no <code>initialize</code> handshake and no session; every
+client installed today still speaks the older one, and an old client has no way
+to fall forward. So CourseForge answers <code>server/discover</code> for the new ones and
+<code>initialize</code> for the old ones, on the same URL, with the same tools.</p>
+<h4 id="accounts-with-roles">Accounts, with roles<a class="anchor" href="#accounts-with-roles" aria-label="Link to this section">#</a></h4>
+<p>An installation is no longer one password in a JSON file.</p>
+<ul>
+<li>The first administrator is created from a <strong>setup screen</strong>, gated on the code
+in <code>INVITE-CODE.txt</code>. Somebody who can read that file can already read
+<code>config/</code>, so it proves exactly the right thing — and an installation that is
+reachable from the internet before you have finished setting it up is not a
+race you can lose.</li>
+<li>An administrator <strong>creates accounts</strong>, changes anybody&#39;s role afterwards,
+disables and deletes them. Deleting an account never silently deletes its
+courses: you choose between removing them and handing them to somebody else.</li>
+<li>Everyone&#39;s courses, profiles and tags are their own. An administrator can see
+and manage all of them, and a course opened by an administrator still resolves
+<em>its owner&#39;s</em> profile, tags and BookStack instance — never theirs.</li>
+<li>The last enabled administrator cannot be deleted, disabled or demoted, because
+an installation with no administrator can only be repaired from the file
+system.</li>
+</ul>
+<h4 id="everything-is-configurable-in-the-ui">Everything is configurable in the UI<a class="anchor" href="#everything-is-configurable-in-the-ui" aria-label="Link to this section">#</a></h4>
+<p>The configuration is now two layers. <code>config/defaults.json</code> ships with the
+release and is replaced wholesale by an update. <code>data/config.json</code> holds only
+what this installation changed, and nothing else touches it — so an update
+brings new defaults and new prompt slots along with it without ever stepping on
+a decision you made.</p>
+<p>Every setting is declared once, in one place, and three things read that
+declaration: the Settings screen, which renders a field per entry; the API,
+which validates against it; and the MCP tools, which describe and change
+settings without a second catalogue that could disagree. A setting added later
+appears in all three without a line of frontend code.</p>
+<p>That includes the <strong>cron token</strong>, which is what makes background work possible
+at all. The Settings screen generates one and hands you the finished URL to
+paste into your hosting control panel.</p>
+<h4 id="updates-from-github-in-one-click">Updates, from GitHub, in one click<a class="anchor" href="#updates-from-github-in-one-click" aria-label="Link to this section">#</a></h4>
+<p>An administrator can check whether a newer release exists and install it —
+or turn on unattended updates at, say, five in the morning.</p>
+<p>An update takes a backup first, stages the release, replaces the files, runs the
+database migration in a <em>child process</em> so that a broken release cannot pass by
+reusing the current one&#39;s connection, and rolls back automatically if the new
+version fails to start. The backup is a single archive rather than a live tree,
+because a directory full of executable PHP under the document root is an old
+version of the application waiting to be served next to the new one.</p>
+<h4 id="more-providers-and-batch-generation-that-is-worth-using">More providers, and batch generation that is worth using<a class="anchor" href="#more-providers-and-batch-generation-that-is-worth-using" aria-label="Link to this section">#</a></h4>
+<p>CourseForge speaks the <strong>Anthropic Messages API</strong>, <strong>OpenAI</strong>, the <strong>Google
+Gemini Developer API</strong> and <strong>OpenRouter</strong> natively — not through a compatibility
+shim, because every one of those four reports at least one kind of failure with
+an HTTP 200 and a body that has to be read properly. An empty course page is a
+worse outcome than a loud error.</p>
+<p>Everything else that speaks <code>/chat/completions</code> is a <strong>preset</strong>: Groq, DeepSeek,
+xAI, Together, Fireworks, Cerebras, DeepInfra, Nebius, Moonshot, Z.ai, Mistral,
+a LiteLLM proxy, and the local servers — Ollama, LM Studio, vLLM, llama.cpp —
+which never ask for an API key and always let you type a model id by hand.</p>
+<p>Batch queues are the point of all this. A course does not need to be written
+quickly; it needs to be written well, and a provider&#39;s batch queue answers within
+a day at about half the price. Write <code>claude-opus-5:batch</code>, or tick the box, and
+the whole course goes to the queue.</p>
+<ul>
+<li><strong>Four queue shapes are implemented</strong>, because there is no common one:
+Anthropic&#39;s inline Message Batches, OpenAI&#39;s upload-a-JSONL-file flow (which
+also serves Groq and every preset whose queue is OpenAI-shaped), Gemini&#39;s
+long-running operation, and OpenRouter&#39;s beta endpoint.</li>
+<li><strong>Work is split by bytes, not by row count.</strong> OpenAI&#39;s 200 MB input limit binds
+at around 25,000 course prompts — half its 50,000-row cap — so chunking by rows
+silently produces failures.</li>
+<li><strong>Two expiry dates are tracked, not one:</strong> when the batch dies, and when the
+results stop being downloadable. Gemini&#39;s batches expire after 48 hours
+returning <em>nothing</em>, and results are kept for between 29 days and six weeks
+depending on the provider.</li>
+<li><strong>An endpoint is asked whether it has a queue</strong> rather than assumed, with three
+free GET requests. The most useful thing that probe catches is a provider that
+has a batch API but no compatible file upload, which would fail only on submit.</li>
+<li><strong><code>estimate_run</code> tells you the size of it before you spend anything.</strong></li>
+</ul>
+<h2 id="3">3<a class="anchor" href="#3" aria-label="Link to this section">#</a></h2>
+<p>The 3.x notes — the content-detail system, auto links, the prompt library, the
+Markdown editor with 232 languages of syntax highlighting, diagrams and formulas
+in the preview, and runs that survive a closed browser — are in
+<a href="../architecture/">docs.md</a>. All of it is still here.</p>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/changelog.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.3.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../architecture/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>Architecture</strong></a><span></span></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#5-3">5.3</a></li><li class="toc--2"><a href="#5-2">5.2</a></li><li class="toc--2"><a href="#5-1">5.1</a></li><li class="toc--2"><a href="#5-0">5.0</a></li><li class="toc--2"><a href="#4-10">4.10</a></li><li class="toc--2"><a href="#4-9">4.9</a></li><li class="toc--2"><a href="#4-8">4.8</a></li><li class="toc--2"><a href="#4-7">4.7</a></li><li class="toc--2"><a href="#4-6">4.6</a></li><li class="toc--2"><a href="#4-5">4.5</a></li><li class="toc--2"><a href="#4">4</a></li><li class="toc--2"><a href="#3">3</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>
