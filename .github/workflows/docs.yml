@@ -1,9 +1,11 @@
-# Builds the documentation in docs/ and publishes it to GitHub Pages.
+# Builds the documentation in docs/ and publishes it to the gh-pages branch,
+# which GitHub Pages serves at https://zcarecrow.github.io/CourseForge/.
 #
 # The reference pages are generated from the code (tools/docs-data.php reads the
 # tool registry, the settings and the prompt library), so a change there
 # rebuilds the site as well as a change to the pages themselves. The build
-# needs Node and PHP and nothing to install: both are on the runner image.
+# needs Node and PHP and nothing else. `node docs/publish.mjs` does the same
+# from a laptop.
 name: Documentation
 
 on:
@@ -23,18 +25,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# One deployment at a time; a newer push waits rather than cancelling one
-# that is half way through.
+# One publish at a time; a newer push waits rather than cancelling one that is
+# half way through.
 concurrency:
-  group: pages
+  group: docs
   cancel-in-progress: false
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -43,23 +43,12 @@ jobs:
         with:
           node-version: 26
 
-      - name: Build the site
+      - name: Make sure PHP is there
         run: |
+          command -v php || { sudo apt-get update -qq && sudo apt-get install -y -qq php-cli php-mbstring; }
           php --version
-          node docs/build.mjs
 
-      - uses: actions/configure-pages@v6
-
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: docs/dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v5
+      - name: Build and publish
+        env:
+          DOCS_REMOTE: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: node docs/publish.mjs

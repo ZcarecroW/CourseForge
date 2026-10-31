@@ -137,8 +137,9 @@ The runner uses a scratch database in the system temp directory, never `data/`. 
 The documentation is generated from `docs/pages/*.md` by `docs/build.mjs`, which needs Node and PHP and nothing else: Markdown through the vendored marked, code highlighted at build time by the vendored Shiki, and the reference pages (MCP tools, settings, prompt slots, presets, content details) from `php tools/docs-data.php`, which reads the declarations in the code.
 
 ```bash
-node docs/build.mjs            # writes docs/dist/
-php -S 127.0.0.1:8000 -t docs/dist    # or any static file server
+node docs/build.mjs                   # writes docs/dist/
+php -S 127.0.0.1:8000 -t docs/dist    # preview it with any static file server
+node docs/publish.mjs                 # build, then push docs/dist to the gh-pages branch
 ```
 
-A GitHub Actions workflow builds and deploys the site to GitHub Pages on every push to `main` that touches the docs or the declarations they are generated from. The build fails on a link to a page or an anchor that does not exist.
+GitHub Pages serves the `gh-pages` branch, which holds the generated site as a single commit replaced on every publish. A GitHub Actions workflow runs `docs/publish.mjs` on every push to `main` that touches the docs or the declarations they are generated from. The build fails on a link to a page or an anchor that does not exist.
