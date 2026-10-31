@@ -62,7 +62,7 @@
       enabled: true,
       themeLight: 'default',                    // default | neutral | forest | base | dark
       themeDark: 'dark',
-      url: 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs',
+      url: 'https://cdn.jsdelivr.net/npm/mermaid@12/dist/mermaid.esm.min.mjs',
     },
 
     autoEmbed: {

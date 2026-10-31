@@ -104,7 +104,6 @@ test('a description with no sentence boundary is still published as something', 
     // loop emptied the list and BookStack was sent an empty description - and
     // with it, no clue that there was more text in CourseForge.
     $method = new ReflectionMethod(CourseForge\Publish\TargetPublisher::class, 'clampWords');
-    $method->setAccessible(true);
 
     $runOn = trim(str_repeat('this clause has no full stop in it at all, ', 200));
     ok(!str_contains($runOn, '. '), 'the fixture really has no sentence boundary');
@@ -119,7 +118,6 @@ test('a description with no sentence boundary is still published as something', 
 
 test('a clamp with room for nothing gives nothing rather than something too long', function () {
     $method = new ReflectionMethod(CourseForge\Publish\TargetPublisher::class, 'clampWords');
-    $method->setAccessible(true);
 
     same('', $method->invoke(null, 'anything at all', 3), 'an impossible limit is answered honestly');
 });
@@ -131,7 +129,6 @@ test('an allowed origin written the way the field asks for it actually matches',
     // is also exactly what a browser sends. Comparing that against a bare
     // hostname never matched, so the setting silently did nothing.
     $method = new ReflectionMethod(CourseForge\Mcp\Server::class, 'originAllowed');
-    $method->setAccessible(true);
 
     $previousOrigin = $_SERVER['HTTP_ORIGIN'] ?? null;
     $previousHost = $_SERVER['HTTP_HOST'] ?? null;

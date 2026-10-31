@@ -7,11 +7,14 @@
  * still being written, so a broken diagram is caught here rather than after a
  * publish.
  *
- * Mermaid is vendored as its UMD build and loaded through a script tag rather
- * than an import: the ES build is a stub that pulls three dozen chunks over the
- * network at runtime, which would defeat the point of vendoring. The UMD file
- * is one self-contained 3.5 MB payload that is fetched on the first diagram and
- * never again.
+ * Mermaid is vendored as its ES build, with every chunk beside it, and loaded
+ * with an import on the first diagram. The single-file build it replaced was
+ * 3.5 MB in Mermaid 11 and is 5.5 MB in 12, which inlines the ELK layout engine
+ * whether a diagram asks for it or not; the ES build fetches the 700 KB core
+ * and then only the chunks the diagram on screen needs - a flowchart is about
+ * another 160 KB. The chunks come from this installation, not from a CDN, and
+ * their names carry a content hash, so the year-long immutable caching on the
+ * vendor directory stays true without a version stamp on each of them.
  *
  * Rendering is not incremental — a diagram is laid out from scratch every time
  * — so results are cached by source and theme. Retyping a line above a diagram
@@ -22,8 +25,9 @@ import DOMPurify from 'dompurify';
 import { stamped } from '@/core/assets.js';
 
 // Stamped by hand: a query string is not inherited through new URL(), and this
-// file is served immutable for a year (see core/assets.js).
-const SCRIPT_URL = stamped(new URL('../../vendor/mermaid.min.js', import.meta.url).href);
+// file is served immutable for a year (see core/assets.js). The chunks it
+// imports are named by content hash and need no stamp.
+const MODULE_URL = stamped(new URL('../../vendor/mermaid/mermaid.esm.min.mjs', import.meta.url).href);
 const CACHE_LIMIT = 60;
 
 const cache = new Map();     // theme and source → sanitised SVG, or the parse error
@@ -32,22 +36,20 @@ let appliedTheme = null;
 let counter = 0;
 
 function load() {
-  loading ??= new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = SCRIPT_URL;
-    // Every way this can fail forgets the attempt, not only the network one:
-    // a rejected promise left in `loading` answered every later diagram with
-    // the same stale error until the page was reloaded.
-    const fail = (message) => {
+  // Every way this can fail forgets the attempt, not only the network one: a
+  // rejected promise left in `loading` answered every later diagram with the
+  // same stale error until the page was reloaded.
+  loading ??= import(MODULE_URL).then(
+    (module) => {
+      if (module?.default?.render) return module.default;
       loading = null;
-      reject(new Error(message));
-    };
-    script.onload = () => (globalThis.mermaid
-      ? resolve(globalThis.mermaid)
-      : fail('Mermaid loaded but did not register itself.'));
-    script.onerror = () => fail('Mermaid could not be loaded.');
-    document.head.append(script);
-  });
+      throw new Error('Mermaid loaded but is not the library this preview expects.');
+    },
+    () => {
+      loading = null;
+      throw new Error('Mermaid could not be loaded.');
+    },
+  );
   return loading;
 }
 
@@ -69,6 +71,17 @@ function configure(mermaid, theme) {
     startOnLoad: false,
     securityLevel: 'strict',           // labels are sanitised, no click handlers
     suppressErrorRendering: true,      // a failed parse must not inject its own SVG
+    // Mermaid 12 changed its defaults to the ELK layout and the "neo" look,
+    // and gave flowchart nodes a 120 px minimum width and labels a 120 px
+    // wrapping width - which together doubled the size of a small flowchart,
+    // so the preview shrank it to fit and its text to half size. All four are
+    // pinned to the 11.x values, measured to give the same geometry, and
+    // BookStackDev sets the same ones: a published book does not change its
+    // diagrams because a library moved, and the 500 KB ELK chunk is fetched
+    // only by a diagram that asks for `layout: elk` in its own front matter.
+    layout: 'dagre',
+    look: 'classic',
+    flowchart: { minNodeWidth: 0, wrappingWidth: 200 },
     theme: theme === 'light' ? 'default' : 'dark',
     fontFamily: token('--font'),
     themeVariables: {

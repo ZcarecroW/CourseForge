@@ -81,6 +81,14 @@ function isProse(text) {
   return /[.!?][)"'”’]?$/u.test(text) && words(text) > TITLE_MAX_WORDS;
 }
 
+/** Adds one line to a page's scope: continuations with a space, list fragments with a semicolon. */
+function addScope(carried, text, item) {
+  const line = tidy(text);
+  if (line === '') return carried;
+  if (carried === '') return line;
+  return `${carried}${item ? '; ' : ' '}${line}`;
+}
+
 /** Adds one prose line to a description, keeping paragraphs apart. */
 const join = (carried, text, brk) => (carried === '' ? text : `${carried}${brk ? '\n\n' : ' '}${text}`);
 
@@ -104,7 +112,7 @@ function attachTags(state, names) {
  * @returns {{
  *   title: string, titleLine: number|null, description: string, descriptionLine: number|null, tags: string[],
  *   chapters: Array<{ title: string, description: string, tags: string[], line: number,
- *     pages: Array<{ title: string, tags: string[], line: number }> }>
+ *     pages: Array<{ title: string, tags: string[], scope: string, line: number }> }>
  * }}
  */
 export function parseOutline(markdown) {
@@ -128,6 +136,8 @@ export function parseOutline(markdown) {
   let seenChapter = false;
   let bulletChapters = false;
   let blank = false;
+  // How far the last page entry was indented; its scope sits deeper.
+  let pageIndent = 0;
 
   text.split('\n').forEach((line, index) => {
     const number = index + offset;
@@ -186,13 +196,29 @@ export function parseOutline(markdown) {
       return;
     }
 
+    // A page's scope: anything indented deeper than the page entry it
+    // follows. Asked before the page branch, because a list item two levels
+    // in is otherwise a page of its own.
+    if (state.target === 'page' && state.chapter !== null && state.chapter.pages.length) {
+      const deeperItem = (ordered || bullet) && indent >= pageIndent + 2;
+      const deeperProse = !ordered && !bullet && indent > pageIndent;
+      if (deeperItem || deeperProse) {
+        const [scopeText, scopeTags] = deeperItem ? [itemText, itemTags] : extractTags(clean(trimmed));
+        const last = state.chapter.pages[state.chapter.pages.length - 1];
+        last.tags = mergeUnique(last.tags, scopeTags);
+        last.scope = addScope(last.scope, scopeText, deeperItem);
+        return;
+      }
+    }
+
     // Page: any list item nested below a chapter.
     if ((ordered || bullet) && indent >= 2) {
       if (state.chapter === null) state.chapter = { title: 'Chapter 1', description: '', tags: [], pages: [], line: number };
       seenChapter = true;
       if (itemText !== '') {
-        state.chapter.pages.push({ title: itemText, tags: itemTags, line: number });
+        state.chapter.pages.push({ title: itemText, tags: itemTags, scope: '', line: number });
         state.target = 'page';
+        pageIndent = indent;
       }
       return;
     }

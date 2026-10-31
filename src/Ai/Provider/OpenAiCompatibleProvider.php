@@ -859,6 +859,22 @@ class OpenAiCompatibleProvider extends HttpProvider implements BatchCapable
             unset($retry['max_tokens']);
             $changed = true;
         }
+        // The prompt-cache fields are an optimisation, never worth a page. A
+        // model that refuses them is asked again without them, with the system
+        // parts joined back into the one string every model accepts.
+        if (str_contains($reason, 'prompt_cache')
+            && (isset($retry['prompt_cache_key']) || isset($retry['prompt_cache_options']))) {
+            unset($retry['prompt_cache_key'], $retry['prompt_cache_options']);
+            foreach ($retry['messages'] ?? [] as $i => $message) {
+                if (is_array($message['content'] ?? null)) {
+                    $retry['messages'][$i]['content'] = implode("\n\n", array_map(
+                        static fn(array $part): string => (string)($part['text'] ?? ''),
+                        $message['content']
+                    ));
+                }
+            }
+            $changed = true;
+        }
 
         return $changed ? $this->post($retry) : $res;
     }

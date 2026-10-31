@@ -872,11 +872,11 @@ const cursorLineBoundaryRight = view => moveSel(view, range => moveByLineBoundar
 /**
 Move the selection to the start of the line.
 */
-const cursorLineStart = view => moveSel(view, range => EditorSelection.cursor(view.lineBlockAt(range.head).from, 1));
+const cursorLineStart = view => moveSel(view, range => view.moveToLineBoundary(range, false, false));
 /**
 Move the selection to the end of the line.
 */
-const cursorLineEnd = view => moveSel(view, range => EditorSelection.cursor(view.lineBlockAt(range.head).to, -1));
+const cursorLineEnd = view => moveSel(view, range => view.moveToLineBoundary(range, true, false));
 function toMatchingBracket(state, dispatch, extend) {
     let found = false, selection = updateSel(state.selection, range => {
         let matching = matchBrackets(state, range.head, -1)

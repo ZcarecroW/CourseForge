@@ -1326,13 +1326,16 @@ function buildTree(data) {
             cursor.next();
             let localChildren = [], localPositions = [];
             let localInRepeat = id >= minRepeatType ? id : -1;
-            let lastGroup = 0, lastEnd = end;
+            let lastGroup = 0, lastEnd = end, groupLookAhead = lookAheadAtStart;
             while (cursor.pos > endPos) {
                 if (localInRepeat >= 0 && cursor.id == localInRepeat && cursor.size >= 0) {
                     if (cursor.end <= lastEnd - maxBufferLength) {
-                        makeRepeatLeaf(localChildren, localPositions, start, lastGroup, cursor.end, lastEnd, localInRepeat, lookAheadAtStart, contextAtStart);
+                        makeRepeatLeaf(localChildren, localPositions, start, lastGroup, cursor.end, lastEnd, localInRepeat, groupLookAhead, contextAtStart);
                         lastGroup = localChildren.length;
                         lastEnd = cursor.end;
+                        // The buffer is read backwards, so the current look-ahead is
+                        // the one recorded after the next group's end.
+                        groupLookAhead = lookAhead;
                     }
                     cursor.next();
                 }
@@ -1340,11 +1343,21 @@ function buildTree(data) {
                     takeFlatNode(start, endPos, localChildren, localPositions);
                 }
                 else {
+                    // If the next entry is a reused node matching the local
+                    // repeat, flush a repeat leaf and move lastGroup past it
+                    if (localInRepeat >= 0 && cursor.size == -1 /* SpecialRecord.Reuse */ &&
+                        reused[cursor.id].type == nodeSet.types[localInRepeat]) {
+                        if (lastGroup < localChildren.length)
+                            makeRepeatLeaf(localChildren, localPositions, start, lastGroup, cursor.end, lastEnd, localInRepeat, groupLookAhead, contextAtStart);
+                        lastGroup = localChildren.length + 1;
+                        lastEnd = cursor.start;
+                        groupLookAhead = lookAhead;
+                    }
                     takeNode(start, endPos, localChildren, localPositions, localInRepeat, depth + 1);
                 }
             }
             if (localInRepeat >= 0 && lastGroup > 0 && lastGroup < localChildren.length)
-                makeRepeatLeaf(localChildren, localPositions, start, lastGroup, start, lastEnd, localInRepeat, lookAheadAtStart, contextAtStart);
+                makeRepeatLeaf(localChildren, localPositions, start, lastGroup, start, lastEnd, localInRepeat, groupLookAhead, contextAtStart);
             localChildren.reverse();
             localPositions.reverse();
             if (localInRepeat > -1 && lastGroup > 0) {
@@ -1397,7 +1410,7 @@ function buildTree(data) {
                 if (!lastI && last.type == type && last.length == length)
                     return last;
                 if (lookAheadProp = last.prop(NodeProp.lookAhead))
-                    lookAhead = positions[lastI] + last.length + lookAheadProp;
+                    lookAhead = positions[lastI] + last.length + lookAheadProp - length;
             }
             return makeTree(type, children, positions, length, lookAhead, contextHash);
         };
@@ -2023,14 +2036,14 @@ class StructureCursor {
     constructor(root, offset) {
         this.offset = offset;
         this.done = false;
-        this.cursor = root.cursor(IterMode.IncludeAnonymous | IterMode.IgnoreMounts);
+        this.cursor = root.cursor(IterMode.IncludeAnonymous | IterMode.IgnoreMounts | IterMode.ExcludeBuffers);
     }
     // Move to the first node (in pre-order) that starts at or after `pos`.
     moveTo(pos) {
         let { cursor } = this, p = pos - this.offset;
         while (!this.done && cursor.from < p) {
-            if (cursor.to >= pos && cursor.enter(p, 1, IterMode.IgnoreOverlays | IterMode.ExcludeBuffers)) ;
-            else if (cursor.to <= pos) {
+            if (cursor.to >= p && cursor.enter(p, 1, IterMode.IncludeAnonymous | IterMode.IgnoreMounts | IterMode.IgnoreOverlays | IterMode.ExcludeBuffers)) ;
+            else if (cursor.to <= p) {
                 if (!cursor.next(false))
                     this.done = true;
                 // Moved to next node
@@ -2055,15 +2068,21 @@ class StructureCursor {
         return false;
     }
 }
+// The end of the range in which a fragment's nodes can be reused. For
+// a tree from a stopped parse, that is no further than the stop
+// position (in tree coordinates, so it is mapped to the document).
+function fragEnd(frag) {
+    let stopped = frag.tree.prop(stoppedInner);
+    return stopped == null ? frag.to : Math.min(frag.to, stopped - frag.offset);
+}
 class FragmentCursor {
     constructor(fragments) {
-        var _a;
         this.fragments = fragments;
         this.curTo = 0;
         this.fragI = 0;
         if (fragments.length) {
             let first = this.curFrag = fragments[0];
-            this.curTo = (_a = first.tree.prop(stoppedInner)) !== null && _a !== void 0 ? _a : first.to;
+            this.curTo = fragEnd(first);
             this.inner = new StructureCursor(first.tree, -first.offset);
         }
         else {
@@ -2076,14 +2095,13 @@ class FragmentCursor {
         return this.curFrag && this.curFrag.from <= node.from && this.curTo >= node.to && this.inner.hasNode(node);
     }
     nextFrag() {
-        var _a;
         this.fragI++;
         if (this.fragI == this.fragments.length) {
             this.curFrag = this.inner = null;
         }
         else {
             let frag = this.curFrag = this.fragments[this.fragI];
-            this.curTo = (_a = frag.tree.prop(stoppedInner)) !== null && _a !== void 0 ? _a : frag.to;
+            this.curTo = fragEnd(frag);
             this.inner = new StructureCursor(frag.tree, -frag.offset);
         }
     }

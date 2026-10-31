@@ -11,7 +11,7 @@ use CourseForge\Support\Text;
 final class Pages
 {
     private const WRITABLE = [
-        'idx', 'chapter_id', 'title', 'content', 'extra_context', 'settings',
+        'idx', 'chapter_id', 'title', 'scope', 'content', 'extra_context', 'settings',
         'status', 'error',
     ];
 
@@ -46,6 +46,59 @@ final class Pages
             $rows[$i]['global_idx'] = $i;
         }
         return $rows;
+    }
+
+    /**
+     * ordered() without the text of every page.
+     *
+     * What writing one page needs to know about the others is where they sit,
+     * what they are called and what they own - not what they say. ordered()
+     * carries every page's Markdown, and the page prompt used to call it once
+     * per page: a batch of a hundred and forty pages read the whole book a
+     * hundred and forty times over to build prompts that use none of it.
+     * `written` says whether a page has text, which is all a page brief asks.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function outline(int $projectId): array
+    {
+        $rows = Db::rows(
+            "SELECT p.id, p.chapter_id, p.idx, p.title, p.scope, p.extra_context, p.settings, p.status,
+                    TRIM(p.content) <> '' AS written,
+                    c.title AS chapter_title, c.description AS chapter_description,
+                    c.idx AS chapter_idx, c.settings AS chapter_settings
+               FROM pages p JOIN chapters c ON c.id = p.chapter_id
+              WHERE p.project_id = ? ORDER BY c.idx, p.idx",
+            [$projectId]
+        );
+        foreach ($rows as $i => $row) {
+            $rows[$i]['global_idx'] = $i;
+            $rows[$i]['written'] = (int)$row['written'] === 1;
+        }
+        return $rows;
+    }
+
+    /**
+     * The text of a handful of pages, by id.
+     *
+     * @param int[] $ids
+     * @return array<int,string> page id => Markdown
+     */
+    public static function contents(int $projectId, array $ids): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if ($ids === []) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $out = [];
+        foreach (Db::rows(
+            'SELECT id, content FROM pages WHERE project_id = ? AND id IN (' . $placeholders . ')',
+            [$projectId, ...$ids]
+        ) as $row) {
+            $out[(int)$row['id']] = (string)$row['content'];
+        }
+        return $out;
     }
 
     /** @param array<string,mixed> $fields */
@@ -122,6 +175,7 @@ final class Pages
             'chapter_id' => (int)$page['chapter_id'],
             'idx' => (int)$page['idx'],
             'title' => (string)$page['title'],
+            'scope' => (string)($page['scope'] ?? ''),
             'status' => (string)$page['status'],
             'error' => (string)$page['error'],
             'has_content' => trim($content) !== '',

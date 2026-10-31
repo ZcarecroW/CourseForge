@@ -292,14 +292,19 @@ final class Projects
                     $existingPage = $plan['pages'][$ci][$pi];
                     if ($existingPage !== null) {
                         $pageId = (int)$existingPage['id'];
+                        // The scope goes in with the title. The outline is
+                        // where it is written, so an outline that gives a page
+                        // no scope line says it has none - the same way a page
+                        // left out of the outline is a page that goes.
                         Pages::update($pageId, [
                             'idx' => $pi,
                             'chapter_id' => $chapterId,
                             'title' => (string)$page['title'],
+                            'scope' => (string)($page['scope'] ?? ''),
                         ]);
                     } else {
-                        Db::run('INSERT INTO pages (project_id, chapter_id, idx, title, status, updated_at) VALUES (?,?,?,?,?,?)',
-                            [$projectId, $chapterId, $pi, (string)$page['title'], 'pending', time()]);
+                        Db::run('INSERT INTO pages (project_id, chapter_id, idx, title, scope, status, updated_at) VALUES (?,?,?,?,?,?,?)',
+                            [$projectId, $chapterId, $pi, (string)$page['title'], (string)($page['scope'] ?? ''), 'pending', time()]);
                         $pageId = Db::lastId();
                     }
                     $autoTags['page'][$pageId] = $page['tags'];
@@ -487,11 +492,34 @@ final class Projects
     }
 
     /**
+     * The stored outline with every page's scope taken out - what a plan of
+     * all scopes afresh is shown, so the old ones cannot anchor it.
+     *
+     * @param array<string,mixed> $project
+     */
+    public static function outlineWithoutScopes(array $project): string
+    {
+        $parsed = Structure::parse((string)$project['structure_md']);
+        foreach ($parsed['chapters'] as $ci => $chapter) {
+            foreach ($chapter['pages'] as $pi => $page) {
+                $parsed['chapters'][$ci]['pages'][$pi]['scope'] = '';
+            }
+        }
+        return Structure::toMarkdown(
+            $parsed['title'] !== '' ? $parsed['title'] : self::bookTitle($project),
+            $parsed['description'],
+            $parsed['chapters'],
+            $parsed['tags'],
+        );
+    }
+
+    /**
      * Rebuilds structure_md from the current rows.
      *
      * Must run whenever a title changes: applyStructure() matches existing
      * content by title, so a rename would otherwise orphan the content on the
-     * next apply.
+     * next apply. The same goes for a page's scope, which lives in the outline
+     * too and would read as removed on the next apply if it were not written in.
      */
     public static function resyncStructure(string $username, int $id): void
     {
@@ -502,8 +530,12 @@ final class Projects
         foreach (Chapters::ordered($id) as $chapter) {
             $chapterId = (int)$chapter['id'];
             $pages = [];
-            foreach (Db::rows('SELECT id, title FROM pages WHERE chapter_id = ? ORDER BY idx', [$chapterId]) as $page) {
-                $pages[] = ['title' => (string)$page['title'], 'tags' => $auto['page'][(int)$page['id']] ?? []];
+            foreach (Db::rows('SELECT id, title, scope FROM pages WHERE chapter_id = ? ORDER BY idx', [$chapterId]) as $page) {
+                $pages[] = [
+                    'title' => (string)$page['title'],
+                    'tags' => $auto['page'][(int)$page['id']] ?? [],
+                    'scope' => (string)$page['scope'],
+                ];
             }
             $chapters[] = [
                 'title' => (string)$chapter['title'],

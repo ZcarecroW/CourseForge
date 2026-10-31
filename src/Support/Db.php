@@ -16,7 +16,7 @@ use RuntimeException;
  */
 final class Db
 {
-    public const SCHEMA_VERSION = 10;
+    public const SCHEMA_VERSION = 11;
 
     private static ?PDO $pdo = null;
 
@@ -552,6 +552,10 @@ final class Db
         self::ensureColumn($pdo, 'pages', 'settings', "TEXT NOT NULL DEFAULT '{}'");
         self::ensureColumn($pdo, 'pages', 'bs_slug', "TEXT NOT NULL DEFAULT ''");
         self::ensureColumn($pdo, 'pages', 'bs_url', "TEXT NOT NULL DEFAULT ''");
+        // Version 11: what a page and no other page teaches, planned with the
+        // outline. Every page prompt carries every page's scope, which is how a
+        // page knows what the others cover without reading them.
+        self::ensureColumn($pdo, 'pages', 'scope', "TEXT NOT NULL DEFAULT ''");
         self::ensureColumn($pdo, 'tag_links', 'auto', 'INTEGER NOT NULL DEFAULT 0');
         self::ensureColumn($pdo, 'tag_links', 'enabled', 'INTEGER NOT NULL DEFAULT 1');
 
@@ -661,8 +665,9 @@ final class Db
         if (self::schemaVersion($pdo) < 8) {
             self::upgradeToV8($pdo);
         }
-        // Version 9 adds bookstackdev_profiles, and version 10 adds tasks and
-        // task_log - all made above; nothing to move.
+        // Version 9 adds bookstackdev_profiles, version 10 adds tasks and
+        // task_log, and version 11 adds pages.scope - all made above; nothing
+        // to move.
         if (self::schemaVersion($pdo) < self::SCHEMA_VERSION) {
             self::setMeta($pdo, 'schema_version', (string)self::SCHEMA_VERSION);
         }

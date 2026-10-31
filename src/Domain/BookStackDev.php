@@ -139,8 +139,8 @@ final class BookStackDev
                     ['key' => 'themeDark', 'type' => 'enum', 'label' => 'Theme in dark mode', 'default' => 'dark',
                         'options' => self::MERMAID_THEMES],
                     ['key' => 'url', 'type' => 'string', 'label' => 'Mermaid module URL', 'advanced' => true,
-                        'default' => 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs',
-                        'description' => 'The first address tried, with esm.sh and unpkg behind it. Mermaid 11 was current when this was written.'],
+                        'default' => 'https://cdn.jsdelivr.net/npm/mermaid@12/dist/mermaid.esm.min.mjs',
+                        'description' => 'The first address tried, with esm.sh and unpkg behind it. Mermaid 12 was current when this was written; the diagrams keep the classic look and the dagre layout either way.'],
                 ],
             ],
             [

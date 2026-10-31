@@ -321,7 +321,6 @@ test('a preset that says nothing about its ceilings still gets OpenAI\'s', stati
 test('the research decision reaches every provider that can act on it', static function (): void {
     $body = static function (object $provider, AiRequest $request): array {
         $m = new ReflectionMethod($provider, 'payload');
-        $m->setAccessible(true);
         return $m->invoke($provider, $request);
     };
 
@@ -358,7 +357,6 @@ test('a request carries its research decision through withModel', static functio
 
 test('search narration never becomes the first paragraph of a page', static function (): void {
     $extract = new ReflectionMethod(AnthropicProvider::class, 'extractText');
-    $extract->setAccessible(true);
 
     // Without a search this is every text block joined, exactly as before.
     same('AB', $extract->invoke(null, ['content' => [

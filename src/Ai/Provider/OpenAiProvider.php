@@ -59,15 +59,32 @@ class OpenAiProvider extends OpenAiCompatibleProvider implements SearchCapable
     ];
 
     /**
-     * Reasoning models: gpt-5 and up, and the o-series.
+     * Reasoning models: gpt-5 and every generation after it, and the o-series.
      *
      * Matched on the id because there is nowhere else to look - unlike
      * Anthropic, OpenAI's model list reports no capabilities at all. What it
      * prevents is a hard 400, and chat() still retries once when a 400 blames a
      * parameter, so a model released after this line was written costs one
-     * extra round trip rather than a lost page.
+     * extra round trip rather than a lost page. A queued page has no such
+     * retry, which is why the generation number is matched as a number: the
+     * pattern used to say `gpt-5` literally, so the whole GPT-6 family was
+     * hidden from the model picker and, typed in by hand, went out with
+     * `max_tokens` and a temperature it refuses.
      */
-    private const REASONING = '/^(gpt-5|o[134])/i';
+    private const REASONING = '/^(gpt-([5-9]|[1-9]\d)|o[134])/i';
+
+    /**
+     * The first generation whose prompt cache is billed for writing, and can
+     * therefore be told where to stop: gpt-5.6.
+     *
+     * From there a write costs a quarter more than an uncached token, and the
+     * implicit cache point sits at the end of the prompt - so every page would
+     * pay that quarter on its own brief, which no other request will ever read.
+     * An explicit point after the shared course context writes only what the
+     * next page reads back, at a tenth of the price. Earlier models charge
+     * nothing to write and take no such field.
+     */
+    private const EXPLICIT_CACHE_FROM = [5, 6];
 
     /**
      * Whether a model takes the reasoning parameters and refuses the chat ones.
@@ -104,7 +121,7 @@ class OpenAiProvider extends OpenAiCompatibleProvider implements SearchCapable
     ];
 
     /** The families worth writing a course with, out of an unfiltered list. */
-    private const CHAT_MODELS = '/^(gpt-5|gpt-4\.1|gpt-4o|o[134])/i';
+    private const CHAT_MODELS = '/^(gpt-([5-9]|[1-9]\d)|gpt-4\.1|gpt-4o|o[134])/i';
 
     /** Chat models whose ids the pattern above cannot describe, as id endings. */
     private const ALSO_CHAT = ['chat-latest', 'chatgpt-4o-latest'];
@@ -355,7 +372,42 @@ class OpenAiProvider extends OpenAiCompatibleProvider implements SearchCapable
             $payload['web_search_options'] = new \stdClass();
         }
 
+        // The prompt cache, told where the shared part ends. Only towards
+        // OpenAI itself: a gateway wearing this API may refuse fields it has
+        // never heard of, and a queued line has no retry to find out with.
+        if ($request->hasContext() && self::isOpenAiHost($this->baseUrl)) {
+            // Keeps the pages of one course together where the cache is warm;
+            // on the newer models it also keeps their cache accounting apart.
+            $payload['prompt_cache_key'] = $request->cacheKey();
+
+            if (self::cachesExplicitly($request->model)) {
+                $parts = [];
+                foreach ($request->systemParts() as $part) {
+                    $parts[] = [
+                        'type' => 'text',
+                        'text' => $part,
+                        'prompt_cache_breakpoint' => ['mode' => 'explicit'],
+                    ];
+                }
+                $payload['messages'][0] = ['role' => 'system', 'content' => $parts];
+                // Explicit only: the brief behind the last point is never
+                // written to the cache, so never billed as a write.
+                $payload['prompt_cache_options'] = ['mode' => 'explicit'];
+            }
+        }
+
         return $payload;
+    }
+
+    /** Whether this model bills cache writes and takes explicit cache points (gpt-5.6 and later). */
+    public static function cachesExplicitly(string $model): bool
+    {
+        if (preg_match('/^gpt-(\d+)(?:\.(\d+))?(?:-|$)/i', trim($model), $m) !== 1) {
+            return false;
+        }
+        [$major, $minor] = [(int)$m[1], (int)($m[2] ?? 0)];
+        [$fromMajor, $fromMinor] = self::EXPLICIT_CACHE_FROM;
+        return $major > $fromMajor || ($major === $fromMajor && $minor >= $fromMinor);
     }
 
     protected function tuneForModel(array $payload, string $model): array

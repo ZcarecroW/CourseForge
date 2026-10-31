@@ -14,6 +14,7 @@ use CourseForge\Security\Actor;
 use CourseForge\Support\HttpException;
 use CourseForge\Support\Request;
 use CourseForge\Support\Runtime;
+use CourseForge\Support\Text;
 
 /** One page: read it, save it, have the AI write it. */
 final class PageController
@@ -39,10 +40,14 @@ final class PageController
         Pages::require($projectId, $pageId);
 
         $fields = [];
-        foreach (['title', 'content', 'extra_context'] as $key) {
+        foreach (['title', 'scope', 'content', 'extra_context'] as $key) {
             if ($request->has($key)) {
                 $fields[$key] = $request->raw($key);
             }
+        }
+        if (isset($fields['scope'])) {
+            // One line by contract: it is a line of the outline.
+            $fields['scope'] = Text::tidy($fields['scope']);
         }
         if (isset($fields['title'])) {
             // The same rule the MCP tool is held to, in the same words: a title
@@ -61,8 +66,10 @@ final class PageController
         }
 
         Pages::update($pageId, $fields);
-        if (isset($fields['title'])) {
-            Projects::resyncStructure($owner, $projectId); // keep title-based matching intact
+        if (isset($fields['title']) || isset($fields['scope'])) {
+            // Both are lines of the outline: a title keeps title-based matching
+            // intact, a scope keeps the next apply from reading it as removed.
+            Projects::resyncStructure($owner, $projectId);
         }
         Projects::touch($projectId);
 
@@ -90,6 +97,12 @@ final class PageController
 
         if ($request->has('extra_context')) {
             Pages::update($pageId, ['extra_context' => $request->raw('extra_context')]);
+        }
+        // A scope edited and not yet saved is still what the person meant this
+        // page to be written to - the same courtesy extra context gets.
+        if ($request->has('scope')) {
+            Pages::update($pageId, ['scope' => Text::tidy($request->raw('scope'))]);
+            Projects::resyncStructure($owner, $projectId);
         }
 
         // Critical for parallel generation: free the session lock first.

@@ -162,7 +162,7 @@ final class ProfileTools
                     'language' => Schema::string('The language the course is written in.', 'English'),
                     'temperature' => [
                         'type' => 'number',
-                        'description' => 'Sampling temperature for both slots. 0.7 unless you have a reason.',
+                        'description' => 'Sampling temperature for both slots. 0.7 unless you have a reason. Ignored by reasoning models and by every Claude model.',
                         'minimum' => 0,
                         'maximum' => 2,
                     ],
@@ -223,7 +223,7 @@ final class ProfileTools
                     'language' => Schema::string('The language the course is written in.'),
                     'temperature' => [
                         'type' => 'number',
-                        'description' => 'Sampling temperature. Applies to both model slots.',
+                        'description' => 'Sampling temperature. Applies to both model slots; ignored by reasoning models and by every Claude model.',
                         'minimum' => 0,
                         'maximum' => 2,
                     ],

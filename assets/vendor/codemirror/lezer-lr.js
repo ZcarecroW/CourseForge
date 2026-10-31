@@ -270,16 +270,15 @@ class Stack {
     /**
     @internal
     */
-    useNode(value, next) {
+    useNode(value, next, start) {
         let index = this.p.reused.length - 1;
         if (index < 0 || this.p.reused[index] != value) {
             this.p.reused.push(value);
             index++;
         }
-        let start = this.pos;
-        this.reducePos = this.pos = start + value.length;
+        let end = this.reducePos = this.pos = start + value.length;
         this.pushState(next, start);
-        this.buffer.push(index, start, this.reducePos, -1 /* size == -1 means this is a reused value */);
+        this.buffer.push(index, start, end, -1 /* size == -1 means this is a reused value */);
         if (this.curContext)
             this.updateContext(this.curContext.tracker.reuse(this.curContext.context, value, this, this.p.stream.reset(this.pos - value.length)));
     }
@@ -498,7 +497,7 @@ class Stack {
     emitContext() {
         let last = this.buffer.length - 1;
         if (last < 0 || this.buffer[last] != -3)
-            this.buffer.push(this.curContext.hash, this.pos, this.pos, -3);
+            this.storeNode(this.curContext.hash, this.reducePos, this.reducePos, -3, true);
     }
     /**
     @internal
@@ -1059,9 +1058,9 @@ function cutAt(tree, pos, side) {
     }
 }
 class FragmentCursor {
-    constructor(fragments, nodeSet) {
+    constructor(fragments, minRepeat) {
         this.fragments = fragments;
-        this.nodeSet = nodeSet;
+        this.minRepeat = minRepeat;
         this.i = 0;
         this.fragment = null;
         this.safeFrom = -1;
@@ -1069,6 +1068,8 @@ class FragmentCursor {
         this.trees = [];
         this.start = [];
         this.index = [];
+        this.lastRepeat = null;
+        this.lastRepeatPos = -1;
         this.nextFragment();
     }
     nextFragment() {
@@ -1104,6 +1105,8 @@ class FragmentCursor {
                 this.nextFragment();
                 return null;
             }
+            if (pos < this.safeFrom)
+                return null;
             let top = this.trees[last], index = this.index[last];
             if (index == top.children.length) {
                 this.trees.pop();
@@ -1118,13 +1121,16 @@ class FragmentCursor {
                 return null;
             }
             if (next instanceof Tree) {
-                if (start == pos) {
-                    if (start < this.safeFrom)
-                        return null;
-                    let end = start + next.length;
-                    if (end <= this.safeTo) {
-                        let lookAhead = next.prop(NodeProp.lookAhead);
-                        if (!lookAhead || end + lookAhead < this.fragment.to)
+                let storeRepeat = start > this.lastRepeatPos && next.type.id >= this.minRepeat;
+                if (start == pos || storeRepeat) {
+                    let end = start + next.length, lookahead;
+                    if (start >= this.safeFrom && end <= this.safeTo &&
+                        (!(lookahead = next.prop(NodeProp.lookAhead)) || end + lookahead < this.fragment.to)) {
+                        if (storeRepeat) {
+                            this.lastRepeat = next;
+                            this.lastRepeatPos = start;
+                        }
+                        if (start == pos)
                             return next;
                     }
                 }
@@ -1276,7 +1282,7 @@ class Parse {
         let { from } = ranges[0];
         this.stacks = [Stack.start(this, parser.top[0], from)];
         this.fragments = fragments.length && this.stream.end - from > parser.bufferLength * 4
-            ? new FragmentCursor(fragments, parser.nodeSet) : null;
+            ? new FragmentCursor(fragments, parser.minRepeatTerm) : null;
     }
     get parsedPos() {
         return this.minStackPos;
@@ -1399,6 +1405,29 @@ class Parse {
             throw new RangeError("Can't move stoppedAt forward");
         this.stoppedAt = pos;
     }
+    // See if a given tree, or a descendant right at its start, can be
+    // reused in the given stack.
+    tryReuse(stack, start, tree, repeatOnly) {
+        if (!tree)
+            return null;
+        let strictCx = stack.curContext && stack.curContext.tracker.strict, cxHash = strictCx ? stack.curContext.hash : 0;
+        for (; tree;) {
+            let match = this.parser.nodeSet.types[tree.type.id] != tree.type ? -1
+                : this.parser.getGoto(stack.state, tree.type.id);
+            if (match > -1 && tree.length && (!strictCx || (tree.prop(NodeProp.contextHash) || 0) == cxHash)) {
+                stack.useNode(tree, match, start);
+                return tree;
+            }
+            if (tree.children.length == 0 || tree.positions[0] > 0)
+                break;
+            let inner = tree.children[0];
+            if (inner instanceof Tree && (!repeatOnly || inner.type.id >= this.parser.minRepeatTerm))
+                tree = inner;
+            else
+                break;
+        }
+        return null;
+    }
     // Returns an updated version of the given stack, or null if the
     // stack can't advance normally. When `split` and `stacks` are
     // given, stacks split off by ambiguous operations will be pushed to
@@ -1409,22 +1438,20 @@ class Parse {
         if (this.stoppedAt != null && start > this.stoppedAt)
             return stack.forceReduce() ? stack : null;
         if (this.fragments) {
-            let strictCx = stack.curContext && stack.curContext.tracker.strict, cxHash = strictCx ? stack.curContext.hash : 0;
-            for (let cached = this.fragments.nodeAt(start); cached;) {
-                let match = this.parser.nodeSet.types[cached.type.id] == cached.type ? parser.getGoto(stack.state, cached.type.id) : -1;
-                if (match > -1 && cached.length && (!strictCx || (cached.prop(NodeProp.contextHash) || 0) == cxHash)) {
-                    stack.useNode(cached, match);
-                    if (verbose)
-                        console.log(base + this.stackID(stack) + ` (via reuse of ${parser.getName(cached.type.id)})`);
-                    return true;
-                }
-                if (!(cached instanceof Tree) || cached.children.length == 0 || cached.positions[0] > 0)
-                    break;
-                let inner = cached.children[0];
-                if (inner instanceof Tree && cached.positions[0] == 0)
-                    cached = inner;
-                else
-                    break;
+            // Due to an optimization in the way we build trees for repeat
+            // rules, such trees may have their start position before
+            // skipped content that is technically not part of the node.
+            // Attempts to reuse them may only happen at the position
+            // _after_ those skipped tokens. The special handling here makes
+            // sure such nodes can still be reused.
+            let reused = (stack.reducePos < start && stack.buffer.length && stack.buffer[stack.buffer.length - 2] <= stack.reducePos &&
+                this.fragments.lastRepeatPos == stack.reducePos &&
+                this.tryReuse(stack, stack.reducePos, this.fragments.lastRepeat, true)) ||
+                this.tryReuse(stack, start, this.fragments.nodeAt(start), false);
+            if (reused) {
+                if (verbose)
+                    console.log(base + this.stackID(stack) + ` (via reuse of ${parser.getName(reused.type.id)})`);
+                return true;
             }
         }
         let defaultReduce = parser.stateSlot(stack.state, 4 /* ParseState.DefaultReduce */);

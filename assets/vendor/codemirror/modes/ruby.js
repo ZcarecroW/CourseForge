@@ -58,6 +58,7 @@ function tokenBase(stream, state) {
   } else if (ch == "0") {
     if (stream.eat("x")) stream.eatWhile(/[\da-fA-F]/);
     else if (stream.eat("b")) stream.eatWhile(/[01]/);
+    else if (stream.eat(".")) stream.eat(/[\d_]*(?:[eE][+\-]?[\d_]+)?/)
     else stream.eatWhile(/[0-7]/);
     return "number";
   } else if (/\d/.test(ch)) {

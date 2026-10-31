@@ -593,6 +593,24 @@ final class OpenRouterProvider extends OpenAiCompatibleProvider implements Searc
             $payload['plugins'] = [$plugin];
         }
 
+        // The prompt cache. OpenRouter passes each upstream's own caching
+        // through, and routes requests that share a key to the provider that
+        // served the last one - which is where that cache is warm. Claude only
+        // caches behind an explicit marker, Gemini and Qwen honour one, and the
+        // rest cache their prefix by themselves, so the markers go only where
+        // they change something and the key goes everywhere.
+        if ($request->hasContext()) {
+            $payload['prompt_cache_key'] = $request->cacheKey();
+
+            if (self::wantsCacheMarkers((string)$payload['model'])) {
+                $parts = [];
+                foreach ($request->systemParts() as $part) {
+                    $parts[] = ['type' => 'text', 'text' => $part, 'cache_control' => ['type' => 'ephemeral']];
+                }
+                $payload['messages'][0] = ['role' => 'system', 'content' => $parts];
+            }
+        }
+
         return $payload;
     }
 
@@ -652,6 +670,13 @@ final class OpenRouterProvider extends OpenAiCompatibleProvider implements Searc
      * the ambiguous one, and both of its readings end in the same place - the
      * plain slug, submitted to the Batch API.
      */
+    /** Whether this upstream caches only, or best, behind an explicit `cache_control` marker. */
+    private static function wantsCacheMarkers(string $slug): bool
+    {
+        $vendor = strtolower((string)strstr($slug, '/', true));
+        return in_array($vendor, ['anthropic', 'google', 'qwen'], true);
+    }
+
     private static function plainSlug(string $model): string
     {
         $model = trim($model);

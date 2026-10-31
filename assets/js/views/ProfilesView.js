@@ -1101,7 +1101,7 @@ export const ProfilesView = {
                     </div>
                   </div>
                   <div class="form-row">
-                    <label title="Ignored by reasoning models">Temperature</label>
+                    <label title="Ignored by reasoning models and by every Claude model">Temperature</label>
                     <input v-model.number="draft.data.models[slot.key].temperature" type="number" step="0.05" min="0" max="2">
                   </div>
                   <div class="form-row">

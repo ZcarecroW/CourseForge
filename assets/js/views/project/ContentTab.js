@@ -3,7 +3,7 @@ import {
   onMounted, onBeforeUnmount, onActivated, onDeactivated,
 } from 'vue';
 import {
-  state, openCourse, allPages, concurrency, mergePage, markPageStatus, refreshProject, declareUnsaved,
+  state, openCourse, concurrency, mergePage, markPageStatus, refreshProject, declareUnsaved,
 } from '@/core/store.js';
 import { get, put, post } from '@/core/api.js';
 import { toast, attempt } from '@/core/toast.js';
@@ -58,7 +58,7 @@ export const ContentTab = {
 
     /* -- selection ------------------------------------------------------ */
     const selection = reactive({ type: 'page', id: null });
-    const draft = reactive({ title: '', content: '', extra_context: '' });
+    const draft = reactive({ title: '', scope: '', content: '', extra_context: '' });
     const loaded = ref(null);            // the page detail last fetched
     const loadingPage = ref(false);
     const savingPage = ref(false);
@@ -89,6 +89,7 @@ export const ContentTab = {
     const dirty = computed(() => {
       if (!selectedPage.value || !loaded.value) return false;
       return draft.title !== loaded.value.title
+        || draft.scope !== (loaded.value.scope ?? '')
         || draft.content !== (loaded.value.content ?? '')
         || draft.extra_context !== (loaded.value.extra_context ?? '');
     });
@@ -170,6 +171,7 @@ export const ContentTab = {
 
         loaded.value = data.page;
         draft.title = data.page.title;
+        draft.scope = data.page.scope ?? '';
         draft.content = data.page.content ?? '';
         draft.extra_context = data.page.extra_context ?? '';
       } finally {
@@ -215,8 +217,16 @@ export const ContentTab = {
     // Open the first page automatically so the tab is never blank.
     watch(() => project.value?.id, (id, previous) => {
       if (previous !== undefined && id !== previous) {
-        // Another course: its batches are not this course's.
-        resetBatches();
+        // Another course: its runs are not this course's, and neither is the
+        // page that was open. The shell keys this view by course, so today a
+        // different course arrives as a new instance and this branch does not
+        // run - but it called resetBatches(), a name that has not existed since
+        // runs replaced batches, so the day it did run it would have thrown
+        // before loading the new course's runs or opening its first page.
+        resetRuns();
+        selection.type = 'page';
+        selection.id = null;
+        loaded.value = null;
         attempt(loadRuns, 'Load runs');
       }
       const first = allPages.value[0];
@@ -227,17 +237,20 @@ export const ContentTab = {
     const savePage = () => attempt(async () => {
       if (!selectedPage.value || !dirty.value) return;
       savingPage.value = true;
-      const renamed = draft.title !== loaded.value.title;
+      // A title and a scope are both lines of the outline.
+      const outlineChanged = draft.title !== loaded.value.title || draft.scope !== (loaded.value.scope ?? '');
       try {
         const data = await put(`projects/${project.value.id}/pages/${selectedPage.value.id}`, {
           title: draft.title,
+          scope: draft.scope,
           content: draft.content,
           extra_context: draft.extra_context,
         });
         loaded.value = data.page;
+        draft.scope = data.page.scope ?? '';
         mergePage(data.page);
-        // A rename rewrites structure_md server side; pull the whole tree back.
-        if (renamed) await refreshProject();
+        // Either rewrites structure_md server side; pull the whole tree back.
+        if (outlineChanged) await refreshProject();
         toast.success('Page saved.');
       } finally {
         savingPage.value = false;
@@ -254,10 +267,11 @@ export const ContentTab = {
     const gen = reactive({ running: false, stop: false, done: 0, total: 0, errors: 0, mode: 'missing', limit: 5 });
     const confirmRegenerateAll = ref(false);
 
-    async function generateOne(pageId, { extra, feedback } = {}) {
+    async function generateOne(pageId, { extra, feedback, scope } = {}) {
       markPageStatus(pageId, 'generating');
       const body = {};
       if (extra !== undefined) body.extra_context = extra;
+      if (scope !== undefined) body.scope = scope;
       if (feedback) body.feedback = feedback;
 
       const data = await post(`projects/${project.value.id}/pages/${pageId}/generate`, body);
@@ -265,6 +279,7 @@ export const ContentTab = {
       if (selection.type === 'page' && selection.id === pageId) {
         loaded.value = data.page;
         draft.title = data.page.title;
+        draft.scope = data.page.scope ?? '';
         draft.content = data.page.content ?? '';
         draft.extra_context = data.page.extra_context ?? '';
       }
@@ -283,10 +298,14 @@ export const ContentTab = {
       const pageId = selectedPage.value.id;
       regenerating.value = true;
       try {
+        const scopeChanged = draft.scope !== (loaded.value?.scope ?? '');
         await generateOne(pageId, {
           extra: draft.extra_context,
+          scope: scopeChanged ? draft.scope : undefined,
           feedback: pageFeedback.value.trim(),
         });
+        // A new scope is a new line in the outline the Structure tab shows.
+        if (scopeChanged) await refreshProject();
       } catch (error) {
         // `generateOne` marks the page as generating before the request leaves,
         // and clears the old error with it. A failure has to put both back or
@@ -924,6 +943,16 @@ export const ContentTab = {
             <!-- context and regeneration -->
             <div v-else class="col gap-5">
               <template v-if="selection.type === 'page'">
+                <div class="form-row">
+                  <label for="page-scope" class="row gap-2"><app-icon name="target" :size="13"/> What this page alone teaches</label>
+                  <input id="page-scope" v-model="draft.scope" type="text"
+                         placeholder="Concepts this page owns, separated by semicolons">
+                  <p class="hint">
+                    The page's scope, the line under its title in the outline. Every page is written knowing every other
+                    page's scope, so it leaves those concepts to their pages. Saved with the page.
+                  </p>
+                </div>
+
                 <div class="form-row">
                   <label for="page-context" class="row gap-2"><app-icon name="pen" :size="13"/> Extra context for this page</label>
                   <textarea id="page-context" v-model="draft.extra_context" rows="6" class="mono" spellcheck="false"

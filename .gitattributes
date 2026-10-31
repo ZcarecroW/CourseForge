@@ -1,0 +1,9 @@
+# Every file is checked out exactly as it was committed.
+#
+# Several files are compared byte for byte - data/.htaccess against the constant
+# that rewrites it, index.html against what tools/assets.php would stamp - and a
+# Windows checkout with core.autocrlf turned their line endings into CRLF, so
+# the test suite failed on a clean clone before anything had been changed. No
+# conversion in either direction keeps what is on disk identical to what was
+# released, which is also what the update archive installs.
+* -text

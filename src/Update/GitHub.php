@@ -79,6 +79,25 @@ final class GitHub
     public const META_ERROR = 'updates.last_error';
 
     /**
+     * Forgets what the last check concluded, so the next one goes to GitHub.
+     *
+     * Called when the token, the repository or the channel changes. A
+     * remembered failure was evidence about the old values, and replaying it
+     * for another fifteen minutes at somebody who has just fixed them tells
+     * them the fix did not work. The good answer goes too: a release found in
+     * the old repository, or on the other channel, is not the newest release
+     * of the new one. The release itself stays stored, because a screen with
+     * no answer at all is worse than one with an old answer and the right
+     * date beside it - and the next check replaces it within a minute.
+     */
+    public static function forgetFailure(): void
+    {
+        Meta::set(self::META_ERROR, '');
+        Meta::set(self::META_ATTEMPT, '0');
+        Meta::set(self::META_CHECKED, '0');
+    }
+
+    /**
      * The newest release on the configured channel.
      *
      * Never throws. A check that fails is an answer in itself - the caller is

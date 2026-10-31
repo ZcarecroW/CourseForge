@@ -103,9 +103,11 @@ final class JsonlChunker
     {
         $request = $item->request;
 
+        // Every segment of the shared context is in every line of the file:
+        // a queue has no prefix to share, only a cache behind it.
         return strlen($item->customId)
             + strlen($request->model)
-            + self::encodedBytes($request->system)
+            + self::encodedBytes($request->systemText())
             + self::encodedBytes($request->user)
             + self::ENVELOPE_BYTES;
     }

@@ -2640,7 +2640,7 @@ class EditorState {
         if (typeof text == "string")
             text = this.toText(text);
         return this.changeByRange(range => ({ changes: { from: range.from, to: range.to, insert: text },
-            range: EditorSelection.cursor(range.from + text.length) }));
+            range: EditorSelection.cursor(range.from + text.length, -1) }));
     }
     /**
     Create a set of changes and a new selection by running the given
@@ -3137,13 +3137,15 @@ class Chunk {
             }
             else {
                 if (newFrom == newTo) { // Try to reorder points to fit in here
-                    for (let i = value.length - 1; i > 0; i--) {
-                        if ((newFrom - to[i - 1] || val.startSide - value[i - 1].endSide) <= 0) {
+                    for (let i = value.length; i > 0; i--) {
+                        if ((newFrom - (to[i - 1] + newPos) || val.startSide - value[i - 1].endSide) >= 0) {
                             value.splice(i, 0, val);
-                            from.splice(i, 0, newFrom);
-                            to.splice(i, 0, newTo);
+                            from.splice(i, 0, newFrom - newPos);
+                            to.splice(i, 0, newTo - newPos);
                             continue iter;
                         }
+                        if ((newFrom - (from[i - 1] + newPos) || val.endSide - value[i - 1].startSide) > 0)
+                            break;
                     }
                 }
                 // Otherwise, spill into a new layer
@@ -3235,7 +3237,7 @@ class RangeSet {
         while (cur.value || i < add.length) {
             if (i < add.length && (cur.from - add[i].from || cur.startSide - add[i].value.startSide) >= 0) {
                 let range = add[i++];
-                if (!builder.addInner(range.from, range.to, range.value))
+                if (!builder.addInner(range.from, range.to, range.value, false))
                     spill.push(range);
             }
             else if (cur.rangeIndex == 1 && cur.chunkIndex < this.chunk.length &&
@@ -3246,7 +3248,7 @@ class RangeSet {
             }
             else {
                 if (!filter || filterFrom > cur.to || filterTo < cur.from || filter(cur.from, cur.to, cur.value)) {
-                    if (!builder.addInner(cur.from, cur.to, cur.value))
+                    if (!builder.addInner(cur.from, cur.to, cur.value, false))
                         spill.push(Range.create(cur.from, cur.to, cur.value));
                 }
                 cur.next();
@@ -3266,7 +3268,7 @@ class RangeSet {
         let spill = (from, to, value) => {
             if (!spilled)
                 spilled = new RangeSetBuilder();
-            spilled.add(from, to, value);
+            spilled.addRange(from, to, value, false);
         };
         for (let i = 0; i < this.chunk.length; i++) {
             let start = this.chunkPos[i], chunk = this.chunk[i];
@@ -3494,16 +3496,20 @@ class RangeSetBuilder {
     Add a range. Ranges should be added in sorted (by `from` and
     `value.startSide`) order.
     */
-    add(from, to, value) {
-        if (!this.addInner(from, to, value))
-            (this.nextLayer || (this.nextLayer = new RangeSetBuilder)).add(from, to, value);
+    add(from, to, value) { this.addRange(from, to, value, true); }
+    /**
+    @internal
+    */
+    addRange(from, to, value, strict) {
+        if (!this.addInner(from, to, value, strict))
+            (this.nextLayer || (this.nextLayer = new RangeSetBuilder)).addRange(from, to, value, strict);
     }
     /**
     @internal
     */
-    addInner(from, to, value) {
+    addInner(from, to, value, strict) {
         let diff = from - this.lastTo || value.startSide - this.last.endSide;
-        if (diff <= 0 && (from - this.lastFrom || value.startSide - this.last.startSide) < 0)
+        if (strict && diff <= 0 && (from - this.lastFrom || value.startSide - this.last.startSide) < 0)
             throw new Error("Ranges must be added sorted by `from` position and `startSide`");
         if (diff < 0)
             return false;
@@ -3857,8 +3863,10 @@ function compare(a, startA, b, startB, length, comparator) {
             boundChange = false;
         }
         else {
-            if (boundChange)
+            if (boundChange) {
                 comparator.boundChange(pos);
+                boundChange = false;
+            }
             if (clipEnd > pos && !sameValues(a.active, b.active))
                 comparator.compareRange(pos, clipEnd, a.active, b.active);
             if (bounds && clipEnd < endB && (dEnd || a.openEnd(end) != b.openEnd(end)))

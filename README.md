@@ -127,6 +127,65 @@ one card per group. The scheduler card is the one that matters most: your host
 calls `cron.php` once a minute, and from then on runs and publishing carry on
 with the browser closed.
 
+## What is new in 5.3
+
+**Every page knows what every other page teaches.** The outline now carries a
+*scope* under each page - one line naming what that page and no other page
+teaches - and every page is written from a course map that shows every page with
+its scope. A page that needs a concept another page owns builds on it or names
+that page, instead of explaining it again. The AI plans the scopes together when
+it designs the outline; **Plan missing scopes** fills them in for an outline that
+has none in one request. A page also sees the section headings of the pages
+already written in its chapter, which is where plans drift.
+
+**A third of the prompt, and most of it cached.** The page prompt used to carry
+the whole outline - six hundred words per chapter - with every page. It now
+carries the compact map and its own chapter, measured at 47,000 characters
+instead of 139,000 per page on a course of 20 chapters × 7 pages. The shared part
+comes first, is byte-identical from page to page, and is marked for each
+provider's prompt cache: breakpoints for Anthropic, explicit cache points and a
+cache key for OpenAI's gpt-5.6 and later, cache markers through OpenRouter, the
+right order for Gemini and every gateway. On a live run with Anthropic the billed
+input falls by a little over nine tenths. The cache breakpoint 5.2 set was on a
+part of the prompt that differed for every page as soon as pages had tags, so it
+paid the cache-write premium on every page and was never read back.
+
+**Connected clients read the map once.** `get_page_brief` hands out the shared
+context with ids, and a client that passes them back as `known_context` is not
+sent the same text again. `plan_page_scopes` and `update_page`'s new `scope` give
+a client what the browser has.
+
+**The providers as they are today.** OpenAI's GPT-6 family (`gpt-6-sol`,
+`gpt-6-luna`, `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`) was hidden from the
+model picker and, typed in by hand, sent parameters it refuses; it is offered and
+handled as the reasoning family it is. Gemini's batch queue knows `gemini-4-argon`
+and `gemini-3.8-flash`; Anthropic's offline fallback names the current models.
+Claude is now asked on API version `2026-10-21`, which refuses `temperature`,
+`top_p` and `top_k` on every model, so none is sent: the profile's temperature no
+longer applies to Claude. Current Claude models already refused a custom value,
+so pages they write read the same; Claude 4.6 and Haiku 4.5 now sample at their
+default.
+
+**Libraries current.** Vue 3.5.44, marked 18.1.2, DOMPurify 3.4.17, CodeMirror
+(with the new `@codemirror/streamparser` it now needs), Shiki 4.5.0 and
+Mermaid 12.2.0. Mermaid is vendored as its ES build: a flowchart in the preview
+now fetches 863 KB instead of the 3.5 MB single file of 11 - or the 5.5 MB one
+of 12. Diagrams keep the 11.x look and layout, in the preview and through
+BookStackDev, because 12 changed four defaults that doubled a small flowchart.
+
+**Fixed.** Saving or resetting the update token, repository or channel in
+Settings ended in a fatal error after the change was written. A diagram, a
+formula or highlighted code that arrived while you were on another tab was
+thrown away, and the block stayed raw when you came back. A page stored over MCP
+was left with a status nothing else uses. A clean clone on Windows failed two
+tests before anything had been changed, because Git rewrote line endings; files
+are now checked out exactly as committed.
+
+Upgrading from 5.2 is a normal update: the database gains one column on first
+start. Existing courses have no scopes until the outline is revised or **Plan
+missing scopes** is pressed; they are written as before, with the compact map,
+in the meantime.
+
 ## What is new in 5.2
 
 **Publishing is a task, not a request.** Pressing Publish writes a task down

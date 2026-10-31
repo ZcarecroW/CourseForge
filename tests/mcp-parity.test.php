@@ -61,6 +61,8 @@ const PARITY = [
     'read the scheduler URL without rotating the secret' => 'get_cron_url',
     // Course content.
     'see every detail override in one course' => 'list_detail_overrides',
+    'plan what each page alone teaches' => 'plan_page_scopes',
+    'edit what one page alone teaches' => 'update_page',
     // BookStackDev: the screen with a list of looks and an embed line.
     'list the looks a BookStack instance can wear' => 'list_bookstackdev_profiles',
     'read what a look can be told' => 'list_bookstackdev_options',

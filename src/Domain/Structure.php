@@ -36,6 +36,24 @@ use CourseForge\Support\Text;
  * paragraphs of a description is remembered as a blank line rather than
  * flattened to a space, because six hundred words in one unbroken block is not
  * something anybody wants to read on a BookStack cover page.
+ *
+ * A page can carry a **scope**: one line, indented deeper than the page entry
+ * itself, naming what that page and no other page teaches.
+ *
+ *     1. Reactivity
+ *        Chapter description ...
+ *        1. Reactive state with ref and reactive
+ *           ref() and reactive(); when to use which; unwrapping in templates
+ *
+ * It is what lets one page know what is on all the others. A page title says
+ * what a page is called; the scope says which concepts it owns, so a page
+ * being written can leave a concept to the page that owns it instead of
+ * explaining it a second time. The scope is planned once, with the outline,
+ * and read by every page - which is far cheaper than any page reading the
+ * others. Deeper than the page is the whole rule: a line at the page's own
+ * indentation is still chapter description, exactly as it was before scopes
+ * existed, and a list item deeper than the page is a fragment of its scope
+ * rather than a page of its own.
  */
 final class Structure
 {
@@ -73,7 +91,7 @@ final class Structure
      * @return array{
      *   title:string, description:string, tags:string[],
      *   chapters:array<int,array{title:string,description:string,tags:string[],
-     *                            pages:array<int,array{title:string,tags:string[]}>}>
+     *                            pages:array<int,array{title:string,tags:string[],scope:string}>}>
      * }
      */
     public static function parse(string $markdown): array
@@ -91,6 +109,7 @@ final class Structure
         $bulletChapters = false; // the model used "- Chapter" instead of "1. Chapter"
         $target = 'book';        // which entity a standalone {{...}} line belongs to
         $blank = false;          // a blank line is pending, so the next prose starts a paragraph
+        $pageIndent = 0;         // how far the last page entry was indented; its scope sits deeper
 
         foreach (explode("\n", $markdown) as $line) {
             $raw = rtrim($line);
@@ -166,13 +185,30 @@ final class Structure
                 continue;
             }
 
+            // A page's scope: anything indented deeper than the page entry it
+            // follows. Asked before the page branch, because a list item two
+            // levels in is otherwise a page - and a model that bullets the
+            // concepts of a page would grow the outline a page per concept.
+            if ($target === 'page' && $chapter !== null && $chapter['pages'] !== []) {
+                $deeperItem = ($ordered || $bullet) && $indent >= $pageIndent + 2;
+                $deeperProse = !$ordered && !$bullet && $indent > $pageIndent;
+                if ($deeperItem || $deeperProse) {
+                    [$text, $scopeTags] = $deeperItem ? [$itemText, $itemTags] : self::extractTags(self::clean($trimmed));
+                    $last = count($chapter['pages']) - 1;
+                    $chapter['pages'][$last]['tags'] = Text::mergeUnique($chapter['pages'][$last]['tags'], $scopeTags);
+                    $chapter['pages'][$last]['scope'] = self::addScope($chapter['pages'][$last]['scope'], $text, $deeperItem);
+                    continue;
+                }
+            }
+
             // Page: any list item nested below a chapter.
             if (($ordered || $bullet) && $indent >= 2) {
                 $chapter ??= ['title' => 'Chapter 1', 'description' => '', 'tags' => [], 'pages' => []];
                 $seenChapter = true;
                 if ($itemText !== '') {
-                    $chapter['pages'][] = ['title' => $itemText, 'tags' => $itemTags];
+                    $chapter['pages'][] = ['title' => $itemText, 'tags' => $itemTags, 'scope' => ''];
                     $target = 'page';
+                    $pageIndent = $indent;
                 }
                 continue;
             }
@@ -228,7 +264,11 @@ final class Structure
             foreach ((array)($chapter['pages'] ?? []) as $pi => $page) {
                 $pageTitle = is_array($page) ? (string)$page['title'] : (string)$page;
                 $pageTags = is_array($page) ? (array)($page['tags'] ?? []) : [];
+                $scope = is_array($page) ? Text::tidy((string)($page['scope'] ?? '')) : '';
                 $out .= '   ' . ($pi + 1) . '. ' . $pageTitle . ($pageTags === [] ? '' : ' ' . $marker($pageTags)) . "\n";
+                if ($scope !== '') {
+                    $out .= '      ' . self::escapeMarker($scope) . "\n";
+                }
             }
             $out .= "\n";
         }
@@ -289,6 +329,25 @@ final class Structure
     }
 
     /**
+     * Adds one line to a page's scope.
+     *
+     * A scope is one line by contract, so a continuation is joined with a
+     * space - and the concepts a model wrote as a nested list are joined with
+     * the semicolons it would have used on one line.
+     */
+    private static function addScope(string $carried, string $text, bool $item): string
+    {
+        $text = Text::tidy($text);
+        if ($text === '') {
+            return $carried;
+        }
+        if ($carried === '') {
+            return $text;
+        }
+        return $carried . ($item ? '; ' : ' ') . $text;
+    }
+
+    /**
      * A description, laid out so that parse() reads back exactly what went in.
      *
      * Every line carries the indentation its position requires – none for the
@@ -323,7 +382,7 @@ final class Structure
 
     /**
      * @param string[] $bookTags
-     * @param array{title:string,description:string,tags:string[],pages:array<int,array{title:string,tags:string[]}>}|null $chapter
+     * @param array{title:string,description:string,tags:string[],pages:array<int,array{title:string,tags:string[],scope:string}>}|null $chapter
      * @param string[] $names
      */
     private static function attachTags(array &$bookTags, ?array &$chapter, string $target, array $names): void

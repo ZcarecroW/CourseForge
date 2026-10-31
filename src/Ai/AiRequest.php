@@ -20,9 +20,22 @@ namespace CourseForge\Ai;
  * it: the prompt still asks for current facts, and the model answers from what
  * it knows, which is the same page it would have written before this field
  * existed. Nothing is refused for wanting to search.
+ *
+ * `context` is the part of the instructions that other requests share - the
+ * course map, then the chapter - as segments in the order they are sent, ahead
+ * of `system`. It is kept apart from `system` for one reason: so that each
+ * provider can mark where the shared part ends, which is where its prompt cache
+ * can stop. Anthropic and OpenRouter put a breakpoint behind each segment,
+ * OpenAI's newer models an explicit cache point, and every other provider gets
+ * the segments joined in front of the system text - which is still the order
+ * an automatic prefix cache needs. A provider that knows nothing of caching
+ * loses nothing: systemText() is the same instructions, in the same order.
  */
 final class AiRequest
 {
+    /**
+     * @param string[] $context
+     */
     public function __construct(
         public readonly string $model,
         public readonly string $system,
@@ -31,6 +44,7 @@ final class AiRequest
         public readonly int $maxTokens = 0,
         public readonly bool $research = false,
         public readonly int $maxSearches = 0,
+        public readonly array $context = [],
     ) {
     }
 
@@ -51,15 +65,56 @@ final class AiRequest
             $this->maxTokens,
             $this->research,
             $this->maxSearches,
+            $this->context,
         );
+    }
+
+    /**
+     * The shared segments and the system text, in sending order, blanks dropped.
+     *
+     * @return string[]
+     */
+    public function systemParts(): array
+    {
+        return array_values(array_filter(
+            [...$this->context, $this->system],
+            static fn(string $part): bool => trim($part) !== ''
+        ));
+    }
+
+    /** Everything a provider without segments puts in its system field. */
+    public function systemText(): string
+    {
+        return implode("\n\n", array_map('trim', $this->systemParts()));
+    }
+
+    /** Whether there is a shared part worth marking for a cache. */
+    public function hasContext(): bool
+    {
+        foreach ($this->context as $segment) {
+            if (trim($segment) !== '') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The name of the shared part, for providers that route their cache by key. */
+    public function cacheKey(): string
+    {
+        return CourseContext::key(array_values(array_filter(
+            $this->context,
+            static fn(string $part): bool => trim($part) !== ''
+        )));
     }
 
     /** The OpenAI `messages` array. An empty system prompt contributes nothing. */
     public function messages(): array
     {
         $messages = [];
-        if (trim($this->system) !== '') {
-            $messages[] = ['role' => 'system', 'content' => $this->system];
+        $system = $this->systemText();
+        if ($system !== '') {
+            $messages[] = ['role' => 'system', 'content' => $system];
         }
         $messages[] = ['role' => 'user', 'content' => $this->user];
         return $messages;

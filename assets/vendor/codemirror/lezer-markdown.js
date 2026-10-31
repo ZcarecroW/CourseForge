@@ -1,4 +1,4 @@
-import { NodeType, NodeProp, NodeSet, Tree, Parser, parseMixed } from '@lezer/common';
+import { NodeType, NodeProp, NodeSet, Tree, Parser, IterMode, parseMixed } from '@lezer/common';
 import { styleTags, tags, Tag } from '@lezer/highlight';
 
 class CompositeBlock {
@@ -16,6 +16,10 @@ class CompositeBlock {
         this.end = end;
         this.children = children;
         this.positions = positions;
+        /**
+        @internal Used only in list items
+        */
+        this.blankFirstLine = false;
         this.hashProp = [[NodeProp.contextHash, hash]];
     }
     addChild(child, pos) {
@@ -262,7 +266,7 @@ const DefaultSkipMarkup = {
         return true;
     },
     [Type.ListItem](bl, _cx, line) {
-        if (line.indent < line.baseIndent + bl.value && line.next > -1)
+        if (line.next < 0 ? bl.blankFirstLine && bl.children.length == 1 : line.indent < line.baseIndent + bl.value)
             return false;
         line.moveBaseColumn(line.baseIndent + bl.value);
         return true;
@@ -352,7 +356,7 @@ function isAtxHeading(line) {
     let pos = line.pos + 1;
     while (pos < line.text.length && line.text.charCodeAt(pos) == 35)
         pos++;
-    if (pos < line.text.length && line.text.charCodeAt(pos) != 32)
+    if (pos < line.text.length && !space(line.text.charCodeAt(pos)))
         return -1;
     let size = pos - line.pos;
     return size > 6 ? -1 : size;
@@ -370,7 +374,7 @@ function isSetextUnderline(line) {
 }
 const EmptyLine = /^[ \t]*$/, CommentEnd = /-->/, ProcessingEnd = /\?>/;
 const HTMLBlockStyle = [
-    [/^<(?:script|pre|style)(?:\s|>|$)/i, /<\/(?:script|pre|style)>/i],
+    [/^<(?:script|pre|style|textarea)(?:\s|>|$)/i, /<\/(?:script|pre|style|textarea)>/i],
     [/^\s*<!--/, CommentEnd],
     [/^\s*<\?/, ProcessingEnd],
     [/^\s*<![A-Z]/, />/],
@@ -519,6 +523,7 @@ const DefaultBlockParsers = {
         cx.startContext(Type.ListItem, line.basePos, newBase - line.baseIndent);
         cx.addNode(Type.ListMark, cx.lineStart + line.pos, cx.lineStart + line.pos + size);
         line.moveBaseColumn(newBase);
+        cx.block.blankFirstLine = newBase >= line.text.length;
         return null;
     },
     OrderedList(cx, line) {
@@ -531,6 +536,7 @@ const DefaultBlockParsers = {
         cx.startContext(Type.ListItem, line.basePos, newBase - line.baseIndent);
         cx.addNode(Type.ListMark, cx.lineStart + line.pos, cx.lineStart + line.pos + size);
         line.moveBaseColumn(newBase);
+        cx.block.blankFirstLine = newBase == line.text.length;
         return null;
     },
     ATXHeading(cx, line) {
@@ -1378,11 +1384,12 @@ const EmphasisUnderscore = { resolve: "Emphasis", mark: "EmphasisMark" };
 const EmphasisAsterisk = { resolve: "Emphasis", mark: "EmphasisMark" };
 const LinkStart = {}, ImageStart = {};
 class InlineDelimiter {
-    constructor(type, from, to, side) {
+    constructor(type, from, to, side, size = to - from) {
         this.type = type;
         this.from = from;
         this.to = to;
         this.side = side;
+        this.size = size;
     }
 }
 const Escapable = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
@@ -1442,13 +1449,13 @@ const DefaultInline = {
                 elt(Type.LinkMark, start + url[0].length, start + 1 + url[0].length)
             ]));
         }
-        let comment = /^!--[^>](?:-[^-]|[^-])*?-->/i.exec(after);
+        let comment = /^!--(?:-?>|[^]*?-->)/.exec(after);
         if (comment)
             return cx.append(elt(Type.Comment, start, start + 1 + comment[0].length));
         let procInst = /^\?[^]*?\?>/.exec(after);
         if (procInst)
             return cx.append(elt(Type.ProcessingInstruction, start, start + 1 + procInst[0].length));
-        let m = /^(?:![A-Z][^]*?>|!\[CDATA\[[^]*?\]\]>|\/\s*[a-zA-Z][\w-]*\s*>|\s*[a-zA-Z][\w-]*(\s+[a-zA-Z:_][\w-.:]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*(\/\s*)?>)/.exec(after);
+        let m = /^(?:![A-Z][^]*?>|!\[CDATA\[[^]*?\]\]>|\/[a-zA-Z][\w-]*\s*>|[a-zA-Z][\w-]*(\s+[a-zA-Z:_][\w-.:]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>)/.exec(after);
         if (!m)
             return -1;
         return cx.append(elt(Type.HTMLTag, start, start + 1 + m[0].length));
@@ -1558,12 +1565,13 @@ function finishLink(cx, content, type, start, startPos) {
 function parseURL(text, start, offset) {
     let next = text.charCodeAt(start);
     if (next == 60 /* '<' */) {
-        for (let pos = start + 1; pos < text.length; pos++) {
+        for (let pos = start + 1, esc = false; pos < text.length; pos++) {
             let ch = text.charCodeAt(pos);
-            if (ch == 62 /* '>' */)
+            if (ch == 62 /* '>' */ && !esc)
                 return elt(Type.URL, start + offset, pos + 1 + offset);
-            if (ch == 60 || ch == 10 /* '<\n' */)
+            if (ch == 60 && !esc || ch == 10 /* '<\n' */)
                 return false;
+            esc = ch == 92; /* '\\' */
         }
         return null;
     }
@@ -1722,7 +1730,7 @@ class InlineContext {
                 if (part instanceof InlineDelimiter && (part.side & 1 /* Mark.Open */) && part.type == close.type &&
                     // Ignore emphasis delimiters where the character count doesn't match
                     !(emp && ((close.side & 1 /* Mark.Open */) || (part.side & 2 /* Mark.Close */)) &&
-                        (part.to - part.from + closeSize) % 3 == 0 && ((part.to - part.from) % 3 || closeSize % 3))) {
+                        (part.size + close.size) % 3 == 0 && (part.size % 3 || close.size % 3))) {
                     open = part;
                     break;
                 }
@@ -1751,8 +1759,8 @@ class InlineContext {
                 content.push(this.elt(close.type.mark, close.from, end));
             let element = this.elt(type, start, end, content);
             // If there are leftover emphasis marker characters, shrink the close/open markers. Otherwise, clear them.
-            this.parts[j] = emp && open.from != start ? new InlineDelimiter(open.type, open.from, start, open.side) : null;
-            let keep = this.parts[i] = emp && close.to != end ? new InlineDelimiter(close.type, end, close.to, close.side) : null;
+            this.parts[j] = emp && open.from != start ? new InlineDelimiter(open.type, open.from, start, open.side, open.size) : null;
+            let keep = this.parts[i] = emp && close.to != end ? new InlineDelimiter(close.type, end, close.to, close.side, close.size) : null;
             // Insert the new element in this.parts
             if (keep)
                 this.parts.splice(i, 0, element);
@@ -1823,6 +1831,14 @@ InlineContext.linkStart = LinkStart;
 Opening delimiter type used for standard images.
 */
 InlineContext.imageStart = ImageStart;
+/**
+The delimiter type used for `*` emphasis notation.
+*/
+InlineContext.emphasisAsterisk = EmphasisAsterisk;
+/**
+Delimiter type for `_` emphasis notation.
+*/
+InlineContext.emphasisUnderscore = EmphasisUnderscore;
 function injectMarks(elements, marks) {
     if (!marks.length)
         return elements;
@@ -1879,7 +1895,7 @@ class FragmentCursor {
         }
         let c = this.cursor;
         if (!c) {
-            c = this.cursor = this.fragment.tree.cursor();
+            c = this.cursor = this.fragment.tree.cursor(IterMode.IncludeAnonymous | IterMode.IgnoreMounts);
             c.firstChild();
         }
         let rPos = pos + this.fragment.offset;
@@ -1895,14 +1911,20 @@ class FragmentCursor {
     }
     matches(hash) {
         let tree = this.cursor.tree;
+        while (tree && tree.type.isAnonymous && tree.children[0] instanceof Tree)
+            tree = tree.children[0];
         return tree && tree.prop(NodeProp.contextHash) == hash;
     }
     takeNodes(cx) {
         let cur = this.cursor, off = this.fragment.offset, fragEnd = this.fragmentEnd - (this.fragment.openEnd ? 1 : 0);
         let start = cx.absoluteLineStart, end = start, blockI = cx.block.children.length;
+        // Don't reuse anonymous nodes bigger than ¼ of the current
+        // block's size, to avoid creating lopsided trees.
+        let maxAnonSize = (cx.lineStart - cx.block.from) >> 2;
         let prevEnd = end, prevI = blockI;
-        for (;;) {
-            if (cur.to - off > fragEnd) {
+        scan: for (;;) {
+            if (cur.to - off > Math.min(fragEnd, cx.to) ||
+                cur.type.isAnonymous && cur.tree && (cur.to - cur.from > maxAnonSize || !canStopAfterLastChild(cur.tree))) {
                 if (cur.type.isAnonymous && cur.firstChild())
                     continue;
                 break;
@@ -1920,8 +1942,10 @@ class FragmentCursor {
             // parsing happens on block boundaries. Never stop directly
             // after an indented code block, since those can continue after
             // any number of blank lines.
-            if (cur.type.is("Block")) {
-                if (NotLast.indexOf(cur.type.id) < 0) {
+            if (cur.type.isAnonymous || cur.type.is("Block")) {
+                // We checked earlier that anon nodes end in a block after
+                // which we can stop reuse.
+                if (cur.type.isAnonymous || NotLast.indexOf(cur.type.id) < 0) {
                     end = cur.to - off;
                     blockI = cx.block.children.length;
                 }
@@ -1932,8 +1956,12 @@ class FragmentCursor {
                 prevEnd = cur.to - off;
                 prevI = cx.block.children.length;
             }
-            if (!cur.nextSibling())
-                break;
+            for (;;) {
+                if (cur.nextSibling())
+                    continue scan;
+                if (!cur.parent() || !cur.type.isAnonymous)
+                    break scan;
+            }
         }
         while (cx.block.children.length > blockI) {
             cx.block.children.pop();
@@ -1941,6 +1969,16 @@ class FragmentCursor {
         }
         return end - start;
     }
+}
+function canStopAfterLastChild(tree) {
+    while (tree.type.isAnonymous) {
+        let last = tree.children[tree.children.length - 1];
+        if (last instanceof Tree)
+            tree = last;
+        else
+            return false;
+    }
+    return tree.type.is("Block") && NotLast.indexOf(tree.type.id) < 0;
 }
 // Convert an input-stream-relative position to a
 // Markdown-doc-relative position by subtracting the size of all input

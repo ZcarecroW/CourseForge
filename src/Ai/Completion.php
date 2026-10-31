@@ -22,7 +22,10 @@ use CourseForge\Support\HttpException;
  */
 final class Completion
 {
-    /** @param array<string,mixed> $profile */
+    /**
+     * @param array<string,mixed> $profile
+     * @param string[] $context the shared segments that go ahead of $system - see AiRequest
+     */
     public static function run(
         array $profile,
         string $slot,
@@ -30,12 +33,18 @@ final class Completion
         string $user,
         bool $research = false,
         int $maxSearches = 0,
+        array $context = [],
     ): string {
         return self::provider($profile, $slot)
-            ->chat(self::request($profile, $slot, $system, $user, $research, $maxSearches));
+            ->chat(self::request($profile, $slot, $system, $user, $research, $maxSearches, $context));
     }
 
-    /** The request a slot would send, without sending it. @param array<string,mixed> $profile */
+    /**
+     * The request a slot would send, without sending it.
+     *
+     * @param array<string,mixed> $profile
+     * @param string[] $context
+     */
     public static function request(
         array $profile,
         string $slot,
@@ -43,6 +52,7 @@ final class Completion
         string $user,
         bool $research = false,
         int $maxSearches = 0,
+        array $context = [],
     ): AiRequest {
         $config = self::modelConfig($profile, $slot);
         return new AiRequest(
@@ -53,6 +63,7 @@ final class Completion
             $config['max_tokens'],
             $research,
             $maxSearches,
+            $context,
         );
     }
 

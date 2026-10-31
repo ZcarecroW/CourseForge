@@ -7,7 +7,7 @@
 const cfg = Object.assign({
   themeLight: "default",
   themeDark: "dark",
-  url: "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs",
+  url: "https://cdn.jsdelivr.net/npm/mermaid@12/dist/mermaid.esm.min.mjs",
 }, (window.MILELO_CONFIG && window.MILELO_CONFIG.mermaid) || {});
 
 /* The library comes from a CDN, with the configured address first and two
@@ -17,9 +17,9 @@ const cfg = Object.assign({
 const uniq = (list) => list.filter((v, i, a) => typeof v === "string" && v && a.indexOf(v) === i);
 const URLS = uniq([
   cfg.url,
-  "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs",
-  "https://esm.sh/mermaid@11",
-  "https://unpkg.com/mermaid@11/dist/mermaid.esm.min.mjs",
+  "https://cdn.jsdelivr.net/npm/mermaid@12/dist/mermaid.esm.min.mjs",
+  "https://esm.sh/mermaid@12",
+  "https://unpkg.com/mermaid@12/dist/mermaid.esm.min.mjs",
 ]);
 
 async function loadMermaid() {
@@ -52,10 +52,21 @@ function getMermaidTheme() {
   return isBookStackDarkMode() ? theme(cfg.themeDark, "dark") : theme(cfg.themeLight, "default");
 }
 
+/* Mermaid 12 moved its defaults to the ELK layout and the "neo" look, and gave
+   flowchart nodes a 120 px minimum width and labels a 120 px wrapping width,
+   which together doubled the size of a small flowchart. All four are pinned to
+   the 11.x values - the same ones CourseForge's preview sets - so a wiki does
+   not redraw every diagram because a library moved, and the ESM build never
+   fetches the ELK chunk unless a diagram asks for `layout: elk` itself.
+   Mermaid 11 understands the first two and ignores the rest. */
 const BASE_CONFIG = {
   startOnLoad: false,
   securityLevel: "strict",
+  layout: "dagre",
+  look: "classic",
   flowchart: {
+    minNodeWidth: 0,
+    wrappingWidth: 200,
     useMaxWidth: false,
     htmlLabels: true,
     nodeSpacing: 30,

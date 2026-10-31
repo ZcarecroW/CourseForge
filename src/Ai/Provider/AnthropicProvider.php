@@ -28,19 +28,18 @@ use Throwable;
  *   - the answer is an array of typed blocks, and on the current models a
  *     `thinking` block arrives before the text one, so `content[0]` is the
  *     wrong thing to read,
- *   - the newest models reject any non-default `temperature` with a 400, and
- *     the ceiling on the models that do accept one is 1.0, not OpenAI's 2.0.
+ *   - there is no sampling parameter at all: on API version 2026-10-21 a
+ *     `temperature`, `top_p` or `top_k` is a 400 on every model, so the
+ *     profile's temperature slider does not apply to Claude.
  *
- * Which model is in which of those camps is not decided here by name. The
- * models endpoint reports a `capabilities` object per model, and every gate in
- * this class is read out of it: whether the queue takes this model, how large
- * an output it will produce, and - by way of which kind of thinking it still
- * offers - whether a sampling parameter is legal. A list of model ids written
- * today is wrong within a release or two, and the way it fails is silent: a
- * model that quietly stops accepting `temperature` turns every page of a course
- * into a 400. The capability shape has outlived several generations of model
- * ids, so that is what is read, and the listing is cached for a day so the cost
- * of reading it is a database row rather than a request.
+ * What differs between models is not decided here by name. The models endpoint
+ * reports a `capabilities` object per model, and every gate in this class is
+ * read out of it: whether the queue takes this model, and how large an output
+ * it will produce. A list of model ids written today is wrong within a release
+ * or two, and the way it fails is silent. The capability shape has outlived
+ * several generations of model ids, so that is what is read, and the listing is
+ * cached for a day so the cost of reading it is a database row rather than a
+ * request.
  *
  * The other thing this class refuses to do is return a bad page. Anthropic
  * reports two failures at HTTP 200 - a refusal, and an answer cut off at the
@@ -54,8 +53,19 @@ use Throwable;
  */
 final class AnthropicProvider extends HttpProvider implements BatchCapable, SearchCapable
 {
-    /** Required on every call, and unchanged since the API launched. */
-    private const VERSION = '2023-06-01';
+    /**
+     * Required on every call, the model listing and the batch routes included.
+     *
+     * 2026-10-21 replaced 2023-06-01, the version the API launched with. What
+     * it changed for CourseForge is one thing: sampling parameters are refused
+     * on every model, where 2023-06-01 refused them only on the models that had
+     * moved to adaptive thinking - which is every current one, so a course
+     * written by a current model reads the same either way. The rest of the
+     * version (documents in assistant turns, citations in user turns, the
+     * Admin API fields) concerns requests this class does not make. A batch
+     * submitted under the old version finishes under it.
+     */
+    private const VERSION = '2026-10-21';
 
     /** How long a fetched model listing stands before it is read again. */
     private const CATALOGUE_SECONDS = 86400;
@@ -72,7 +82,7 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
      * pick a model, so cannot save an account, so can never be told what is
      * wrong with it.
      */
-    private const SEED = ['claude-haiku-4-5', 'claude-opus-5', 'claude-sonnet-5'];
+    private const SEED = ['claude-haiku-5-5', 'claude-opus-5-5', 'claude-sonnet-5-5'];
 
     /** Whether the last models() call actually spoke to the endpoint. */
     private bool $reachedEndpoint = true;
@@ -91,7 +101,7 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
     }
 
     /**
-     * The shortest system prompt worth putting a cache breakpoint on.
+     * The shortest prefix worth putting a cache breakpoint behind.
      *
      * Roughly 500 tokens of English, which is the smallest cacheable prefix any
      * current model has; the older ones want up to 4,096. Below the model's own
@@ -254,19 +264,6 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
         $payload = $this->payload($request);
         $res = $this->send('POST', '/v1/messages', $payload, $this->chatTimeout());
 
-        // The capability lookup decides whether `temperature` goes out at all,
-        // but it can be unavailable - an offline install, a listing that did
-        // not answer, a model id the listing has never heard of. This is the
-        // net under that: one retry without the parameter the endpoint just
-        // objected to turns a hard failure into a written page. It is also the
-        // only such net - a queued request is answered hours later and cannot
-        // be corrected - which is why payload() gates the parameter more
-        // cautiously for a batch than it does here.
-        if ($res->status === 400 && isset($payload['temperature']) && self::blamesSampling($res->message(500))) {
-            unset($payload['temperature']);
-            $res = $this->send('POST', '/v1/messages', $payload, $this->chatTimeout());
-        }
-
         $this->assertOk($res, 'the completion', $this->url('/v1/messages'));
         $this->assertJson($res, 'the completion');
 
@@ -422,8 +419,8 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
             'messages' => [['role' => 'user', 'content' => $request->user]],
         ];
 
-        if (trim($request->system) !== '') {
-            $payload['system'] = self::system($request->system, $queued);
+        if ($request->systemParts() !== []) {
+            $payload['system'] = self::system($request, $queued);
         }
 
         // The basic search tool, deliberately, and not the newer dated
@@ -440,32 +437,38 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
             $payload['tools'] = [$tool];
         }
 
-        // A queued request is the one that cannot be corrected: there is no
-        // retry behind it and no error to read for a day, so it omits what the
-        // listing could not confirm.
-        if ($this->acceptsSampling($request->model, !$queued)) {
-            // Anthropic's ceiling is 1.0; CourseForge's slider goes to 2.0
-            // because OpenAI's does.
-            $payload['temperature'] = max(0.0, min(1.0, $request->temperature));
-        }
+        // No `temperature`, `top_p` or `top_k`, whatever the profile says: on
+        // 2026-10-21 any of them is a 400 on every model, live or queued, and a
+        // queued one would only say so a day later. See VERSION.
 
         return $payload;
     }
 
     /**
-     * The system prompt, with a cache breakpoint on it when there is anything
-     * to gain.
+     * The system field, with a cache breakpoint behind every part that repeats.
      *
-     * This is the one place CourseForge's shape and Anthropic's pricing line up
-     * exactly. Every page of a course is generated from the same profile prompt
-     * library and the same course-level variables, so the system prompt is
-     * byte-identical across all of them; everything that differs per page - the
-     * page brief, the neighbouring titles, the author's extra context - is in
-     * the user turn. Anthropic renders a request as tools, then system, then
-     * messages, so a single breakpoint at the end of the system field caches
-     * precisely the part that repeats and nothing that does not. A cached read
-     * is a tenth of the input price, and inside a batch that tenth is halved
-     * again, which for a fifty-page course is most of the input bill.
+     * A page request arrives as up to three parts: the course context (the map
+     * and the research - identical for every page of the course), the chapter
+     * context (identical for every page of the chapter), and the system text
+     * (identical for every page whose content details match, which in a course
+     * nobody has tuned page by page is all of them). Anthropic renders tools,
+     * then system, then messages, and caches the prefix up to each breakpoint,
+     * so one breakpoint per part means a page that shares only the course with
+     * the previous one still reads the course from the cache, and a page in the
+     * same chapter reads all three. Everything that differs per page - the
+     * brief, its own tags, the neighbours already written - is in the user
+     * turn, behind the last breakpoint, where it belongs.
+     *
+     * This replaced a single breakpoint on the system text alone, which looked
+     * right and was not: the default page prompt put the page's own tags into
+     * the system text, so with tagging on no two pages shared it, every page
+     * paid the cache-write premium and none ever read the entry back - while
+     * the outline, by far the largest part of the prompt and the same for every
+     * page, sat in the user turn where it could never be cached.
+     *
+     * A request with no shared context gets no breakpoint at all. That is an
+     * outline, a revision or a scope plan: sent once, so a cache entry written
+     * for it is a quarter more on the input bill and never read back.
      *
      * The queued path asks for the one-hour lifetime rather than the default
      * five minutes because a batch is answered concurrently over an hour or
@@ -473,17 +476,17 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
      * generation keeps the five-minute default, where each page refreshes the
      * entry for free as the run walks through the course.
      *
-     * Two things would quietly break this and neither is done: putting anything
-     * that changes per request into the system prompt, and sending
-     * `output_config.effort`, whose resolved value is rendered into the prompt
-     * and so invalidates the cache whenever it is changed.
+     * A part shorter than CACHE_MIN_BYTES is sent without a breakpoint of its
+     * own; the next breakpoint still covers it, because the cache is a prefix.
+     * Sending `output_config.effort` would quietly break all of this - its
+     * value is rendered into the prompt - and it is not sent.
      *
      * @return string|array<int,array<string,mixed>>
      */
-    private static function system(string $system, bool $queued): string|array
+    private static function system(AiRequest $request, bool $queued): string|array
     {
-        if (strlen($system) < self::CACHE_MIN_BYTES) {
-            return $system;
+        if (!$request->hasContext()) {
+            return $request->systemText();
         }
 
         $control = ['type' => 'ephemeral'];
@@ -491,7 +494,18 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
             $control['ttl'] = '1h';
         }
 
-        return [['type' => 'text', 'text' => $system, 'cache_control' => $control]];
+        // Anthropic allows four breakpoints; the parts are at most three.
+        $blocks = [];
+        $prefix = 0;
+        foreach ($request->systemParts() as $part) {
+            $block = ['type' => 'text', 'text' => $part];
+            $prefix += strlen($part);
+            if ($prefix >= self::CACHE_MIN_BYTES) {
+                $block['cache_control'] = $control;
+            }
+            $blocks[] = $block;
+        }
+        return $blocks;
     }
 
     /**
@@ -540,68 +554,6 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
                 . 'Pick a model the queue takes, or run this generation live.'
             );
         }
-    }
-
-    /**
-     * Whether `temperature` may be sent to this model.
-     *
-     * There is no capability flag for sampling, so this is read off the two
-     * capabilities that move with it: which kind of thinking the model offers,
-     * and whether it has effort levels. The models that still accept a sampling
-     * parameter are the ones that still offer the old explicit thinking mode
-     * (`thinking.types.enabled`, the budget_tokens generation); the ones that
-     * reject it are the ones that have moved to adaptive thinking and
-     * `output_config.effort`. That is an inference and it is written down as
-     * one - but it is an inference over live capability data rather than over a
-     * list of model ids, and it fails in the safe direction. If the capability
-     * shape ever changes, this stops sending `temperature`, which costs a
-     * slightly different sampling default; a list of ids fails the other way,
-     * with a hard 400 on every page of every course until somebody edits it.
-     *
-     * A model nothing is known about is the interesting case, and the answer
-     * depends on which path is asking - which is why the caller supplies it
-     * rather than this method assuming one. Live, the parameter goes out and
-     * chat() retries without it the moment the endpoint objects, so being wrong
-     * costs one round trip. Queued, there is no retry to fall back on and no
-     * error to see for a day: batch parameters are validated asynchronously, so
-     * five hundred pages submitted against a model that refuses a sampling
-     * parameter are accepted at the door and come back as five hundred errored
-     * lines tomorrow. One unreachable model listing - an expired cache, a
-     * network blip, an offline install - is all it takes, so the queued path
-     * omits what it could not confirm and accepts the default sampling instead.
-     *
-     * @param bool $whenUnknown what to answer when the listing says nothing about this model
-     */
-    private function acceptsSampling(string $model, bool $whenUnknown): bool
-    {
-        $record = $this->record($model);
-        if ($record === null) {
-            return $whenUnknown;
-        }
-        // The effort ladder is asked about FIRST, and the order is the whole
-        // point. A current model reports both: it still lists
-        // thinking.types.enabled among the shapes it knows, and it also lists
-        // low..max under effort. Reading the legacy flag first therefore says
-        // "this one still samples" about exactly the generation that answers a
-        // sampling parameter with a 400. An effort ladder is the marker that
-        // cannot be misread - no model has ever had one and accepted
-        // temperature - so it is the one that decides.
-        if (($record['effort'] ?? []) !== []) {
-            return false; // moved to output_config.effort, where sampling is a 400
-        }
-        if (($record['legacy_thinking'] ?? null) === true) {
-            return true; // still the budget_tokens generation, which still samples
-        }
-        if (($record['thinking'] ?? null) !== true) {
-            return true; // a model with no thinking at all predates the change
-        }
-        return false; // adaptive thinking only
-    }
-
-    private static function blamesSampling(string $message): bool
-    {
-        $message = strtolower($message);
-        return str_contains($message, 'temperature') || str_contains($message, 'top_p') || str_contains($message, 'top_k');
     }
 
     /* ------------------------------------------------------- SearchCapable */
@@ -656,8 +608,9 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
      * a page being written. A listing is read from the local cache when there
      * is a fresh one, fetched at most once per instance when there is not, and
      * a fetch that fails is logged and treated as "nothing is known": the
-     * request then goes out with the conservative defaults and the retry in
-     * chat() catches what it has to.
+     * request then goes out with the configured output ceiling and the queue
+     * check lets it through, because being unable to look something up is not
+     * evidence against it.
      *
      * @return array<string,array<string,mixed>>
      */
@@ -807,10 +760,10 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
         $thinking = is_array($capabilities['thinking'] ?? null) ? $capabilities['thinking'] : [];
         $effort = is_array($capabilities['effort'] ?? null) ? $capabilities['effort'] : [];
 
-        // The effort levels this model offers, which is both what an effort
-        // dropdown would have to be built from and - because only the models
-        // that moved to output_config.effort have any - the marker for the
-        // generation that no longer accepts a sampling parameter.
+        // The effort levels this model offers, and which kinds of thinking:
+        // what an effort control would have to be built from. Nothing gates on
+        // them since 2026-10-21 took sampling away from every model, which is
+        // what they used to decide.
         $levels = [];
         if (($effort['supported'] ?? null) === true) {
             foreach (['low', 'medium', 'high', 'xhigh', 'max'] as $level) {

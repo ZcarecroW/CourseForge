@@ -166,6 +166,29 @@ content deliberately — the preview shows the renamed page as new and the old
 one as removed, which is the moment to notice. If the outline cannot be parsed
 at all, nothing is changed.
 
+**Page scopes.** Under each page title the outline carries one line, indented
+deeper than the page, naming what that page and no other page teaches:
+
+```
+2. Reactivity
+   What the chapter leaves the reader able to do …
+   1. Reactive state with ref and reactive
+      ref(); reactive(); when to use which; unwrapping in templates
+   2. Computed values and watchers
+      computed(); caching; watch(); watchEffect()
+```
+
+The scopes are how the pages divide the subject between them, and every page is
+written knowing every other page's scope — so the page on `ref` leaves `watch` to
+the page that owns it instead of teaching it a second time. An outline the AI
+designs comes with them; the preview shows each under its page and counts the
+pages that have none. For an outline from before 5.3, or pages added by hand,
+**Plan missing scopes** in the AI panel fills them in with one request for the
+whole course (the circular button plans every page afresh). A scope can also be
+edited like any other line of the outline, or on the Content tab's *context*
+inspector, where it sits above the extra context. See
+[What a page knows about the others](#34-what-a-page-knows-about-the-others-and-what-that-costs).
+
 #### Content
 
 Three panes on a wide screen:
@@ -941,6 +964,69 @@ Over MCP the same thing is `fix_typography`: `course_id`, an optional
 course), an optional `language` to set the text as something other than the
 course's own, and `preview` to be told what would change without changing it.
 
+### 3.4 What a page knows about the others, and what that costs
+
+A page is written in a request of its own, so it knows about the rest of the
+course exactly what its prompt tells it. Until 5.3 that was the whole outline -
+the book description and every chapter's six-hundred-word description - and the
+titles of the other pages, and nothing about what was on them. Two pages could
+each decide that the reader needed `watch()` explained, and both did. And every
+page paid for the outline in full: on a course of twenty chapters it was most of
+every prompt.
+
+A page is now told three things instead.
+
+**What every page owns.** The outline carries a scope under every page (see
+[Structure](#structure)), and the page prompt carries the *course map*: every
+chapter, and every page numbered `chapter.page` with its title and its scope.
+The model writing page 2.1 can see that `watch()` belongs to 2.2 and leave it
+there, mentioning the page instead of teaching it. The scopes are planned once,
+together, by the request that designs the outline - or by **Plan missing
+scopes** for an outline that has none - which is the one moment anything sees
+the whole course at once.
+
+**Its own chapter.** The chapter's goal - its description - goes with every page
+of that chapter, and only that chapter's.
+
+**What its neighbours actually say.** When pages of the same chapter are already
+written, the brief lists them with their section headings, read from the stored
+text. Plans drift; headings show where. They cost one line per neighbour, no
+request, and only the same chapter is shown - where overlap happens. A batch,
+which submits every page at once, has no written neighbours and relies on the
+map alone.
+
+**Ordered for the cache.** The map and the chapter come first and are the same,
+byte for byte, for every page that shares them, so each provider's prompt cache
+can serve them:
+
+| Provider | What CourseForge sends |
+|---|---|
+| Anthropic | A cache breakpoint behind the course map, the chapter and the system text. A request sent once - an outline, a scope plan - gets none, because a cache write costs a quarter more and would never be read. |
+| OpenAI (gpt-5.6 and later) | An explicit cache point behind each shared part and `prompt_cache_options.mode: explicit`, so only the shared part is written - these models bill cache writes, and the implicit point would also write each page's own brief. Plus `prompt_cache_key`, which keeps a course's pages where its cache is warm. Earlier models: the key, and the shared part first. |
+| Google Gemini | The shared parts open the system instruction, which is what implicit caching keys on (4,096 tokens minimum on the current models). |
+| OpenRouter | `cache_control` markers for Claude, Gemini and Qwen upstreams, and `prompt_cache_key` for every model, which OpenRouter also uses to keep a course on one provider. |
+| everything else | The shared part first, in one system message - the order any automatic prefix cache needs. |
+
+Measured on a course of 20 chapters × 7 pages with six-hundred-word
+descriptions, all pages written (`plan()` for every page, old code against new):
+
+| Per page | 5.2 | 5.3 |
+|---|---:|---:|
+| Prompt | 138,832 characters (about 35,000 tokens) | 47,464 characters (about 12,000 tokens) |
+| of it identical for every page of the course or chapter | the system text, when no page had tags | 35,727 characters |
+| Building the prompt | 18 ms, 10 MB peak | 7 ms, 6 MB peak |
+
+That is two thirds less input before any cache, and, on Anthropic's prices with
+the cache reading the shared part at a tenth, a little over nine tenths less
+billed input on a live run. Building the prompt also stopped reading the text of
+every page of the course to write one of them, which a batch did once per page.
+
+Over MCP, `get_page_brief` hands the shared parts to the client separately, each
+with an id. A client that passes the ids back as `known_context` is not sent the
+same text again - which, for a client writing a whole course in one
+conversation, is the difference between the map entering its context window once
+and entering it a hundred times.
+
 
 ## 4. The prompt library
 
@@ -985,31 +1071,44 @@ on — a prompt is a Markdown-ish template, and it is easier to read as one.
 | Group | Slots | Sent when |
 |---|---|---|
 | **Global** | 3 | with every request: persona, language reminder, audience |
-| **Course structure** | 5 | designing or revising an outline |
-| **Page writing** | 7 | writing one page: persona, formatting, length, context, feedback |
-| **Content details** | 26 | one *enabled* and one *disabled* text per element |
+| **Course structure** | 8 | designing or revising an outline, researched facts, planning page scopes |
+| **Page writing** | 9 | writing one page: persona, formatting, length, course and chapter context, the brief, written neighbours, feedback |
+| **Content details** | 28 | one *enabled* and one *disabled* text per element |
 
 The handful of slots the pipeline cannot work without (`page_system`,
 `page_rules`, `page_user`, `overview_user`, …) fall back to a compact built-in
 text rather than sending nothing, whichever layer emptied them.
 
-How a page prompt is assembled:
+How a page prompt is assembled, in the order it is sent:
 
 ```
+shared  = page_context_block      (brief, description, the course map with every page's scope)
+          + research_block        (only when research is stored)    <- the same for every page of the course
+        + page_chapter_block      (the chapter and its goal)        <- the same for every page of the chapter
+
 system  = global_system
         + audience_block          (only when an audience is set)
         + page_system
         + page_rules
         + length_rules            (only when a min or max length is set)
-        + feature_<element>_on|off   for all 13 elements, in catalogue order
+        + feature_<element>_on|off   for every element, in catalogue order
         + the two hard rules enforced in code
         + language_instruction
 
-user    = page_context_block      (title, description, full outline)
-        + page_user               (this page's place in the course)
+user    = page_user               (this page: its place, its scope, its keywords, its neighbours)
+        + page_written_block      (only when pages of its chapter are written: their headings)
         + extra_context_block     (only when the page has extra context)
         + page_regenerate_user    (only on a rewrite with feedback)
 ```
+
+The shared segments go first and reach the provider apart from the system text,
+so that its prompt cache can stop right behind them - see
+[What a page knows about the others](#34-what-a-page-knows-about-the-others-and-what-that-costs).
+Anything that differs from page to page belongs in `page_user`, never in the
+shared segments or in `page_system`: one changed byte early in a prompt is a
+cache miss for everything after it. `{{course_structure}}` is the compact map;
+`{{course_structure_full}}` is still there for a library that wants the whole
+outline, with its six-hundred-word descriptions, sent with every page.
 
 The two hard rules — never emit a level-1 heading, never emit raw HTML — live in
 `PageGenerator` rather than in the config, because the rest of the application
@@ -1138,15 +1237,18 @@ never see them.
 **Anthropic** puts the system prompt in a top-level `system` field rather than in
 the message list, requires `max_tokens` on every request, and answers with an
 array of typed blocks in which a `thinking` block may arrive before the text, so
-`content[0]` is the wrong thing to read. The newest models reject any non-default
-`temperature` with a 400, and the ceiling on the ones that accept it is 1.0
-rather than OpenAI's 2.0. Which model is in which camp is **not** decided by
-name: the models endpoint reports a `capabilities` object per model, and every
-gate in the adapter is read out of it — whether the queue takes this model, how
-large an output it will produce, whether a sampling parameter is legal. A list of
-model ids written today is wrong within a release or two and fails silently, and
-the capability shape has outlived several generations of ids. The listing is
-cached for a day, so reading it costs a database row.
+`content[0]` is the wrong thing to read. Since 5.3 it speaks API version
+`2026-10-21`, on which `temperature`, `top_p` and `top_k` are a 400 on every
+model, so none is sent and the profile's temperature does not apply to Claude.
+(On the old version only the models that had moved to adaptive thinking refused
+them, which is every current one - a course written by a current model reads the
+same.) What differs between models is **not** decided by name: the models
+endpoint reports a `capabilities` object per model, and every gate in the
+adapter is read out of it — whether the queue takes this model and how large an
+output it will produce. A list of model ids written today is wrong within a
+release or two and fails silently, and the capability shape has outlived several
+generations of ids. The listing is cached for a day, so reading it costs a
+database row.
 
 **OpenAI** is the reference implementation of the shape everything else copies,
 so its adapter inherits the generic one rather than sitting beside it — which
@@ -1595,7 +1697,7 @@ to be told it twice.
 | **account** | 9 | Who you are connected as, your own display name and password, your own connections. Never anybody else's. | no |
 | **courses** | 6 | List, read, create, rename and delete courses, and `get_next_step`, which says what to do next | no |
 | **research** | 3 | The briefing for the subject: what to look up, and where to store what was found | no |
-| **structure** | 5 | The outline: read the brief, write one, preview it, or have CourseForge design it | yes |
+| **structure** | 6 | The outline: read the brief, write one, preview it, have CourseForge design it, or plan what each page alone teaches | yes |
 | **pages** | 8 | Read a writing brief, store a finished page, edit a page or a chapter, or have CourseForge write one | yes |
 | **details** | 5 | The thirteen switchable elements and seven values, at course, chapter or page level | no |
 | **tags** | 8 | The tag library and what is tagged with what | no |
@@ -1614,7 +1716,8 @@ The ten or so that matter:
 | `list_courses` | Every course this account can see, with its progress. An administrator sees every account's, each marked with its owner. |
 | `create_course` | An empty course from a one-line brief. It has no outline yet. |
 | `generate_structure` | CourseForge calls the course's own model and designs the outline. Matching is by title, so a new outline over a written course would delete every page it does not name — when that would happen the outline is handed back to look at instead of being applied, and applying it afterwards costs nothing, so the model is never called twice over the same decision. |
-| `get_page_brief` | The complete writing brief for one page, or for the next unwritten one. Costs nothing: no model is called. |
+| `get_page_brief` | The complete writing brief for one page, or for the next unwritten one, with the course map that says what every page alone teaches. Pass the context ids it gives you back as `known_context` and the map is not sent again. Costs nothing: no model is called. |
+| `plan_page_scopes` | CourseForge plans, in one request, the scope of every page that has none - what that page and no other page teaches - and writes it into the outline. `all` plans every page afresh. |
 | `write_page` | Stores the Markdown of one page, and says how many are still unwritten, so a loop knows when it is finished. |
 | `estimate_run` | What `start_run` would do with the same arguments, without doing it. Free, because the prompts it measures are built and thrown away. |
 | `start_run` | Queues a set of pages on the server and returns at once. Survives the client disconnecting, the session ending and a restart of the server. |
@@ -1632,8 +1735,8 @@ in its own instructions rather than leaving it to be inferred.
 
 **You write it.** `get_page_brief` hands you the *same* prompt CourseForge would
 have sent a model itself: the persona, the formatting contract, the content
-details resolved for that page, the course structure, the page's place in it,
-what came before and what comes next. You write the page and store it with
+details resolved for that page, the course map with what every page owns, the
+page's place in it, and what came before and what comes next. You write the page and store it with
 `write_page`. **This spends nothing on the server.** The work happens inside the
 Claude application, on your own subscription, and CourseForge never holds a
 credential. A page written this way carries exactly the same rules as one written
@@ -2086,6 +2189,8 @@ an update from than a browser tab.
 - A web server that can serve the directory and run PHP.
 - Outbound HTTPS to your AI provider and your BookStack instance.
 - A browser with import-map support (Chrome/Edge 89+, Firefox 108+, Safari 16.4+).
+  Diagrams in the preview use Mermaid 12, which needs Safari 17.4 or later; the
+  rest of the application does not.
 
 Optional, and only for the features that need them:
 
@@ -2781,8 +2886,12 @@ Seven files, chosen because each covers something whose failure mode is silent:
 | `invite-many.test.php` | That several invites open at once each open their own door and only their own, that revoking or spending one leaves the others alone, and that only the first-run invite goes to a file |
 | `hardening.test.php` | The lock on secrets: that no verdict locks, a secure one opens, an exposed one closes, an acknowledgement opens and can be withdrawn, that the confirmation code has to be the one shown and goes stale, and that a profile carrying a key is refused at the domain while the lock holds |
 
-Those are the files worth reading first; the suite has grown to forty-two of
-them and four hundred and seventeen tests at the time of writing, all passing.
+Those are the files worth reading first; the suite has grown to forty-three of
+them and four hundred and thirty-four tests at the time of writing, all passing.
+`course-context.test.php` holds down 5.3: that scopes survive every road an
+outline travels, that every page brief carries every page's scope, that the
+shared part of the prompt is byte-identical where pages share it, and that each
+provider receives it in the shape its cache needs.
 
 `tools/detect-test.mjs` is separate and older: sixty snippets the language
 detector must recognise, twenty-five it must not, and the rule that a fence
@@ -3315,7 +3424,7 @@ when there is one, and from its own `CONFIG` when there is not.
 
 Shiki, highlight.js, Mermaid, MathJax and the optional Font Awesome glyph are
 fetched by the browser from CDNs, as the standalone script does, on the versions
-current at this release: Shiki 4, highlight.js 11, Mermaid 11, MathJax 4,
+current at this release: Shiki 4, highlight.js 11, Mermaid 12, MathJax 4,
 Font Awesome 7. The module URLs are advanced fields on the cards, for a wiki
 that must not reach a CDN and hosts its own copies.
 

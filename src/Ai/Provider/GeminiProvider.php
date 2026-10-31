@@ -77,9 +77,14 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
      * a listed family still counts.
      */
     private const BATCH_MODELS = [
+        'gemini-4-argon',
+        'gemini-3.8-flash',
+        // Deprecated on 2026-10-08; Google routes requests that name them to
+        // 3.8 and 3.6. Kept because a profile saved before then still names
+        // them, and refusing the run would be stricter than Google is.
         'gemini-3.7-flash',
-        'gemini-3.6-flash',
         'gemini-3.5-flash',
+        'gemini-3.6-flash',
         'gemini-3.5-flash-lite',
         'gemini-3.1-pro-preview',
         'gemini-2.5-pro',
@@ -466,18 +471,6 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
         );
     }
 
-    /* ------------------------------------------------- the wire body, shared */
-
-    /**
-     * One GenerateContentRequest, as sent live and as embedded in a batch.
-     *
-     * Live and queued generation share this deliberately. A batch line is
-     * byte-identical to the body of a live call, and the moment the two are
-     * built in different places they start to differ in ways that only show up
-     * a day later in half a course.
-     *
-     * @return array<string,mixed>
-     */
     /* ------------------------------------------------------- SearchCapable */
 
     public function supportsSearch(): bool
@@ -502,6 +495,18 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
             . 'and the free tier includes a daily allowance.';
     }
 
+    /* ------------------------------------------------- the wire body, shared */
+
+    /**
+     * One GenerateContentRequest, as sent live and as embedded in a batch.
+     *
+     * Live and queued generation share this deliberately. A batch line is
+     * byte-identical to the body of a live call, and the moment the two are
+     * built in different places they start to differ in ways that only show up
+     * a day later in half a course.
+     *
+     * @return array<string,mixed>
+     */
     private function payload(AiRequest $request): array
     {
         $payload = [
@@ -510,10 +515,17 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
             ],
         ];
 
-        if (trim($request->system) !== '') {
+        if ($request->systemParts() !== []) {
             // A Content object with parts, not a string, and it takes no role.
-            // There is no system role in contents[] to put this in.
-            $payload['systemInstruction'] = ['parts' => [['text' => $request->system]]];
+            // There is no system role in contents[] to put this in. The shared
+            // course and chapter context are its first parts, which is what
+            // implicit caching keys on: every page of a course opens with the
+            // same few thousand tokens, and from the second page on Google
+            // bills them at the cached rate without being asked.
+            $payload['systemInstruction'] = ['parts' => array_map(
+                static fn(string $part): array => ['text' => $part],
+                $request->systemParts()
+            )];
         }
 
         $config = [];
@@ -581,14 +593,14 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
         if ($model === '') {
             throw HttpException::unprocessable('No model is selected for this request.');
         }
-        // The model list writes every name as models/gemini-3.7-flash, and that
+        // The model list writes every name as models/gemini-3.8-flash, and that
         // is what people paste back in.
         if (str_starts_with($model, 'models/')) {
             $model = substr($model, 7);
         }
         if (preg_match('#^[A-Za-z0-9._-]+$#', $model) !== 1) {
             throw HttpException::unprocessable(
-                '"' . $model . '" is not a ' . self::LABEL . ' model id. It should look like gemini-3.7-flash.'
+                '"' . $model . '" is not a ' . self::LABEL . ' model id. It should look like gemini-3.8-flash.'
             );
         }
         return $model;

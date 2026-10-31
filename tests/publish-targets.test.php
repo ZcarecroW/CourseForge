@@ -531,7 +531,6 @@ test('the counts of several wikis are folded the way each of them means', functi
 
 test('a log line labelled with its wiki is still classified by its verb', function () {
     $method = new ReflectionMethod(CourseForge\Mcp\Handlers\PublishTools::class, 'classify');
-    $method->setAccessible(true);
 
     $items = $method->invoke(null, [
         '[Live wiki] Created page "One".',
@@ -671,7 +670,6 @@ test('an installation upgrading keeps the book it already published', function (
     $unpublished = Db::lastId();
 
     $upgrade = new ReflectionMethod(CourseForge\Support\Db::class, 'upgradeToV8');
-    $upgrade->setAccessible(true);
     $upgrade->invoke(null, Db::pdo());
 
     $targets = Targets::all($projectId);
@@ -702,7 +700,6 @@ test('a course that never chose an instance gains no destination on upgrade', fu
     $projectId = Db::lastId();
 
     $upgrade = new ReflectionMethod(CourseForge\Support\Db::class, 'upgradeToV8');
-    $upgrade->setAccessible(true);
     $upgrade->invoke(null, Db::pdo());
 
     same([], Targets::all($projectId), 'nothing was invented for it');

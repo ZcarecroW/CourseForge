@@ -14,11 +14,13 @@
                     "pages": [
                         {
                             "title": "Installing Node and the CLI",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         },
                         {
                             "title": "The project layout",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 },
@@ -29,11 +31,13 @@
                     "pages": [
                         {
                             "title": "ref and reactive",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         },
                         {
                             "title": "computed and watch",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -55,11 +59,13 @@
                     "pages": [
                         {
                             "title": "Page one",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         },
                         {
                             "title": "Page two",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 },
@@ -70,7 +76,8 @@
                     "pages": [
                         {
                             "title": "Page three",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -92,11 +99,13 @@
                     "pages": [
                         {
                             "title": "Page one",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         },
                         {
                             "title": "Page two",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -128,11 +137,13 @@
                             "tags": [
                                 "Node",
                                 "CLI"
-                            ]
+                            ],
+                            "scope": ""
                         },
                         {
                             "title": "Another page",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -154,7 +165,8 @@
                     "pages": [
                         {
                             "title": "Real page",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -176,7 +188,8 @@
                     "pages": [
                         {
                             "title": "Reactive state with ref",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -198,7 +211,8 @@
                     "pages": [
                         {
                             "title": "Page",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -220,11 +234,13 @@
                     "pages": [
                         {
                             "title": "Tabbed page",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         },
                         {
                             "title": "Second",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -246,11 +262,13 @@
                     "pages": [
                         {
                             "title": "Page A",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         },
                         {
                             "title": "Page B",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -272,7 +290,8 @@
                     "pages": [
                         {
                             "title": "Orphan page",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 },
@@ -283,7 +302,8 @@
                     "pages": [
                         {
                             "title": "Page",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -305,7 +325,8 @@
                     "pages": [
                         {
                             "title": "Page",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -329,7 +350,8 @@
                     "pages": [
                         {
                             "title": "Page",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -357,7 +379,8 @@
                     "pages": [
                         {
                             "title": "Page",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -379,11 +402,13 @@
                     "pages": [
                         {
                             "title": "これは十分に長い文章であり、タイトルではなく説明文として読まれるべきです。本当にそうです。",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         },
                         {
                             "title": "ページ",
-                            "tags": []
+                            "tags": [],
+                            "scope": ""
                         }
                     ]
                 }
@@ -410,7 +435,8 @@
                             "tags": [
                                 "B",
                                 "C"
-                            ]
+                            ],
+                            "scope": ""
                         }
                     ]
                 }
@@ -435,6 +461,117 @@
             "description": "",
             "tags": [],
             "chapters": []
+        }
+    },
+    {
+        "name": "a scope under each page",
+        "markdown": "# Book\n\n1. Reactivity\n   What the chapter leaves the reader able to do.\n   1. Reactive state with ref and reactive {{Vue}}\n      ref() and reactive(); when to use which; unwrapping in templates\n   2. Computed values\n      computed(); caching and dependencies;\n      writable computed\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Reactivity",
+                    "description": "What the chapter leaves the reader able to do.",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Reactive state with ref and reactive",
+                            "tags": [
+                                "Vue"
+                            ],
+                            "scope": "ref() and reactive(); when to use which; unwrapping in templates"
+                        },
+                        {
+                            "title": "Computed values",
+                            "tags": [],
+                            "scope": "computed(); caching and dependencies; writable computed"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "concepts bulleted under a page are its scope, not pages",
+        "markdown": "# Book\n\n1. Chapter\n   1. Page one\n      - first concept\n      - second concept {{Tag}}\n   2. Page two\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page one",
+                            "tags": [
+                                "Tag"
+                            ],
+                            "scope": "first concept; second concept"
+                        },
+                        {
+                            "title": "Page two",
+                            "tags": [],
+                            "scope": ""
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "prose at the page indentation is still chapter description",
+        "markdown": "# Book\n\n1. Chapter\n   1. Page one\n   A sentence written after the pages belongs to the chapter.\n   2. Page two\n      Its scope.\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "A sentence written after the pages belongs to the chapter.",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page one",
+                            "tags": [],
+                            "scope": ""
+                        },
+                        {
+                            "title": "Page two",
+                            "tags": [],
+                            "scope": "Its scope."
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        "name": "a scope that starts like a list item survives escaping",
+        "markdown": "# Book\n\n1. Chapter\n   1. Page\n      \\2. Steps of the build; the cache\n",
+        "expected": {
+            "title": "Book",
+            "description": "",
+            "tags": [],
+            "chapters": [
+                {
+                    "title": "Chapter",
+                    "description": "",
+                    "tags": [],
+                    "pages": [
+                        {
+                            "title": "Page",
+                            "tags": [],
+                            "scope": "2. Steps of the build; the cache"
+                        }
+                    ]
+                }
+            ]
         }
     }
 ]

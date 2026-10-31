@@ -85,6 +85,7 @@ final class BatchDriver
                 $plan['user'],
                 $plan['research'],
                 $plan['max_searches'],
+                $plan['context'],
             );
             $items[] = new BatchItemRequest(RunManager::customId($pageId), $request->withModel($model));
         }

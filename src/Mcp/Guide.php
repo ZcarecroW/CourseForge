@@ -9,6 +9,7 @@ use CourseForge\Domain\Research;
 use CourseForge\Mcp\Handlers\PublishTools;
 use CourseForge\Security\Access;
 use CourseForge\Security\Actor;
+use CourseForge\Support\Db;
 
 /**
  * Where a course has got to, and the one call that moves it forward.
@@ -240,6 +241,20 @@ final class Guide
         /* ---------------------------------------------------- pages to write */
 
         if ($remaining > 0) {
+            // A page with no scope is one the others can only guess about. Said
+            // before the first page is written, while planning them still
+            // shapes every page rather than the ones that are left.
+            $unscoped = (int)(Db::row(
+                "SELECT COUNT(*) AS n FROM pages WHERE project_id = ? AND TRIM(scope) = ''",
+                [$courseId]
+            )['n'] ?? 0);
+            $scopes = $unscoped > 0 && $written === 0
+                ? ' Before the first page: ' . $unscoped . ' of the ' . $pages . ' pages have no scope - the line '
+                    . 'under a page title in the outline naming what it alone teaches, which every brief shows for '
+                    . 'every page. Add them with get_structure and apply_structure, or have CourseForge plan them '
+                    . 'with plan_page_scopes, so no two pages teach the same thing.'
+                : '';
+
             return self::step(
                 self::STATE_WRITING,
                 '"' . $name . '": ' . $written . ' of ' . $pages . ' pages written, ' . $remaining . ' to go.',
@@ -247,10 +262,12 @@ final class Guide
                 Scopes::PAGES,
                 ['course_id' => $courseId],
                 'get_page_brief with no page_id hands you the brief for the next page that has no text yet: the '
-                    . 'formatting contract, the content details resolved for that page, where it sits in the course '
-                    . 'and what the pages either side of it cover. Write that page from the brief, send it back with '
-                    . 'write_page, then call get_page_brief again for the next one. Repeat until this tool says '
-                    . 'there are none left. Nothing is spent: you are doing the writing.',
+                    . 'course map with what every page alone teaches, the chapter, the formatting contract, the '
+                    . 'content details resolved for that page and where it sits in the course. Write that page from '
+                    . 'the brief, send it back with write_page, then call get_page_brief again for the next one, '
+                    . 'passing the context ids you were given as known_context so the map is not sent twice. Repeat '
+                    . 'until this tool says there are none left. Nothing is spent: you are doing the writing.'
+                    . $scopes,
                 $progress,
                 $course,
                 'Loop get_page_brief then write_page ' . $remaining . ' more '

@@ -1,4 +1,4 @@
-import { Annotation, StateEffect, EditorSelection, codePointAt, codePointSize, fromCodePoint, Facet, combineConfig, StateField, Prec, Text, Transaction, MapMode, RangeValue, RangeSet, CharCategory } from '@codemirror/state';
+import { Annotation, StateEffect, EditorSelection, codePointAt, codePointSize, fromCodePoint, Facet, combineConfig, StateField, Prec, Transaction, Text, MapMode, RangeValue, RangeSet, CharCategory } from '@codemirror/state';
 import { Direction, logException, showTooltip, EditorView, ViewPlugin, getTooltip, Decoration, WidgetType, keymap } from '@codemirror/view';
 import { syntaxTree, indentUnit } from '@codemirror/language';
 
@@ -1295,7 +1295,7 @@ const commitCharacters = /*@__PURE__*/Prec.highest(/*@__PURE__*/EditorView.domEv
     keydown(event, view) {
         let field = view.state.field(completionState, false);
         if (!field || !field.open || field.open.disabled || field.open.selected < 0 ||
-            event.key.length > 1 || event.ctrlKey && !(windows && event.altKey) || event.metaKey)
+            !event.key || event.key.length > 1 || event.ctrlKey && !(windows && event.altKey) || event.metaKey)
             return false;
         let option = field.open.options[field.open.selected];
         let result = field.active.find(a => a.source == option.source);

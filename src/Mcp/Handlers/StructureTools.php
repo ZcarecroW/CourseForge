@@ -5,6 +5,7 @@ namespace CourseForge\Mcp\Handlers;
 
 use CourseForge\Ai\Completion;
 use CourseForge\Ai\Prompt;
+use CourseForge\Ai\ScopePlanner;
 use CourseForge\Ai\StructureGenerator;
 use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Details;
@@ -170,6 +171,28 @@ final class StructureTools
                 required: ['course_id'],
                 handler: static fn(Actor $actor, array $args): array => self::generateStructure($actor, Args::of($args)),
                 destructive: true,
+                spends: true,
+            ),
+
+            new Tool(
+                name: 'plan_page_scopes',
+                scope: Scopes::STRUCTURE,
+                title: 'Have CourseForge plan what each page teaches',
+                description: 'Every page in an outline can carry a scope: one line, indented under its title, naming '
+                    . 'what that page and no other page teaches. Every page brief carries every page\'s scope, which '
+                    . 'is how a page knows what the others cover and leaves it to them. Outlines designed now come '
+                    . 'with scopes; this fills them in for pages that have none - an older outline, pages added by '
+                    . 'hand - in one request to the course\'s outline model, and writes them into the stored '
+                    . 'outline. Pass all to plan every page afresh. No page text is touched. To plan them without '
+                    . 'spending anything, add the scope lines to the outline yourself and store it with '
+                    . 'apply_structure.',
+                properties: [
+                    'course_id' => Schema::courseId(),
+                    'all' => Schema::bool('Plan every page afresh instead of only the pages that have no scope.'),
+                ],
+                required: ['course_id'],
+                handler: static fn(Actor $actor, array $args): array => self::planScopes($actor, Args::of($args)),
+                idempotent: true,
                 spends: true,
             ),
 
@@ -370,6 +393,31 @@ final class StructureTools
         );
 
         return self::applied($project, $owner, $diff, 'apply_structure');
+    }
+
+    /** @return array<string,mixed> */
+    private static function planScopes(Actor $actor, Args $args): array
+    {
+        ['project' => $project, 'owner' => $owner] = Resolve::course($actor, $args->id());
+        $profile = Resolve::profile($project);
+
+        Runtime::beginLongRequest();
+        $result = ScopePlanner::run($profile, $project, $args->bool('all'));
+        Audit::record($actor->username, 'structure.scopes', (string)$project['name'], $result['planned'] . ' planned', 'mcp');
+
+        return [
+            'tool' => 'plan_page_scopes',
+            'course_id' => (int)$project['id'],
+            'owner' => $owner,
+            'planned' => $result['planned'],
+            'still_missing' => $result['unanswered'],
+            'next_step' => $result['planned'] === 0 && $result['missing'] === 0
+                ? 'Every page already has a scope; nothing was asked. Pass all true to plan them afresh.'
+                : ($result['unanswered'] === []
+                    ? 'Every page now has a scope. get_structure shows them under the page titles.'
+                    : 'The model gave no scope for the pages listed in still_missing. Call this again to plan '
+                        . 'those, or add their scope lines to the outline with apply_structure.'),
+        ];
     }
 
     /** @return array<string,mixed> */

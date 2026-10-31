@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace CourseForge\Mcp\Handlers;
 
+use CourseForge\Ai\CourseContext;
 use CourseForge\Ai\PageGenerator;
 use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Pages;
@@ -47,14 +48,22 @@ final class PageTools
                 scope: Scopes::PAGES,
                 title: 'Get the writing brief for a page',
                 description: 'The complete writing brief for one page: the system instructions and the user prompt '
-                    . 'CourseForge would send a model, including the course structure, the page\'s place in it, what '
-                    . 'comes before and after, and the content details resolved for it. Write the page from this '
-                    . 'brief and send the result to write_page. Omit page_id to be given the next page that has not '
-                    . 'been written yet. Costs nothing: no model is called.',
+                    . 'CourseForge would send a model, the content details resolved for it, and the shared '
+                    . 'course context - the course map, in which every page carries the scope it alone teaches, '
+                    . 'plus the chapter it belongs to. Write the page from this brief and send the result to '
+                    . 'write_page. Omit page_id to be given the next page that has not been written yet. The shared '
+                    . 'context is the same for page after page: pass the ids you were given back as known_context, '
+                    . 'and while they still match that text is left out of the answer instead of being sent again. '
+                    . 'Costs nothing: no model is called.',
                 properties: [
                     'course_id' => Schema::courseId(),
                     'page_id' => Schema::int('A specific page. Omit for the next unwritten one.'),
                     'feedback' => Schema::text('Revision instructions, when rewriting a page that already has text.'),
+                    'known_context' => Schema::string(
+                        'The shared_context_id and chapter_context_id you already hold from earlier briefs of this '
+                        . 'course, comma-separated. A segment whose id is listed is not repeated; one that has '
+                        . 'changed since - an edited outline, the next chapter - is sent again under a new id.'
+                    ),
                 ],
                 required: ['course_id'],
                 handler: static fn(Actor $actor, array $args): array => self::pageBrief($actor, Args::of($args)),
@@ -118,13 +127,18 @@ final class PageTools
                 name: 'update_page',
                 scope: Scopes::PAGES,
                 title: 'Edit a page',
-                description: 'Changes a page\'s title, its Markdown, or the extra context that is added to its brief '
-                    . 'the next time it is written. Only the fields you give are changed. Renaming a page also '
-                    . 'rewrites the stored outline, because chapters and pages are matched by title.',
+                description: 'Changes a page\'s title, its scope, its Markdown, or the extra context that is added '
+                    . 'to its brief the next time it is written. Only the fields you give are changed. A new title '
+                    . 'or scope also rewrites the stored outline, because both are lines of it and chapters and '
+                    . 'pages are matched by title.',
                 properties: [
                     'course_id' => Schema::courseId(),
                     'page_id' => Schema::int('The page to change.'),
                     'title' => Schema::string('A new title.'),
+                    'scope' => Schema::string(
+                        'What this page and no other page teaches, as one line - concepts separated by semicolons. '
+                        . 'Every page brief shows every page\'s scope. An empty string removes it.'
+                    ),
                     'content' => Schema::text('New Markdown for the page.'),
                     'extra_context' => Schema::text(
                         'Notes that are added to this page\'s brief - things this page in particular must cover, or '
@@ -260,11 +274,32 @@ final class PageTools
 
         $write = 'call write_page with course_id ' . $project['id'] . ' and page_id ' . $page['id'] . '.';
 
+        // The course map and the chapter goal are most of a brief and the
+        // same for page after page. A client that already holds the exact
+        // text - it names the id it was given - is not sent it again, which
+        // for a client writing a whole course in one conversation is the
+        // difference between the map filling its context window once and
+        // filling it a hundred times. Each id is a hash of its text, so an
+        // edited outline gets a new one and the new map is sent.
+        $known = Text::splitList((string)$args->raw('known_context'));
+        $segment = static function (string $text) use ($known): array {
+            $id = CourseContext::id($text);
+            $held = $id !== '' && in_array($id, $known, true);
+            return [$id, $held ? '(unchanged - the text you were given under ' . $id . ')' : $text];
+        };
+        [$courseId, $courseText] = $segment($plan['shared']['course']);
+        [$chapterId, $chapterText] = $segment($plan['shared']['chapter']);
+
         return [
             'course_id' => (int)$project['id'],
             'page_id' => (int)$page['id'],
             'page_title' => (string)$plan['page']['title'],
             'chapter_title' => (string)$plan['page']['chapter_title'],
+            'page_scope' => (string)$plan['page']['scope'],
+            'shared_context_id' => $courseId,
+            'shared_context' => $courseText,
+            'chapter_context_id' => $chapterId,
+            'chapter_context' => $chapterText,
             'system_instructions' => $plan['system'],
             'writing_brief' => $plan['user'],
             'web_research' => $research,
@@ -276,6 +311,9 @@ final class PageTools
                     . ' - then write the page from the brief above, citing what you actually read in a '
                     . 'closing "## Sources" section. Then ' . $write
                 : 'Write the page from the brief above, then ' . $write,
+            'reading_order' => 'shared_context, chapter_context, system_instructions, writing_brief. Teach what '
+                . 'page_scope names and nothing the course map gives to another page. On the next call pass '
+                . 'known_context: "' . implode(', ', array_filter([$courseId, $chapterId])) . '".',
         ];
     }
 
@@ -391,25 +429,33 @@ final class PageTools
                 );
             }
         }
+        if ($args->has('scope')) {
+            // One line by contract: it is a line of the outline.
+            $fields['scope'] = Text::tidy($args->raw('scope'));
+        }
         if ($args->has('content')) {
             $fields['content'] = $args->raw('content');
             // Text that arrives from outside the generator still has to leave
-            // the page in a state the rest of the application understands.
-            $fields['status'] = trim($fields['content']) === '' ? 'pending' : 'done';
+            // the page in a state the rest of the application understands -
+            // the same state the browser and the generator leave it in. This
+            // used to write 'done', a status nothing else knows.
+            $fields['status'] = trim($fields['content']) === '' ? 'pending' : 'generated';
             $fields['error'] = '';
         }
         if ($args->has('extra_context')) {
             $fields['extra_context'] = $args->raw('extra_context');
         }
         if ($fields === []) {
-            throw HttpException::unprocessable('Nothing to change. Give a title, content or extra_context.');
+            throw HttpException::unprocessable('Nothing to change. Give a title, scope, content or extra_context.');
         }
 
         Pages::update((int)$page['id'], $fields);
 
         // A rename changes what the outline says, and the outline is what the
-        // next generation reads - so they must not be allowed to disagree.
-        if (isset($fields['title'])) {
+        // next generation reads - so they must not be allowed to disagree. A
+        // scope is a line of the outline too.
+        $resync = isset($fields['title']) || isset($fields['scope']);
+        if ($resync) {
             \CourseForge\Domain\Projects::resyncStructure($owner, (int)$project['id']);
         }
 
@@ -417,7 +463,7 @@ final class PageTools
             'updated' => true,
             'page_id' => (int)$page['id'],
             'changed' => array_keys($fields),
-            'structure_resynced' => isset($fields['title']),
+            'structure_resynced' => $resync,
         ];
     }
 

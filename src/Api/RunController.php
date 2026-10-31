@@ -438,7 +438,7 @@ final class RunController
         for ($i = 0; $i < $total; $i += $step) {
             $pageId = $pageIds[$i];
             $plan = PageGenerator::plan($profile, $project, $pageId);
-            $chars += mb_strlen($plan['system']) + mb_strlen($plan['user']);
+            $chars += mb_strlen(implode('', $plan['context'])) + mb_strlen($plan['system']) + mb_strlen($plan['user']);
 
             $page = $rows[$pageId] ?? [];
             $params = Details::resolve(

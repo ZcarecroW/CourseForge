@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace CourseForge\Api;
 
+use CourseForge\Ai\ScopePlanner;
 use CourseForge\Ai\StructureGenerator;
 use CourseForge\Domain\Chapters;
 use CourseForge\Domain\Pages;
@@ -260,6 +261,34 @@ final class ProjectController
         Projects::applyStructure($project, $markdown, $request->bool('confirm_removals'));
 
         return ['project' => Projects::tree($owner, $id), 'applied' => true];
+    }
+
+    /**
+     * Plans what each page alone teaches, for the pages that have no scope -
+     * or for all of them, with `all`.
+     *
+     * One request to the outline model, whatever the size of the course; the
+     * scopes land in the pages and in the stored outline. Nothing is removed
+     * and no page text is touched, so there is nothing to confirm.
+     */
+    public static function planScopes(Request $request, ?Actor $actor): array
+    {
+        $me = $actor ?? throw HttpException::unauthorized();
+        $id = $request->id('id');
+        $project = Access::project($me, $id);
+        $owner = (string)$project['username'];
+
+        if ($project['profile_id'] === null) {
+            throw HttpException::unprocessable('Assign a profile to this course first.');
+        }
+
+        $profile = Profiles::data($owner, (int)$project['profile_id']);
+        Runtime::beginLongRequest();
+
+        $result = ScopePlanner::run($profile, $project, $request->bool('all'));
+        Audit::record($me->username, 'structure.scopes', (string)$project['name'], $result['planned'] . ' planned');
+
+        return ['project' => Projects::tree($owner, $id)] + $result;
     }
 
     /**

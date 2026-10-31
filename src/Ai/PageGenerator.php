@@ -19,13 +19,24 @@ use Throwable;
 /**
  * Writes exactly one course page.
  *
- * The prompt is assembled in three layers:
- *   1. the persona and the universal formatting contract,
- *   2. the resolved content details for this page (course → chapter → page),
- *   3. the concrete brief with the page's place in the course.
+ * The prompt is assembled in four layers, in the order they are sent:
+ *   1. the context the page shares with others - the course map and what was
+ *      researched, then the chapter it belongs to (see CourseContext),
+ *   2. the persona and the universal formatting contract,
+ *   3. the resolved content details for this page (course → chapter → page),
+ *   4. the concrete brief with the page's place in the course.
  *
- * Layer 2 is what makes a page in one chapter carry exercises and diagrams
+ * Layer 3 is what makes a page in one chapter carry exercises and diagrams
  * while a page in the next one carries neither.
+ *
+ * Layer 1 comes first because it is the part that repeats. It is byte-identical
+ * for every page of a course (the course segment) or of a chapter (the chapter
+ * segment), and it is handed to the provider as separate segments rather than
+ * folded into the system text, so that each adapter can put a cache breakpoint
+ * behind it: the map is paid for once and read back at a tenth of the price by
+ * every page after it. Anything that differs per page - the brief, the page's
+ * own tags, the neighbours already written - stays out of it, because one
+ * changed byte in a prefix makes everything after it a cache miss.
  *
  * Building the prompt and sending it are separate steps. The live path does
  * both in one breath; the batch runner builds a few dozen prompts, hands them
@@ -66,6 +77,7 @@ final class PageGenerator
                 $plan['user'],
                 $plan['research'],
                 $plan['max_searches'],
+                $plan['context'],
             );
             return self::store($project, $plan['page'], $content);
         } catch (Throwable $e) {
@@ -75,17 +87,28 @@ final class PageGenerator
     }
 
     /**
-     * The two prompt halves for one page, without sending anything.
+     * The prompt for one page, without sending anything.
+     *
+     * `context` is the shared part, as segments in the order they are sent:
+     * the course, then the chapter. A provider places them ahead of `system`
+     * and caches behind each; a consumer with no use for the distinction -
+     * a token estimate, a connected client - can join them.
      *
      * @param array<string,mixed> $profile
      * @param array<string,mixed> $project
-     * @return array{page:array<string,mixed>,system:string,user:string,research:bool,max_searches:int}
+     * `shared` is the same two segments by name, for a consumer that hands them
+     * out separately - get_page_brief, which lets a client skip the ones it holds.
+     *
+     * @return array{page:array<string,mixed>,context:string[],shared:array{course:string,chapter:string},system:string,user:string,research:bool,max_searches:int}
      */
     public static function plan(array $profile, array $project, int $pageId, string $feedback = ''): array
     {
         $projectId = (int)$project['id'];
-        $pages = Pages::ordered($projectId);
+        $pages = Pages::outline($projectId);
         $page = self::locate($pages, $pageId);
+        // The one page whose text the prompt can quote back: its own, for a
+        // rewrite. Read alone rather than with the whole course.
+        $page['content'] = Pages::contents($projectId, [$pageId])[$pageId] ?? '';
 
         $library = Prompt::library($profile);
         $details = Details::resolve(...Projects::chain(
@@ -99,6 +122,27 @@ final class PageGenerator
         $vars = self::vars($profile, $project, $page, $pages, $params, $feedback);
 
         $wantsLength = (int)($params['min_length'] ?? 0) > 0 || (int)($params['max_length'] ?? 0) > 0;
+
+        // A brief that still quotes the chapter goal itself - a prompt library
+        // customised before the chapter had a segment of its own - would carry
+        // it twice. The brief wins, because it is the one somebody wrote.
+        $briefTemplate = trim((string)($library['page_user'] ?? ''));
+        $chapterInBrief = str_contains($briefTemplate, '{{chapter_description}}');
+
+        $shared = [
+            'course' => Prompt::join(
+                Prompt::slotOrDefault($library, 'page_context_block', $vars,
+                    "Course: {{book_title}}\nBrief: {{topic}}\n{{book_description}}\n\nCourse map:\n\n{{course_structure}}"),
+                // Only when somebody actually researched the course. Part of
+                // the course segment because it is about the course: read by
+                // every page, and cached with the map.
+                Research::has($project)
+                    ? Prompt::slotOrDefault($library, 'research_block', $vars, '{{research_block}}')
+                    : '',
+            ),
+            'chapter' => $chapterInBrief ? '' : Prompt::slot($library, 'page_chapter_block', $vars),
+        ];
+        $context = array_values(array_filter($shared, static fn(string $segment): bool => $segment !== ''));
 
         $system = Prompt::join(
             Prompt::slot($library, 'global_system', $vars),
@@ -119,23 +163,18 @@ final class PageGenerator
         );
 
         $user = Prompt::join(
-            Prompt::slotOrDefault($library, 'page_context_block', $vars,
-                "Course: {{book_title}}\n{{book_description}}\n\nFull course structure:\n\n{{course_structure}}"),
-            // Only when somebody actually researched the course. Placed after
-            // the course context and before the page brief so that what was
-            // established about the subject is read before the instruction to
-            // write about it, and by every page rather than by the one that
-            // happened to run a search.
-            Research::has($project)
-                ? Prompt::slotOrDefault($library, 'research_block', $vars, '{{research_block}}')
-                : '',
             Prompt::slotOrDefault($library, 'page_user', $vars,
-                "Write page {{page_number_global}} of {{total_pages}}.\n"
-                . "Chapter {{chapter_index}}: {{chapter_title}} – {{chapter_description}}\n"
-                . "Page {{page_index}}: {{page_title}}\n"
-                . "Previously covered: {{previous_page_titles}}\n"
-                . "Coming next: {{next_page_titles}}\n\n"
+                "Write page {{page_ref}} of the course map: {{page_title}}\n"
+                . "What this page alone teaches: {{page_scope}}\n"
+                . "The page before it: {{previous_page}}\n"
+                . "The page after it: {{next_page}}\n\n"
                 . "Cover exactly this page's scope and do not duplicate other pages."),
+            // What the neighbours turned out to contain, which is not always
+            // what the map planned. Only when one of them has been written.
+            (string)$vars['written_pages'] !== ''
+                ? Prompt::slotOrDefault($library, 'page_written_block', $vars,
+                    "Already written in this chapter - do not repeat it:\n\n{{written_pages}}")
+                : '',
             trim((string)$page['extra_context']) !== ''
                 ? Prompt::slotOrDefault($library, 'extra_context_block', $vars,
                     "Additional context supplied by the author, which must be respected:\n\n{{extra_context}}")
@@ -155,6 +194,8 @@ final class PageGenerator
         // is already paying for its searches.
         return [
             'page' => $page,
+            'context' => $context,
+            'shared' => $shared,
             'system' => $system,
             'user' => $user,
             'research' => (bool)($features['web_research'] ?? false),
@@ -285,14 +326,18 @@ final class PageGenerator
         $pageId = (int)$page['id'];
         $global = (int)$page['global_idx'];
         $titles = array_map(static fn(array $row): string => (string)$row['title'], $pages);
+        $chapters = Chapters::ordered($projectId);
 
         $effectiveTags = Tags::resolved($projectId)['effective']['page'][$pageId] ?? [];
+        $tags = Tags::names($effectiveTags);
+        $previous = $pages[$global - 1] ?? null;
+        $next = $pages[$global + 1] ?? null;
 
         // Offered as {{link_targets}} but not part of any default prompt: the
-        // course structure already lists every title, and duplicating it would
+        // course map already lists every title, and duplicating it would
         // double the token cost of each page.
         $targets = [];
-        foreach (Chapters::ordered($projectId) as $chapter) {
+        foreach ($chapters as $chapter) {
             $targets[] = 'Chapter: ' . $chapter['title'];
         }
         foreach ($pages as $row) {
@@ -307,7 +352,12 @@ final class PageGenerator
             'topic' => (string)$project['topic'],
             'book_title' => Projects::bookTitle($project),
             'book_description' => (string)$project['book_desc'],
-            'course_structure' => (string)$project['structure_md'],
+            // The map, not the outline: every page with what it alone teaches,
+            // and none of the six hundred words per chapter the outline spends
+            // on its cover pages. The outline is still there for a prompt
+            // library that wants it, under its own name.
+            'course_structure' => CourseContext::map($pages, $chapters),
+            'course_structure_full' => (string)$project['structure_md'],
             // Empty unless somebody researched the course, which is what makes
             // the research_block slot disappear rather than render a heading
             // over nothing.
@@ -318,14 +368,28 @@ final class PageGenerator
             'chapter_description' => (string)$page['chapter_description'],
             'page_index' => (int)$page['idx'] + 1,
             'page_title' => (string)$page['title'],
+            'page_ref' => CourseContext::ref($page),
+            // Never blank in a sentence that introduces it: a model told
+            // "What this page alone teaches:" and then nothing fills the gap
+            // with a guess of its own and believes it.
+            'page_scope' => trim((string)$page['scope']) !== ''
+                ? (string)$page['scope']
+                : '(not planned - work it out from the title and the course map)',
             'page_number_global' => $global + 1,
             'total_pages' => count($pages),
             'previous_page_titles' => implode(', ', array_slice($titles, max(0, $global - 3), min(3, $global))),
             'next_page_titles' => implode(', ', array_slice($titles, $global + 1, 3)),
+            'previous_page' => $previous !== null ? CourseContext::line($previous) : '(none - this is the first page)',
+            'next_page' => $next !== null ? CourseContext::line($next) : '(none - this is the last page)',
+            'written_pages' => CourseContext::writtenNeighbours(
+                $pages,
+                $page,
+                static fn(array $ids): array => Pages::contents($projectId, $ids),
+            ),
             'extra_context' => (string)$page['extra_context'],
             'existing_content' => (string)$page['content'],
             'feedback' => trim($feedback),
-            'tags' => Tags::names($effectiveTags),
+            'tags' => $tags !== '' ? $tags : '(none)',
             'link_targets' => implode("\n", $targets),
         ];
     }

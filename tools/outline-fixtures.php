@@ -41,6 +41,10 @@ function outlineFixtures(): array
         'dashes and colons after a title with tags' => "# Book\n\n1. Chapter - {{A}}\n   1. Page: {{B, C}}\n",
         'only a title and prose' => "# Book\n\nJust a description, nothing else.\n",
         'nothing at all' => "\n\n",
+        'a scope under each page' => "# Book\n\n1. Reactivity\n   What the chapter leaves the reader able to do.\n   1. Reactive state with ref and reactive {{Vue}}\n      ref() and reactive(); when to use which; unwrapping in templates\n   2. Computed values\n      computed(); caching and dependencies;\n      writable computed\n",
+        'concepts bulleted under a page are its scope, not pages' => "# Book\n\n1. Chapter\n   1. Page one\n      - first concept\n      - second concept {{Tag}}\n   2. Page two\n",
+        'prose at the page indentation is still chapter description' => "# Book\n\n1. Chapter\n   1. Page one\n   A sentence written after the pages belongs to the chapter.\n   2. Page two\n      Its scope.\n",
+        'a scope that starts like a list item survives escaping' => "# Book\n\n1. Chapter\n   1. Page\n      \\2. Steps of the build; the cache\n",
     ];
 }
 

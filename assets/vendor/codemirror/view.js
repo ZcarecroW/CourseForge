@@ -53,8 +53,8 @@ function attrsEq(a, b, ignore) {
     if (!b)
         b = noAttrs;
     let keysA = Object.keys(a), keysB = Object.keys(b);
-    if (keysA.length - (ignore && keysA.indexOf(ignore) > -1 ? 1 : 0) !=
-        keysB.length - (ignore && keysB.indexOf(ignore) > -1 ? 1 : 0))
+    if (keysA.length - (0) !=
+        keysB.length - (0))
         return false;
     for (let key of keysA) {
         if (key != ignore && (keysB.indexOf(key) == -1 || a[key] !== b[key]))
@@ -255,10 +255,10 @@ class Decoration extends RangeValue {
     given position.
     */
     static widget(spec) {
-        let side = Math.max(-10000, Math.min(10000, spec.side || 0)), block = !!spec.block;
+        let side = Math.max(-1e4, Math.min(10000, spec.side || 0)), block = !!spec.block;
         side += (block && !spec.inlineOrder)
-            ? (side > 0 ? 300000000 /* Side.BlockAfter */ : -400000000 /* Side.BlockBefore */)
-            : (side > 0 ? 100000000 /* Side.InlineAfter */ : -100000000 /* Side.InlineBefore */);
+            ? (side > 0 ? 300000000 /* Side.BlockAfter */ : -4e8 /* Side.BlockBefore */)
+            : (side > 0 ? 100000000 /* Side.InlineAfter */ : -1e8 /* Side.InlineBefore */);
         return new PointDecoration(spec, side, side, block, spec.widget || null, false);
     }
     /**
@@ -268,13 +268,13 @@ class Decoration extends RangeValue {
     static replace(spec) {
         let block = !!spec.block, startSide, endSide;
         if (spec.isBlockGap) {
-            startSide = -500000000 /* Side.GapStart */;
+            startSide = -5e8 /* Side.GapStart */;
             endSide = 400000000 /* Side.GapEnd */;
         }
         else {
             let { start, end } = getInclusive(spec, block);
-            startSide = (start ? (block ? -300000000 /* Side.BlockIncStart */ : -1 /* Side.InlineIncStart */) : 500000000 /* Side.NonIncStart */) - 1;
-            endSide = (end ? (block ? 200000000 /* Side.BlockIncEnd */ : 1 /* Side.InlineIncEnd */) : -600000000 /* Side.NonIncEnd */) + 1;
+            startSide = (start ? (block ? -3e8 /* Side.BlockIncStart */ : -1 /* Side.InlineIncStart */) : 500000000 /* Side.NonIncStart */) - 1;
+            endSide = (end ? (block ? 200000000 /* Side.BlockIncEnd */ : 1 /* Side.InlineIncEnd */) : -6e8 /* Side.NonIncEnd */) + 1;
         }
         return new PointDecoration(spec, startSide, endSide, block, spec.widget || null, true);
     }
@@ -305,7 +305,7 @@ Decoration.none = RangeSet.empty;
 class MarkDecoration extends Decoration {
     constructor(spec) {
         let { start, end } = getInclusive(spec);
-        super(start ? -1 /* Side.InlineIncStart */ : 500000000 /* Side.NonIncStart */, end ? 1 /* Side.InlineIncEnd */ : -600000000 /* Side.NonIncEnd */, null, spec);
+        super(start ? -1 /* Side.InlineIncStart */ : 500000000 /* Side.NonIncStart */, end ? 1 /* Side.InlineIncEnd */ : -6e8 /* Side.NonIncEnd */, null, spec);
         this.tagName = spec.tagName || "span";
         this.attrs = spec.class && spec.attributes ? combineAttrs(spec.attributes, { class: spec.class })
             : spec.class ? { class: spec.class } : spec.attributes || noAttrs;
@@ -322,7 +322,7 @@ class MarkDecoration extends Decoration {
 MarkDecoration.prototype.point = false;
 class LineDecoration extends Decoration {
     constructor(spec) {
-        super(-200000000 /* Side.Line */, -200000000 /* Side.Line */, null, spec);
+        super(-2e8 /* Side.Line */, -2e8 /* Side.Line */, null, spec);
     }
     eq(other) {
         return other instanceof LineDecoration &&
@@ -430,6 +430,8 @@ class BlockWrapper extends RangeValue {
 }
 BlockWrapper.prototype.startSide = BlockWrapper.prototype.endSide = -1;
 
+const isElt = (node) => node.nodeType == 1;
+const isText = (node) => node.nodeType == 3;
 function getSelection(root) {
     let target;
     // Browsers differ on whether shadow roots have a getSelection
@@ -460,9 +462,9 @@ function hasSelection(dom, selection) {
     }
 }
 function clientRectsFor(dom) {
-    if (dom.nodeType == 3)
+    if (isText(dom))
         return textRange(dom, 0, dom.nodeValue.length).getClientRects();
-    else if (dom.nodeType == 1)
+    else if (isElt(dom))
         return dom.getClientRects();
     else
         return [];
@@ -482,7 +484,7 @@ function domIndex(node) {
     }
 }
 function isBlockElement(node) {
-    return node.nodeType == 1 && /^(DIV|P|LI|UL|OL|BLOCKQUOTE|DD|DT|H\d|SECTION|PRE)$/.test(node.nodeName);
+    return isElt(node) && /^(DIV|P|LI|UL|OL|BLOCKQUOTE|DD|DT|H\d|SECTION|PRE)$/.test(node.nodeName);
 }
 function scanFor(node, off, targetNode, targetOff, dir) {
     for (;;) {
@@ -492,14 +494,15 @@ function scanFor(node, off, targetNode, targetOff, dir) {
             if (node.nodeName == "DIV")
                 return false;
             let parent = node.parentNode;
-            if (!parent || parent.nodeType != 1)
+            if (!parent || !isElt(parent))
                 return false;
             off = domIndex(node) + (dir < 0 ? 0 : 1);
             node = parent;
         }
-        else if (node.nodeType == 1) {
+        else if (isElt(node)) {
             node = node.childNodes[off + (dir < 0 ? -1 : 0)];
-            if (node.nodeType == 1 && node.contentEditable == "false")
+            if (isElt(node) &&
+                (node.nodeName == "IMG" || node.nodeName == "BR" || node.contentEditable == "false"))
                 return false;
             off = dir < 0 ? maxOffset(node) : 0;
         }
@@ -509,7 +512,7 @@ function scanFor(node, off, targetNode, targetOff, dir) {
     }
 }
 function maxOffset(node) {
-    return node.nodeType == 3 ? node.nodeValue.length : node.childNodes.length;
+    return isText(node) ? node.nodeValue.length : node.childNodes.length;
 }
 function flattenRect(rect, toLeft) {
     let { left, right } = rect;
@@ -540,16 +543,21 @@ function getScale(elt, rect) {
 function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
     let doc = dom.ownerDocument, win = doc.defaultView || window;
     for (let cur = dom, stop = false; cur && !stop;) {
-        if (cur.nodeType == 1) { // Element
+        if (isElt(cur)) { // Element
             let bounding, top = cur == doc.body;
-            let scaleX = 1, scaleY = 1;
+            let scaleX = 1, scaleY = 1, xScroll = true, yScroll = true;
             if (top) {
                 bounding = windowRect(win);
             }
             else {
-                if (/^(fixed|sticky)$/.test(getComputedStyle(cur).position))
+                let style = getComputedStyle(cur);
+                if (/^(fixed|sticky)$/.test(style.position))
                     stop = true;
-                if (cur.scrollHeight <= cur.clientHeight && cur.scrollWidth <= cur.clientWidth) {
+                if (cur.scrollHeight <= cur.clientHeight || !/auto|scroll/.test(style.overflowY))
+                    yScroll = false;
+                if (cur.scrollWidth <= cur.clientWidth || !/auto|scroll/.test(style.overflowX))
+                    xScroll = false;
+                if (!xScroll && !yScroll) {
                     cur = cur.assignedSlot || cur.parentNode;
                     continue;
                 }
@@ -560,7 +568,8 @@ function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
                     top: rect.top, bottom: rect.top + cur.clientHeight * scaleY };
             }
             let moveX = 0, moveY = 0;
-            if (y == "nearest") {
+            if (!yScroll) ;
+            else if (y == "nearest") {
                 if (rect.top < bounding.top + yMargin) {
                     moveY = rect.top - (bounding.top + yMargin);
                     if (side > 0 && rect.bottom > bounding.bottom + moveY)
@@ -579,7 +588,8 @@ function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
                         rect.bottom - boundingHeight + yMargin;
                 moveY = targetTop - bounding.top;
             }
-            if (x == "nearest") {
+            if (!xScroll) ;
+            else if (x == "nearest") {
                 if (rect.left < bounding.left + xMargin) {
                     moveX = rect.left - (bounding.left + xMargin);
                     if (side > 0 && rect.right > bounding.right + moveX)
@@ -643,10 +653,10 @@ function scrollableParents(dom, getX = true) {
         if (cur == doc.body || ((!getX || x) && y)) {
             break;
         }
-        else if (cur.nodeType == 1) {
-            if (!y && cur.scrollHeight > cur.clientHeight)
+        else if (isElt(cur)) {
+            if (!y && cur.scrollHeight > cur.clientHeight && /scroll|auto/.test(getComputedStyle(cur).overflowY))
                 y = cur;
-            if (getX && !x && cur.scrollWidth > cur.clientWidth)
+            if (getX && !x && cur.scrollWidth > cur.clientWidth && /scroll|auto/.test(getComputedStyle(cur).overflowX))
                 x = cur;
             cur = cur.assignedSlot || cur.parentNode;
         }
@@ -685,7 +695,7 @@ class DOMSelectionState {
 function getScrollStack(target) {
     let stack = [];
     for (let cur = target; cur; cur = cur.nodeType == 11 ? cur.host : cur.parentNode) {
-        if (cur.nodeType == 1)
+        if (isElt(cur))
             stack.push({ node: cur, left: cur.scrollLeft, top: cur.scrollTop });
     }
     return stack;
@@ -756,7 +766,7 @@ function atElementStart(doc, selection) {
     offset = Math.min(offset, maxOffset(node));
     for (;;) {
         if (offset) {
-            if (node.nodeType != 1)
+            if (!isElt(node))
                 return false;
             let prev = node.childNodes[offset - 1];
             if (prev.contentEditable == "false")
@@ -782,10 +792,10 @@ function isScrolledToBottom(elt) {
 }
 function textNodeBefore(startNode, startOffset) {
     for (let node = startNode, offset = startOffset;;) {
-        if (node.nodeType == 3 && offset > 0) {
+        if (isText(node) && offset > 0) {
             return { node: node, offset: offset };
         }
-        else if (node.nodeType == 1 && offset > 0) {
+        else if (isElt(node) && offset > 0) {
             if (node.contentEditable == "false")
                 return null;
             node = node.childNodes[offset - 1];
@@ -802,10 +812,10 @@ function textNodeBefore(startNode, startOffset) {
 }
 function textNodeAfter(startNode, startOffset) {
     for (let node = startNode, offset = startOffset;;) {
-        if (node.nodeType == 3 && offset < node.nodeValue.length) {
+        if (isText(node) && offset < node.nodeValue.length) {
             return { node: node, offset: offset };
         }
-        else if (node.nodeType == 1 && offset < node.childNodes.length) {
+        else if (isElt(node) && offset < node.childNodes.length) {
             if (node.contentEditable == "false")
                 return null;
             node = node.childNodes[offset];
@@ -1269,10 +1279,12 @@ let movedOver = "";
 // This implementation moves strictly visually, without concern for a
 // traversal visiting every logical position in the string. It will
 // still do so for simple input, but situations like multiple isolates
-// with the same level next to each other, or text going against the
-// main dir at the end of the line, will make some positions
+// with the same level next to each other will make some positions
 // unreachable with this motion. Each visible cursor position will
-// correspond to the lower-level bidi span that touches it.
+// correspond to the lower-level bidi span that touches it, except
+// positions at start/end of line, when the text there isn't in the
+// dominant direction, which will use a cursor at the start/end with
+// an an assoc pointing out of the line instead.
 //
 // The alternative would be to solve an order globally for a given
 // line, making sure that it includes every position, but that would
@@ -1281,8 +1293,22 @@ let movedOver = "";
 // people. (And would generally be a lot more complicated.)
 function moveVisually(line, order, dir, start, forward) {
     var _a;
-    let startIndex = start.head - line.from;
-    let spanI = BidiSpan.find(order, startIndex, (_a = start.bidiLevel) !== null && _a !== void 0 ? _a : -1, start.assoc);
+    if (!line.length)
+        return null;
+    let startIndex = start.head - line.from, spanI;
+    if (start.head == line.from && start.assoc < 0) { // Start of line.
+        if (!forward)
+            return null;
+        startIndex = order[spanI = 0].side(false, dir);
+    }
+    else if (start.head == line.to && start.assoc > 0) { // End of line
+        if (forward)
+            return null;
+        startIndex = order[spanI = order.length - 1].side(true, dir);
+    }
+    else {
+        spanI = BidiSpan.find(order, startIndex, (_a = start.bidiLevel) !== null && _a !== void 0 ? _a : -1, start.assoc);
+    }
     let span = order[spanI], spanEnd = span.side(forward, dir);
     // End of span
     if (startIndex == spanEnd) {
@@ -1298,8 +1324,13 @@ function moveVisually(line, order, dir, start, forward) {
         nextIndex = spanEnd;
     movedOver = line.text.slice(Math.min(startIndex, nextIndex), Math.max(startIndex, nextIndex));
     let nextSpan = spanI == (forward ? order.length - 1 : 0) ? null : order[spanI + (forward ? 1 : -1)];
-    if (nextSpan && nextIndex == spanEnd && nextSpan.level + (forward ? 0 : 1) < span.level)
-        return EditorSelection.cursor(nextSpan.side(!forward, dir) + line.from, nextSpan.forward(forward, dir) ? 1 : -1, nextSpan.level);
+    if (nextIndex == spanEnd) {
+        // End of line
+        if (!nextSpan)
+            return forward ? EditorSelection.cursor(line.to, 1) : EditorSelection.cursor(line.from, -1);
+        if (nextSpan.level + (forward ? 0 : 1) < span.level)
+            return EditorSelection.cursor(nextSpan.side(!forward, dir) + line.from, nextSpan.forward(forward, dir) ? 1 : -1, nextSpan.level);
+    }
     return EditorSelection.cursor(nextIndex + line.from, span.forward(forward, dir) ? -1 : 1, span.level);
 }
 function autoDirection(text, from, to) {
@@ -1310,7 +1341,6 @@ function autoDirection(text, from, to) {
         if (type == 2 /* T.R */ || type == 4 /* T.AL */)
             return RTL;
     }
-    return LTR;
 }
 
 const clickAddsSelectionRange = /*@__PURE__*/Facet.define();
@@ -1536,8 +1566,6 @@ function getIsolatedRanges(view, line) {
             let level = result;
             for (let i = active.length - 1; i >= 0; i--, open--) {
                 let direction = active[i].spec.bidiIsolate, update;
-                if (direction == null)
-                    direction = autoDirection(line.text, from, to);
                 if (open > 0 && level.length &&
                     (update = level[level.length - 1]).to == from && update.direction == direction) {
                     update.to = to;
@@ -1551,7 +1579,28 @@ function getIsolatedRanges(view, line) {
             }
         }
     });
-    return result;
+    return resolveIsolates(line.text, result);
+}
+function resolveIsolates(text, isolates) {
+    for (let i of isolates) {
+        if (i.direction == null) {
+            for (let pos = i.from, j = 0; pos < i.to; j++) {
+                let nextInner = j < i.inner.length ? i.inner[j] : null;
+                let dir = autoDirection(text, pos, nextInner ? nextInner.from : i.to);
+                if (dir) {
+                    i.direction = dir;
+                    break;
+                }
+                if (!nextInner)
+                    break;
+                pos = nextInner.to;
+            }
+            if (i.direction == null)
+                i.direction = Direction.LTR;
+        }
+        resolveIsolates(text, i.inner);
+    }
+    return isolates;
 }
 const scrollMargins = /*@__PURE__*/Facet.define();
 function getScrollMargins(view) {
@@ -1751,7 +1800,7 @@ class Tile {
     sync(track) {
         this.flags |= 2 /* TileFlag.Synced */;
         if (this.flags & 4 /* TileFlag.AttrsDirty */) {
-            this.flags &= ~4 /* TileFlag.AttrsDirty */;
+            this.flags &= -5 /* TileFlag.AttrsDirty */;
             let attrs = this.domAttrs;
             if (attrs)
                 setAttrs(this.dom, attrs);
@@ -1791,7 +1840,7 @@ class Tile {
         return new DOMPos(this.parent.dom, index + (after ? 1 : 0), off == 0 || off == this.length);
     }
     markDirty(attrs) {
-        this.flags &= ~2 /* TileFlag.Synced */;
+        this.flags &= -3 /* TileFlag.Synced */;
         if (attrs)
             this.flags |= 4 /* TileFlag.AttrsDirty */;
         if (this.parent && (this.parent.flags & 2 /* TileFlag.Synced */))
@@ -1974,7 +2023,7 @@ class LineTile extends CompositeTile {
     // Side -2/2 is handled specially, in that it allows the position
     // returned to be before (-2) or after (2) widgets that would always
     // be after/before a cursor position.
-    resolveInline(pos, side, forCoords) {
+    resolveInline(pos, side, forCoords = false) {
         let before = null, beforeOff = -1, after = null, afterOff = -1;
         function scan(tile, pos) {
             for (let i = 0, off = 0; i < tile.children.length && off <= pos; i++) {
@@ -1983,12 +2032,12 @@ class LineTile extends CompositeTile {
                     if (child.isComposite()) {
                         scan(child, pos - off);
                     }
-                    else if ((!after || after.isHidden && (side > 0 && !(after.flags & 32 /* TileFlag.After */) || forCoords && onSameLine(after, child))) &&
+                    else if ((!after || (forCoords && after.isHidden) && (side > 0 && !(after.flags & 32 /* TileFlag.After */) || forCoords && onSameLine(after, child))) &&
                         (end > pos || (child.flags & 32 /* TileFlag.After */) && side <= 1)) {
                         after = child;
                         afterOff = pos - off;
                     }
-                    else if (off < pos || (child.flags & 16 /* TileFlag.Before */) && !child.isHidden && side >= -1) {
+                    else if (off < pos || (child.flags & 16 /* TileFlag.Before */) && !(forCoords && child.isHidden) && side >= -1) {
                         before = child;
                         beforeOff = pos - off;
                     }
@@ -2319,12 +2368,13 @@ class TileBuilder {
                 head = last;
             }
             else {
+                let { dom } = mark;
                 if (this.cache.reused.get(mark)) {
                     let tile = Tile.get(mark.dom);
                     if (tile)
-                        tile.setDOM(freeNode(mark.dom));
+                        dom = freeNode(mark.dom);
                 }
-                let nw = MarkTile.of(mark.mark, mark.dom);
+                let nw = MarkTile.of(mark.mark, dom);
                 head.append(nw);
                 head = nw;
             }
@@ -2575,7 +2625,7 @@ class TileCache {
                     }
                     else {
                         this.reused.set(tile, 2 /* Reused.DOM */);
-                        return new WidgetTile(tile.dom, length, widget, (tile.flags & ~(496 /* TileFlag.Widget */ | 1 /* TileFlag.BreakAfter */)) | flags);
+                        return new WidgetTile(tile.dom, length, widget, (tile.flags & -498) | flags);
                     }
                 }
             }
@@ -2673,7 +2723,7 @@ class TileUpdate {
                             ? WidgetTile.of(tile.widget, this.view, to - from, tile.flags & 496 /* TileFlag.Widget */, this.cache.maybeReuse(tile))
                             : this.cache.reuse(tile);
                         if (widget.flags & 256 /* TileFlag.Block */) {
-                            widget.flags &= ~1 /* TileFlag.BreakAfter */;
+                            widget.flags &= -2 /* TileFlag.BreakAfter */;
                             this.builder.addBlockWidget(widget);
                         }
                         else {
@@ -2695,7 +2745,7 @@ class TileUpdate {
                     openMarks = activeMarks.length;
                 }
                 else if (tile.isLine()) {
-                    tile.flags &= ~1 /* TileFlag.BreakAfter */;
+                    tile.flags &= -2 /* TileFlag.BreakAfter */;
                     this.cache.reused.set(tile, 1 /* Reused.Full */);
                     this.builder.addLine(tile);
                 }
@@ -2824,12 +2874,14 @@ class TileUpdate {
             else if (tile === null || tile === void 0 ? void 0 : tile.isLine())
                 line = tile;
             else if (tile instanceof BlockWrapperTile) ; // Ignore
-            else if (parent.nodeName == "DIV" && !line && parent != this.view.contentDOM)
+            else if (parent.nodeName == "DIV" && !line)
                 line = new LineTile(parent, lineBaseAttrs);
             else if (!line)
                 marks.push(MarkTile.of(new MarkDecoration({ tagName: parent.nodeName.toLowerCase(), attributes: getAttrs(parent) }), parent));
         }
-        return { line: line, marks };
+        if (!line)
+            return null;
+        return { line, marks };
     }
 }
 function hasContent(tile, requireText) {
@@ -3491,7 +3543,7 @@ function destroyDropped(tile, reused) {
     }
 }
 function betweenUneditable(pos) {
-    return pos.node.nodeType == 1 && pos.node.firstChild &&
+    return isElt(pos.node) && pos.node.firstChild &&
         (pos.offset == 0 || pos.node.childNodes[pos.offset - 1].contentEditable == "false") &&
         (pos.offset == pos.node.childNodes.length || pos.node.childNodes[pos.offset].contentEditable == "false");
 }
@@ -3533,7 +3585,7 @@ function findCompositionRange(view, changes, headPos) {
     return { range: new ChangedRange(inv.mapPos(from), inv.mapPos(to), from, to), text: textNode };
 }
 function nextToUneditable(node, offset) {
-    if (node.nodeType != 1)
+    if (!isElt(node))
         return 0;
     return (offset && node.childNodes[offset - 1].contentEditable == "false" ? 1 /* NextTo.Before */ : 0) |
         (offset < node.childNodes.length && node.childNodes[offset].contentEditable == "false" ? 2 /* NextTo.After */ : 0);
@@ -3566,9 +3618,8 @@ function findChangedWrappers(a, b, diff) {
 }
 function inUneditable(node, inside) {
     for (let cur = node; cur && cur != inside; cur = cur.assignedSlot || cur.parentNode) {
-        if (cur.nodeType == 1 && cur.contentEditable == 'false') {
+        if (isElt(cur) && cur.contentEditable == "false")
             return true;
-        }
     }
     return false;
 }
@@ -3660,18 +3711,18 @@ function blockAt(view, pos, side) {
     return line;
 }
 function moveToLineBoundary(view, start, forward, includeWrap) {
-    let line = blockAt(view, start.head, start.assoc || -1);
-    let coords = !includeWrap || line.type != BlockType.Text || !(view.lineWrapping || line.widgetLineBreaks) ? null
-        : view.coordsAtPos(start.assoc < 0 && start.head > line.from ? start.head - 1 : start.head);
+    let block = blockAt(view, start.head, start.assoc || -1);
+    let coords = !includeWrap || block.type != BlockType.Text || !(view.lineWrapping || block.widgetLineBreaks) ? null
+        : view.coordsAtPos(start.assoc < 0 && start.head > block.from ? start.head - 1 : start.head);
     if (coords) {
         let editorRect = view.dom.getBoundingClientRect();
-        let direction = view.textDirectionAt(line.from);
-        let pos = view.posAtCoords({ x: forward == (direction == Direction.LTR) ? editorRect.right - 1 : editorRect.left + 1,
+        let direction = view.textDirectionAt(block.from);
+        let pos = view.posAndSideAtCoords({ x: forward == (direction == Direction.LTR) ? editorRect.right - 1 : editorRect.left + 1,
             y: (coords.top + coords.bottom) / 2 });
-        if (pos != null)
-            return EditorSelection.cursor(pos, forward ? -1 : 1);
+        if (pos)
+            return EditorSelection.cursor(pos.pos, pos.assoc);
     }
-    return EditorSelection.cursor(forward ? line.to : line.from, forward ? -1 : 1);
+    return EditorSelection.cursor(forward ? block.to : block.from, forward ? 1 : -1);
 }
 function moveByChar(view, start, forward, by) {
     let line = view.state.doc.lineAt(start.head), spans = view.bidiSpans(line);
@@ -3684,7 +3735,7 @@ function moveByChar(view, start, forward, by) {
             char = "\n";
             line = view.state.doc.line(line.number + (forward ? 1 : -1));
             spans = view.bidiSpans(line);
-            next = view.visualLineSide(line, !forward);
+            next = forward ? EditorSelection.cursor(line.from, -1) : EditorSelection.cursor(line.to, 1);
         }
         if (!check) {
             if (!by)
@@ -3943,7 +3994,7 @@ class InlineCoordsScan {
         // on the y axis, move this.y into it, and retry the scan.
         if (!closestRect) {
             if (!below && !above)
-                return { i: positions[0], after: false };
+                return { i: 0, after: false };
             let side = above && (!below || (this.y - above.bottom < below.top - this.y)) ? above : below;
             this.y = (side.top + side.bottom) / 2;
             return this.scan(positions, getRects, true);
@@ -3996,7 +4047,7 @@ class InlineCoordsScan {
             let child = tile.children[i];
             if (child.flags & 48 /* TileFlag.PointWidget */)
                 return null;
-            return (child.dom.nodeType == 1 ? child.dom : textRange(child.dom, 0, child.length)).getClientRects();
+            return (isElt(child.dom) ? child.dom : textRange(child.dom, 0, child.length)).getClientRects();
         });
         let child = tile.children[scan.i], pos = positions[scan.i];
         if (child.isText())
@@ -4084,14 +4135,14 @@ class DOMReader {
                     this.append(i.value);
             }
         }
-        else if (node.nodeType == 3) {
+        else if (isText(node)) {
             this.readTextNode(node);
         }
         else if (node.nodeName == "BR") {
             if (node.nextSibling)
                 this.lineBreak();
         }
-        else if (node.nodeType == 1) {
+        else if (isElt(node)) {
             this.readRange(node.firstChild, null);
         }
     }
@@ -4102,7 +4153,7 @@ class DOMReader {
     }
     findPointInside(node, length) {
         for (let point of this.points)
-            if (node.nodeType == 3 ? point.node == node : node.contains(point.node))
+            if (isText(node) ? point.node == node : node.contains(point.node))
                 point.pos = this.text.length + (isAtEnd(node, point.node, point.offset) ? length : 0);
     }
 }
@@ -4472,7 +4523,9 @@ function selectionFromPoints(points, base) {
     if (points.length == 0)
         return null;
     let anchor = points[0].pos, head = points.length == 2 ? points[1].pos : anchor;
-    return anchor > -1 && head > -1 ? EditorSelection.single(anchor + base, head + base) : null;
+    return anchor < 0 || head < 0 ? null
+        : anchor == head ? EditorSelection.create([EditorSelection.cursor(head + base, -1)])
+            : EditorSelection.single(anchor + base, head + base);
 }
 function sameSelPos(selection, range) {
     return range.head == selection.main.head && range.anchor == selection.main.anchor;
@@ -4624,8 +4677,9 @@ class InputState {
             if (mods.shiftKey && browser.ios && !/^(off|none)$/.test(this.view.contentDOM.autocapitalize) &&
                 iosVirtualKeyboardOpen(this.view.win))
                 mods.shiftKey = false;
-            this.pendingIOSKey = { key: event.key, keyCode: event.keyCode, mods };
-            setTimeout(() => this.flushIOSKey(), 250);
+            let pending = this.pendingIOSKey = { key: event.key, keyCode: event.keyCode, mods };
+            setTimeout(() => { if (this.pendingIOSKey == pending)
+                this.flushIOSKey(); }, 50);
             return true;
         }
         if (event.keyCode != 229)
@@ -4634,7 +4688,7 @@ class InputState {
     }
     flushIOSKey(change) {
         let key = this.pendingIOSKey;
-        if (!key)
+        if (!key || this.view.observer.pendingRecords().length)
             return false;
         // This looks like an autocorrection before Enter
         if (key.key == "Enter" && change && change.from < change.to && /^\S+$/.test(change.insert.toString()))
@@ -4914,14 +4968,14 @@ function doPaste(view, input) {
             lastLine = line.from;
             let insert = state.toText((byLine ? text.line(i++).text : input) + state.lineBreak);
             return { changes: { from: line.from, insert },
-                range: EditorSelection.cursor(range.from + insert.length) };
+                range: EditorSelection.cursor(range.from + insert.length, -1) };
         });
     }
     else if (byLine) {
         changes = state.changeByRange(range => {
             let line = text.line(i++);
             return { changes: { from: range.from, to: range.to, insert: line.text },
-                range: EditorSelection.cursor(range.from + line.length) };
+                range: EditorSelection.cursor(range.from + line.length, -1) };
         });
     }
     else {
@@ -5253,12 +5307,19 @@ observers.blur = view => {
     view.observer.clearSelectionRange();
     updateForFocusChange(view);
 };
-observers.compositionstart = observers.compositionupdate = view => {
+observers.compositionstart = observers.compositionupdate = (view, event) => {
     if (view.observer.editContext)
         return; // Composition handled by edit context
     if (view.inputState.compositionFirstChange == null)
         view.inputState.compositionFirstChange = true;
     if (view.inputState.composing < 0) {
+        let { main } = view.state.selection;
+        if (!main.empty && view.lineBlockAt(main.from).from != view.lineBlockAt(main.to).from && !view.state.readOnly) {
+            view.dispatch({
+                changes: view.state.selection.ranges.filter(r => !r.empty).map(r => ({ from: r.from, to: r.to })),
+                userEvent: "input"
+            });
+        }
         // FIXME possibly set a timeout to clear it again on Android
         view.inputState.composing = 0;
     }
@@ -5527,7 +5588,7 @@ class HeightMap {
         this.flags = flags;
     }
     get outdated() { return (this.flags & 2 /* Flag.Outdated */) > 0; }
-    set outdated(value) { this.flags = (value ? 2 /* Flag.Outdated */ : 0) | (this.flags & ~2 /* Flag.Outdated */); }
+    set outdated(value) { this.flags = (value ? 2 /* Flag.Outdated */ : 0) | (this.flags & -3 /* Flag.Outdated */); }
     setHeight(height) {
         if (this.height != height) {
             if (Math.abs(this.height - height) > Epsilon)
@@ -5610,13 +5671,13 @@ class HeightMap {
                     after += next.size;
             }
         }
-        let brk = 0;
+        let brk = false;
         if (nodes[i - 1] == null) {
-            brk = 1;
+            brk = true;
             i--;
         }
         else if (nodes[i] == null) {
-            brk = 1;
+            brk = true;
             j++;
         }
         return new HeightMapBranch(HeightMap.of(nodes.slice(0, i)), brk, HeightMap.of(nodes.slice(j)));
@@ -5845,12 +5906,14 @@ class HeightMapGap extends HeightMap {
 }
 class HeightMapBranch extends HeightMap {
     constructor(left, brk, right) {
-        super(left.length + brk + right.length, left.height + right.height, brk | (left.outdated || right.outdated ? 2 /* Flag.Outdated */ : 0));
+        super(left.length + (brk ? 1 : 0) + right.length, left.height + right.height, (brk ? 1 /* Flag.Break */ : 0) | (left.outdated || right.outdated ? 2 /* Flag.Outdated */ : 0));
         this.left = left;
         this.right = right;
         this.size = left.size + right.size;
     }
-    get break() { return this.flags & 1 /* Flag.Break */; }
+    // Returns 1 if there is a line break between this.left and
+    // this.right, 0 otherwise.
+    get break() { return (this.flags & 1 /* Flag.Break */); }
     blockAt(height, oracle, top, offset) {
         let mid = top + this.left.height;
         return height < mid ? this.left.blockAt(height, oracle, top, offset)
@@ -5880,11 +5943,11 @@ class HeightMapBranch extends HeightMap {
         else {
             let mid = this.lineAt(rightOffset, QueryType.ByPos, oracle, top, offset);
             if (from < mid.from)
-                this.left.forEachLine(from, mid.from - 1, oracle, top, offset, f);
+                this.left.forEachLine(from, Math.min(to, mid.from - 1), oracle, top, offset, f);
             if (mid.to >= from && mid.from <= to)
                 f(mid);
             if (to > mid.to)
-                this.right.forEachLine(mid.to + 1, to, oracle, rightTop, rightOffset, f);
+                this.right.forEachLine(Math.max(from, mid.to + 1), to, oracle, rightTop, rightOffset, f);
         }
     }
     replace(from, to, nodes) {
@@ -6112,18 +6175,17 @@ function visiblePixelRange(dom, paddingTop) {
     let left = Math.max(0, rect.left), right = Math.min(win.innerWidth, rect.right);
     let top = Math.max(0, rect.top), bottom = Math.min(win.innerHeight, rect.bottom);
     for (let parent = dom.parentNode; parent && parent != doc.body;) {
-        if (parent.nodeType == 1) {
-            let elt = parent;
-            let style = window.getComputedStyle(elt);
-            if ((elt.scrollHeight > elt.clientHeight || elt.scrollWidth > elt.clientWidth) &&
+        if (isElt(parent)) {
+            let style = window.getComputedStyle(parent);
+            if ((parent.scrollHeight > parent.clientHeight || parent.scrollWidth > parent.clientWidth) &&
                 style.overflow != "visible") {
-                let parentRect = elt.getBoundingClientRect();
+                let parentRect = parent.getBoundingClientRect();
                 left = Math.max(left, parentRect.left);
                 right = Math.min(right, parentRect.right);
                 top = Math.max(top, parentRect.top);
                 bottom = Math.min(parent == dom.parentNode ? win.innerHeight : bottom, parentRect.bottom);
             }
-            parent = style.position == "absolute" || style.position == "fixed" ? elt.offsetParent : elt.parentNode;
+            parent = style.position == "absolute" || style.position == "fixed" ? parent.offsetParent : parent.parentNode;
         }
         else if (parent.nodeType == 11) { // Shadow root
             parent = parent.host;
@@ -6268,7 +6330,7 @@ class ViewState {
     updateScaler() {
         let scaler = this.scaler;
         this.scaler = this.heightMap.height <= 7000000 /* VP.MaxDOMHeight */ ? IdScaler :
-            new BigScaler(this.heightOracle, this.heightMap, this.viewports);
+            BigScaler.get(this.heightOracle, this.heightMap, this.viewports);
         return scaler.eq(this.scaler) ? 0 : 2 /* UpdateFlag.Height */;
     }
     updateViewportLines() {
@@ -6644,7 +6706,7 @@ class ViewState {
             : (this.scrollParent ? this.scrollParent.getBoundingClientRect().top : 0) - this.view.contentDOM.getBoundingClientRect().top;
     }
     scrollAnchorAt(scrollOffset) {
-        let block = this.lineBlockAtHeight(scrollOffset + 8);
+        let block = this.lineBlockAtHeight(scrollOffset + 12 - this.paddingTop);
         return block.from >= this.viewport.from || this.viewportLines[0].top - scrollOffset > 200 ? block : this.viewportLines[0];
     }
     elementAtHeight(height) {
@@ -6730,20 +6792,27 @@ function staticDeco(state) {
 // regions outside the viewports so that the total height is
 // VP.MaxDOMHeight.
 class BigScaler {
-    constructor(oracle, heightMap, viewports) {
+    constructor(scale, viewports) {
+        this.scale = scale;
+        this.viewports = viewports;
+    }
+    static get(oracle, heightMap, viewports) {
         let vpHeight = 0, base = 0, domBase = 0;
-        this.viewports = viewports.map(({ from, to }) => {
+        let vps = viewports.map(({ from, to }) => {
             let top = heightMap.lineAt(from, QueryType.ByPos, oracle, 0, 0).top;
             let bottom = heightMap.lineAt(to, QueryType.ByPos, oracle, 0, 0).bottom;
             vpHeight += bottom - top;
             return { from, to, top, bottom, domTop: 0, domBottom: 0 };
         });
-        this.scale = (7000000 /* VP.MaxDOMHeight */ - vpHeight) / (heightMap.height - vpHeight);
-        for (let obj of this.viewports) {
-            obj.domTop = domBase + (obj.top - base) * this.scale;
+        if (heightMap.height - vpHeight < 10)
+            return IdScaler;
+        let scale = (7000000 /* VP.MaxDOMHeight */ - vpHeight) / (heightMap.height - vpHeight);
+        for (let obj of vps) {
+            obj.domTop = domBase + (obj.top - base) * scale;
             domBase = obj.domBottom = obj.domTop + (obj.bottom - obj.top);
             base = obj.bottom;
         }
+        return new BigScaler(scale, vps);
     }
     toDOM(n) {
         for (let i = 0, base = 0, domBase = 0;; i++) {
@@ -7021,7 +7090,7 @@ const baseTheme$1 = /*@__PURE__*/buildTheme("." + baseThemeID, {
         verticalAlign: "bottom"
     },
     ".cm-widgetBuffer": {
-        verticalAlign: "text-top",
+        verticalAlign: "baseline",
         height: "1em",
         width: 0,
         display: "inline"
@@ -7198,7 +7267,7 @@ class DOMObserver {
     }
     onScroll(e) {
         if (this.intersecting)
-            this.flush(false);
+            this.flush(this.pendingRecords().length > 0);
         if (this.editContext)
             this.view.requestMeasure(this.editContext.measureReq);
         this.onScrollChanged(e);
@@ -7293,7 +7362,7 @@ class DOMObserver {
         this.parentCheck = -1;
         let i = 0, changed = null;
         for (let dom = this.dom; dom;) {
-            if (dom.nodeType == 1) {
+            if (isElt(dom)) {
                 if (!changed && i < this.scrollTargets.length && this.scrollTargets[i] == dom)
                     i++;
                 else if (!changed)
@@ -7452,7 +7521,7 @@ class DOMObserver {
             return false;
         if (readSelection)
             this.readSelectionRange();
-        let domChange = this.readChange();
+        let selChange = this.selectionChanged, domChange = this.readChange();
         if (!domChange) {
             this.view.requestMeasure();
             return false;
@@ -7460,8 +7529,7 @@ class DOMObserver {
         let startState = this.view.state;
         let handled = applyDOMChange(this.view, domChange);
         // The view wasn't updated but DOM/selection changes were seen. Reset the view.
-        if (this.view.state == startState &&
-            (domChange.domChanged || domChange.newSel && !sameSelPos(this.view.state.selection, domChange.newSel.main)))
+        if (this.view.state == startState && (domChange.domChanged || selChange))
             this.view.update([]);
         return handled;
     }
@@ -7891,6 +7959,7 @@ class EditorView {
         @internal
         */
         this.measureRequests = [];
+        this.clearAnnouncement = -1;
         this.contentDOM = document.createElement("div");
         this.scrollDOM = document.createElement("div");
         this.scrollDOM.tabIndex = -1;
@@ -8296,9 +8365,14 @@ class EditorView {
         for (let tr of trs)
             for (let effect of tr.effects)
                 if (effect.is(EditorView.announce)) {
-                    if (first)
+                    if (first) {
                         this.announceDOM.textContent = "";
-                    first = false;
+                        this.win.clearTimeout(this.clearAnnouncement);
+                        this.clearAnnouncement = this.win.setTimeout(() => {
+                            this.announceDOM.textContent = "\u00a0";
+                        }, 200);
+                        first = false;
+                    }
                     let div = this.announceDOM.appendChild(document.createElement("div"));
                     div.textContent = effect.value;
                 }
@@ -8317,7 +8391,7 @@ class EditorView {
     /**
     Schedule a layout measurement, optionally providing callbacks to
     do custom DOM measuring followed by a DOM write phase. Using
-    this is preferable reading DOM layout directly from, for
+    this is preferable to reading DOM layout directly from, for
     example, an event handler, because it'll make sure measuring and
     drawing done by other components is synchronized, avoiding
     unnecessary DOM layout computations.
@@ -8447,15 +8521,11 @@ class EditorView {
         return skipAtoms(this, start, moveByChar(this, start, forward, initial => byGroup(this, start.head, initial)));
     }
     /**
-    Get the cursor position visually at the start or end of a line.
-    Note that this may differ from the _logical_ position at its
-    start or end (which is simply at `line.from`/`line.to`) if text
-    at the start or end goes against the line's base text direction.
+    **\[DEPRECATED]** Get the cursor position visually at the start
+    or end of a line.
     */
     visualLineSide(line, end) {
-        let order = this.bidiSpans(line), dir = this.textDirectionAt(line.from);
-        let span = order[end ? order.length - 1 : 0];
-        return EditorSelection.cursor(span.side(end, dir) + line.from, span.forward(!end, dir) ? 1 : -1);
+        return end ? EditorSelection.cursor(line.to, 1) : EditorSelection.cursor(line.from, -1);
     }
     /**
     Move to the next line boundary in the given direction. If
@@ -8524,6 +8594,20 @@ class EditorView {
         this.readMeasured();
         let line = this.state.doc.lineAt(pos), order = this.bidiSpans(line);
         let span = order[BidiSpan.find(order, pos - line.from, -1, side)];
+        // For positions at start/end of line, if the side points out of
+        // the line and the text there isn't in the dominant dir, return
+        // the position of the outermost character on the line.
+        if (line.length && (pos == line.from && side < 0 || pos == line.to && side > 0) &&
+            span.dir != this.textDirectionAt(line.from)) {
+            if (pos == line.to) {
+                pos = line.from + span.from;
+                side = 1;
+            }
+            else {
+                pos = line.from + span.to;
+                side = -1;
+            }
+        }
         return this.docView.coordsAt(pos, side, span.dir == Direction.RTL);
     }
     /**
@@ -8648,6 +8732,7 @@ class EditorView {
         this.docView.destroy();
         this.dom.remove();
         this.observer.destroy();
+        this.win.clearTimeout(this.clearAnnouncement);
         if (this.measureScheduled > -1)
             this.win.cancelAnimationFrame(this.measureScheduled);
         this.destroyed = true;
@@ -9498,6 +9583,7 @@ function layer(config) {
     ];
 }
 
+const drawMainRange = !browser.ios;
 const selectionConfig = /*@__PURE__*/Facet.define({
     combine(configs) {
         return combineConfig(configs, {
@@ -9585,7 +9671,7 @@ const selectionLayer = /*@__PURE__*/layer({
     markers(view) {
         let markers = [], { main, ranges } = view.state.selection;
         for (let r of ranges)
-            if (!r.empty) {
+            if (!r.empty && (drawMainRange || r != main)) {
                 for (let marker of RectangleMarker.forRange(view, "cm-selectionBackground", r))
                     markers.push(marker);
             }
@@ -9606,16 +9692,20 @@ const selectionLayer = /*@__PURE__*/layer({
 const selectionBg = browser.gecko && browser.gecko_version == 153 ? "#ffffff01" : "transparent";
 const hideNativeSelection = /*@__PURE__*/Prec.highest(/*@__PURE__*/EditorView.theme({
     ".cm-line": {
-        "& ::selection, &::selection": { backgroundColor: `${selectionBg} !important` },
+        ...drawMainRange ? {
+            "& ::selection, &::selection": { backgroundColor: `${selectionBg} !important` }
+        } : {},
         caretColor: "transparent !important"
     },
     ".cm-content": {
         caretColor: "transparent !important",
         "& :focus": {
             caretColor: "initial !important",
-            "&::selection, & ::selection": {
-                backgroundColor: "Highlight !important"
-            }
+            ...drawMainRange ? {
+                "&::selection, & ::selection": {
+                    backgroundColor: "Highlight !important"
+                }
+            } : {}
         }
     }
 }));
@@ -10286,9 +10376,25 @@ Creates an extension that configures tooltip behavior.
 function tooltips(config = {}) {
     return tooltipConfig.of(config);
 }
+// The horizontal range fixed-position elements can occupy. Gutters
+// reserved by `scrollbar-gutter` (on either side) aren't reliably
+// excluded from clientWidth, but the root's margin box sits between
+// them.
+function fixedRange(view) {
+    let docElt = view.dom.ownerDocument.documentElement, width = docElt.clientWidth;
+    // Chrome reports specified rather than used margins, so without a gutter a narrow root would look like one
+    let style = getComputedStyle(docElt);
+    if (!/stable/.test(style.scrollbarGutter || ""))
+        return { left: 0, right: width };
+    let rect = docElt.getBoundingClientRect(), scrollX = view.win.scrollX;
+    return {
+        left: Math.max(0, rect.left + scrollX - parseFloat(style.marginLeft)),
+        right: Math.min(width, rect.right + scrollX + parseFloat(style.marginRight))
+    };
+}
 function windowSpace(view) {
-    let docElt = view.dom.ownerDocument.documentElement;
-    return { top: 0, left: 0, bottom: docElt.clientHeight, right: docElt.clientWidth };
+    let { left, right } = fixedRange(view);
+    return { top: 0, left, right, bottom: view.dom.ownerDocument.documentElement.clientHeight };
 }
 const tooltipConfig = /*@__PURE__*/Facet.define({
     combine: values => {
@@ -10418,7 +10524,7 @@ const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
         clearTimeout(this.measureTimeout);
     }
     readMeasure() {
-        let scaleX = 1, scaleY = 1, makeAbsolute = false;
+        let scaleX = 1, scaleY = 1, makeAbsolute = false, fixedLeft = 0;
         if (this.position == "fixed" && this.manager.tooltipViews.length) {
             let { dom } = this.manager.tooltipViews[0];
             if (browser.safari) {
@@ -10446,6 +10552,10 @@ const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
                 ({ scaleX, scaleY } = this.view.viewState);
             }
         }
+        else {
+            // Fixed coordinates start after a left scrollbar gutter, not at the viewport's edge
+            fixedLeft = fixedRange(this.view).left;
+        }
         let visible = this.view.scrollDOM.getBoundingClientRect(), margins = getScrollMargins(this.view);
         return {
             visible: {
@@ -10459,7 +10569,7 @@ const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
             }),
             size: this.manager.tooltipViews.map(({ dom }) => dom.getBoundingClientRect()),
             space: this.view.state.facet(tooltipConfig).tooltipSpace(this.view),
-            scaleX, scaleY, makeAbsolute
+            scaleX, scaleY, makeAbsolute, fixedLeft
         };
     }
     writeMeasure(measured) {
@@ -10521,7 +10631,7 @@ const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
             }
             else {
                 dom.style.top = top / scaleY + "px";
-                setLeftStyle(dom, left / scaleX);
+                setLeftStyle(dom, (left - measured.fixedLeft) / scaleX);
             }
             if (arrow) {
                 let arrowLeft = pos.left + (ltr ? offset.x : -offset.x) - (left + 14 /* Arrow.Offset */ - 7 /* Arrow.Size */);
@@ -11269,6 +11379,8 @@ function createDialog(view, config, result) {
     if (config.class)
         panel.className = config.class;
     panel.classList.add("cm-dialog");
+    let focus = typeof config.focus == "string" ? content.querySelector(config.focus)
+        : config.focus ? content.querySelector("input") || content.querySelector("button") : null;
     function done(form) {
         if (panel.contains(panel.ownerDocument.activeElement))
             view.focus();
@@ -11278,18 +11390,14 @@ function createDialog(view, config, result) {
         dom: panel,
         top: config.top,
         mount: () => {
-            if (config.focus) {
-                let focus;
-                if (typeof config.focus == "string")
-                    focus = content.querySelector(config.focus);
-                else
-                    focus = content.querySelector("input") || content.querySelector("button");
-                if (focus && "select" in focus)
+            if (focus) {
+                if ("select" in focus)
                     focus.select();
-                else if (focus && "focus" in focus)
+                else if ("focus" in focus)
                     focus.focus();
             }
-        }
+        },
+        destroy: () => result(null)
     };
 }
 

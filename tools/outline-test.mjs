@@ -28,7 +28,7 @@ function shape(parsed) {
       title: chapter.title,
       description: chapter.description,
       tags: chapter.tags,
-      pages: chapter.pages.map((page) => ({ title: page.title, tags: page.tags })),
+      pages: chapter.pages.map((page) => ({ title: page.title, tags: page.tags, scope: page.scope })),
     })),
   };
 }

@@ -896,7 +896,7 @@ final class RunTools
         for ($i = 0; $i < $total; $i += $step) {
             $page = $selected[$i];
             $plan = PageGenerator::plan($profile, $project, (int)$page['id']);
-            $chars += mb_strlen($plan['system']) + mb_strlen($plan['user']);
+            $chars += mb_strlen(implode('', $plan['context'])) + mb_strlen($plan['system']) + mb_strlen($plan['user']);
 
             // The length settings resolve course, then chapter, then page, the
             // way the generator resolves them - so a chapter told to write long

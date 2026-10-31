@@ -53,6 +53,9 @@ export const OutlinePreview = {
     const diff = computed(() => diffOutline(parsed.value, props.project));
     const hasSource = computed(() => props.source.trim() !== '');
     const hasStructure = computed(() => parsed.value.chapters.length > 0);
+    /** Pages the outline gives no scope - the ones the others can only guess about. */
+    const unscoped = computed(() => parsed.value.chapters
+      .reduce((n, chapter) => n + chapter.pages.filter((page) => !page.scope).length, 0));
 
     /** The description as paragraphs: the parser keeps blank lines as breaks. */
     const paragraphs = (text) => String(text ?? '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
@@ -125,7 +128,7 @@ export const OutlinePreview = {
     expose({ scrollToLine, topLine });
 
     return {
-      scroller, body, parsed, diff, hasSource, hasStructure, paragraphs, statusOf, dotOf, summary, plural,
+      scroller, body, parsed, diff, hasSource, hasStructure, unscoped, paragraphs, statusOf, dotOf, summary, plural,
       onScroll: () => emit('scroll'),
     };
   },
@@ -139,6 +142,10 @@ export const OutlinePreview = {
           </span>
           <span v-else-if="diff.removedPages.length || diff.removedChapters.length" class="badge badge--warning">
             only empty pages go
+          </span>
+          <span v-if="hasStructure && unscoped" class="badge badge--warning"
+                title="A scope is the line under a page title naming what that page alone teaches. Every page is written knowing every other page's scope, which is what keeps them from repeating each other.">
+            {{ plural(unscoped, 'page') }} without a scope
           </span>
         </div>
 
@@ -185,6 +192,7 @@ export const OutlinePreview = {
                 <span class="truncate grow">{{ page.title }}</span>
                 <span v-if="statusOf(page.status).label" class="badge" :class="statusOf(page.status).tone">{{ statusOf(page.status).label }}</span>
                 <span v-if="page.tags.length" class="t-2xs faint none" :title="page.tags.join(', ')"><app-icon name="tag" :size="10"/> {{ page.tags.length }}</span>
+                <span v-if="page.scope" class="outline-page__scope">{{ page.scope }}</span>
               </li>
               <li v-if="!chapter.pages.length" class="outline-page is-empty t-xs faint">No pages under this chapter yet.</li>
             </ol>

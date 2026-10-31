@@ -202,6 +202,16 @@ function swapCode(figure, markup) {
  * matches drops its work instead of writing into a document that no longer
  * exists. A caller that renders once can leave it alone.
  *
+ * Whether the element is in the document at the moment the result arrives is
+ * deliberately not asked. It used to be, and a tab kept alive is taken out of
+ * the document while another tab is shown: opening a course lands on the
+ * Content tab, and a switch to Structure before the page's diagram, formula or
+ * highlighting had arrived threw the finished result away. Back on Content the
+ * block stayed raw until the text changed, because nothing starts another pass
+ * for an element that is still the current one. The token already says whether
+ * the element belongs to the current render; one that is merely parked is
+ * filled where it is and shows the result when it is put back.
+ *
  * @param {Element|null} root
  * @param {{theme?: string, alive?: () => boolean}} [options]
  */
@@ -222,7 +232,7 @@ export async function enhance(root, { theme = resolvedTheme.value, alive = () =>
     const figure = dress(block, code, plan);
     if (!plan.id) continue;
     jobs.push(highlightCode(code, plan.id).then((markup) => {
-      if (alive() && markup && figure.isConnected) swapCode(figure, markup);
+      if (alive() && markup) swapCode(figure, markup);
     }));
   }
   describeToggles(root);
@@ -231,8 +241,8 @@ export async function enhance(root, { theme = resolvedTheme.value, alive = () =>
   // until the library that replaces them has loaded.
   for (const slot of root.querySelectorAll('div.cf-diagram:not(.is-rendered)')) {
     jobs.push(renderDiagram(sourceOf(slot), theme)
-      .then((svg) => { if (alive() && slot.isConnected) fill(slot, svg); })
-      .catch((error) => { if (alive() && slot.isConnected) fail(slot, error); }));
+      .then((svg) => { if (alive()) fill(slot, svg); })
+      .catch((error) => { if (alive()) fail(slot, error); }));
   }
 
   // A formula that does not compile comes back as MathJax's own error markup,
@@ -240,7 +250,7 @@ export async function enhance(root, { theme = resolvedTheme.value, alive = () =>
   // the LaTeX stays on screen and the next pass tries again.
   for (const slot of root.querySelectorAll('.cf-math:not(.is-rendered)')) {
     jobs.push(renderMath(sourceOf(slot), slot.classList.contains('cf-math--block'))
-      .then((markup) => { if (alive() && slot.isConnected) fill(slot, markup); })
+      .then((markup) => { if (alive()) fill(slot, markup); })
       .catch((error) => console.warn('[CourseForge] no formulas:', error)));
   }
 
