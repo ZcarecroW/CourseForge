@@ -2,7 +2,7 @@
 
 CourseForge is a self-hosted single-page application that uses AI — Anthropic,
 OpenAI, Google Gemini, OpenRouter, sixteen more gateways that speak OpenAI's API,
-or a Claude Pro/Max subscription — to design, write and publish complete courses
+or a model on your own machine — to design, write and publish complete courses
 into a [BookStack](https://www.bookstackapp.com/) knowledge base. It turns a
 one-line course brief into a structured book with chapters and pages, writes the
 actual teaching content, attaches tags and flashcards, and pushes everything into
@@ -13,7 +13,9 @@ from Claude Code or the Claude desktop app. Everything the browser can do, an
 MCP client can do — see [section 6](#6-providers-runs-and-the-claude-app).
 
 The shorter statement of the same material is [README.md](README.md). This file
-is the long one, and it explains why as well as what.
+is the long one, and it explains why as well as what. The same material, arranged
+as guides with generated references for every setting, prompt slot and MCP tool,
+is at [zcarecrow.github.io/CourseForge](https://zcarecrow.github.io/CourseForge/).
 
 ---
 
@@ -88,15 +90,13 @@ change with it:
 | One of sixteen presets | A gateway that speaks `/chat/completions`: Groq, DeepSeek, Together, Fireworks, xAI, Mistral, Cerebras, DeepInfra, Nebius, Moonshot, Z.ai, a LiteLLM proxy, and the local servers Ollama, LM Studio, vLLM and llama.cpp. Picking one fills in the base URL and the quirks; the local ones ask for no key at all. |
 | Custom OpenAI-compatible endpoint | A base URL you type, with nothing assumed about it. CourseForge probes it for a model list and a batch queue without spending anything. |
 
-**Test this account** proves an account works before a course depends on it: for
-the API types it fetches the model list, and for the subscription it reports
-whether the CLI is installed, signed in, and signed in to a plan rather than to
-an API key. For anything with a queue it also records what that queue can do
+**Check this account** proves an account works before a course depends on it: it
+fetches the model list. For anything with a queue it also records what that queue can do
 for *this* key, which is a different question from what the endpoint offers.
 
 Secrets are stored server-side and never sent back to the browser: a stored
 secret shows as `•••••••• stored`, and leaving the field empty on save keeps it.
-The subscription account and the local presets have no secret to store at all.
+The local presets have no secret to store at all.
 
 A profile cannot be deleted while a generation run is still open under it. A
 batch submitted with its credentials is collected with its credentials, and a
@@ -1030,7 +1030,7 @@ and entering it a hundred times.
 
 ## 4. The prompt library
 
-Every instruction CourseForge sends is a named slot. There are forty-one of
+Every instruction CourseForge sends is a named slot. There are forty-eight of
 them, they ship in `config/defaults.json`, and they can be overridden in two
 places:
 
@@ -1059,7 +1059,7 @@ deliberate:
 
 Both screens show the description of each slot and offer clickable chips for the
 placeholders that slot understands; clicking one drops it at the cursor.
-Forty-one slots is too many for one long page, so both are three panes of
+Forty-eight slots is too many for one long page, so both are three panes of
 narrowing scope — group, slot, editor — with a search that ignores the groups
 entirely, because the usual question is "where is the one about diagrams" rather
 than "show me group three".
@@ -1682,7 +1682,7 @@ nearest thing to signing out, and it is permanent rather than resumable.
 
 ### The twelve tool groups
 
-There are one hundred and six tools. They are not listed here, because `tools/list`
+There are one hundred and seven tools. They are not listed here, because `tools/list`
 lists them and every one carries its own description, its arguments and an
 annotation saying whether it reads, writes, destroys or spends money. What is
 worth knowing is the shape.
@@ -1829,7 +1829,7 @@ one issued for `apply_structure` cannot be redeemed against `delete_course`.
 
 ### Scopes
 
-A connection may be narrowed to some of the ten groups, so a token that only
+A connection may be narrowed to some of the tool groups, so a token that only
 writes pages cannot delete a course or read your settings. Four rules hold it
 together:
 
@@ -1852,12 +1852,11 @@ forbidden. The model does not need to learn that a tool exists which it may not
 call — it needs to stop trying, and an unknown-tool answer does that without
 teaching it anything.
 
-**There is deliberately no tool that creates a connection.** A token able to mint
-another token could mint one carrying scopes wider than its own, and every
-narrowing on the Connect screen would become a formality — the way past it would
-be one tool call. Issuing a connection stays in the browser, where a person is
-present to decide what it may do and to take the token, which is shown exactly
-once.
+**A connection can issue another, but never a wider one.** A token able to mint
+one carrying scopes wider than its own would make every narrowing on the Connect
+screen a formality, so `create_my_connection` checks the request against the
+groups the calling connection holds: an omitted scope list means "the same as
+mine", and a group the caller lacks is refused by name.
 
 ### One URL, two eras of the protocol
 
@@ -1908,14 +1907,14 @@ exists any more. A foreign `Origin` is refused with 403, an unknown token with
 
 ### What a large tool surface costs a client
 
-Seventy-seven tools is a lot to put in front of a model, and it is not free.
+A hundred-odd tools is a lot to put in front of a model, and it is not free.
 
 Every tool's name, description and input schema is sent to the model on the
 requests where the surface is in play, and that is context the conversation does
 not get to use. This is the main reason to narrow a connection's scopes even when
 you trust it completely: a token for writing pages that carries the `pages`,
 `courses` and `account` groups puts eighteen tools in front of the model instead
-of seventy-seven.
+of all of them.
 
 Two limits are worth knowing about because CourseForge works around them rather
 than hitting them:
@@ -2199,8 +2198,7 @@ Optional, and only for the features that need them:
   while a browser tab is open, and there are no background runs, no batch
   collection and no unattended updates.
 - **`ext-zip`**, for installing an update from GitHub.
-- **`proc_open` enabled**, plus the `claude` CLI installed and signed in, for a
-  Claude Pro/Max subscription account. It is also what lets an update run the
+- **`proc_open` enabled**, which is what lets an update run the
   new release's database migration in a child process before accepting it; where
   it is missing, that one check is skipped and the log says so.
 
@@ -2352,9 +2350,9 @@ the MCP tools, which describe and change settings without a second catalogue
 that could disagree. A setting added later appears in all three without a line
 of frontend code.
 
-There are fifty-nine of them in eight groups, and the screen documents itself —
+There are sixty of them in eight groups, and the screen documents itself —
 each field carries its own description, its range and whether this installation
-has overridden it. Twenty-two of the fifty-nine are the content details of
+has overridden it. Twenty-two of the sixty are the content details of
 [section 3](#3-content-details), which are generated from that catalogue rather
 than written out here, so a new element ships with its own settings field
 already in place. What follows is what each group is for, and then the handful

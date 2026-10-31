@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 272" role="img" aria-labelledby="pipe-t">
+  <title id="pipe-t">From a one-line brief to a published book: the brief, the outline with a scope under every page, the written pages and BookStack. A profile supplies the AI account, models and prompts; an MCP client can do every step instead.</title>
+  <rect class="box" x="20" y="24" width="170" height="108" rx="12"/>
+  <rect class="box-accent" x="230" y="24" width="170" height="108" rx="12"/>
+  <rect class="box-accent" x="440" y="24" width="170" height="108" rx="12"/>
+  <rect class="box-success" x="650" y="24" width="150" height="108" rx="12"/>
+  <g text-anchor="middle">
+    <text class="t-sm t-b" x="105" y="52">STEP 1</text>
+    <text class="t-head" x="105" y="74">Brief</text>
+    <text class="t-sm" x="105" y="96">one line: the subject,</text>
+    <text class="t-sm" x="105" y="112">the reader, the level</text>
+    <text class="t-sm t-b t-accent" x="315" y="52">STEP 2</text>
+    <text class="t-head" x="315" y="74">Outline</text>
+    <text class="t-sm" x="315" y="96">chapters and pages,</text>
+    <text class="t-sm" x="315" y="112">a scope under each page</text>
+    <text class="t-sm t-b t-accent" x="525" y="52">STEP 3</text>
+    <text class="t-head" x="525" y="74">Pages</text>
+    <text class="t-sm" x="525" y="96">live, in the background,</text>
+    <text class="t-sm" x="525" y="112">or a half-price batch</text>
+    <text class="t-sm t-b t-success" x="725" y="52">STEP 4</text>
+    <text class="t-head" x="725" y="74">BookStack</text>
+    <text class="t-sm" x="725" y="96">one wiki or several,</text>
+    <text class="t-sm" x="725" y="112">links resolved</text>
+  </g>
+  <path class="line" d="M190 78H222"/><path class="arrow" d="M230 78l-9-5v10z"/>
+  <path class="line" d="M400 78H432"/><path class="arrow" d="M440 78l-9-5v10z"/>
+  <path class="line" d="M610 78H642"/><path class="arrow" d="M650 78l-9-5v10z"/>
+  <path class="line-dash" d="M315 132V160M525 132V160"/>
+  <rect class="box-magic" x="230" y="160" width="380" height="42" rx="10"/>
+  <text x="420" y="186" text-anchor="middle"><tspan class="t-b t-magic">Profile</tspan><tspan class="t-sm" dx="8">AI account · models · language · content details · prompts</tspan></text>
+  <rect class="box-dash" x="20" y="222" width="780" height="40" rx="10"/>
+  <text x="410" y="247" text-anchor="middle"><tspan class="t-b">or over MCP</tspan><tspan class="t-sm" dx="8">Claude Code, the Claude app, Codex, Cursor, VS Code or Gemini CLI can do every step, on your own subscription</tspan></text>
+</svg>

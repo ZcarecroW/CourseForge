@@ -1,0 +1,61 @@
+<section class="hero">
+  <a class="hero__badge" href="changelog/">{{icon:sparkles}} New in {{version}}: every page knows what the others teach</a>
+  <h1>Turn a one-line brief into a <em>complete course</em></h1>
+  <p class="hero__lead">CourseForge is a self-hosted course generator. The AI designs the outline, writes every page and CourseForge publishes the book into <a href="https://www.bookstackapp.com/" rel="noopener">BookStack</a>. You steer it from the browser, or from Claude Code and other AI clients.</p>
+  <p class="hero__actions">
+    <a class="btn btn--primary" href="quick-start/">{{icon:rocket}} Build your first course</a>
+    <a class="btn" href="installation/">{{icon:server}} Install it</a>
+    <a class="btn" href="https://github.com/ZcarecroW/CourseForge" rel="noopener">{{icon:git-branch}} GitHub</a>
+  </p>
+</section>
+
+::diagram pipeline
+
+<figure class="shot showcase"><a class="shot__link" href="images/content.webp"><img src="images/content.webp" alt="The Content tab: the outline with a status dot per page, the Markdown editor, and the preview rendering a formula, a diagram and highlighted code" width="1440" height="900" fetchpriority="high"></a><figcaption>The Content tab: the outline, the Markdown editor and a preview that renders code, diagrams and formulas exactly as BookStack will.</figcaption></figure>
+
+<h2 class="section-title">Everything a course needs, nothing to compile</h2>
+<p class="section-lead">Copy the folder to a PHP host and open it. No Composer, no npm, no build step, and no configuration file to edit before the first start.</p>
+
+<div class="features">
+  <div class="feature">{{icon:sitemap}}<h3>An outline that divides the subject</h3><p>The AI designs chapters and pages and plans a <em>scope</em> under every page, so no two pages teach the same thing.</p></div>
+  <div class="feature">{{icon:sparkles}}<h3>Any model you like</h3><p>Anthropic, OpenAI, Google Gemini, OpenRouter, sixteen OpenAI-compatible gateways, or a local model through Ollama, LM Studio, vLLM or llama.cpp.</p></div>
+  <div class="feature">{{icon:queue}}<h3>Half price in a batch</h3><p>Write a whole course through the provider's batch queue at about half the price, or in the background from cron. Either way you can close the tab.</p></div>
+  <div class="feature">{{icon:zap}}<h3>Lean prompts, cached</h3><p>Every page is written from a compact course map that is the same for every page. Prompt caching cuts billed input on a live Anthropic run by about nine tenths.</p></div>
+  <div class="feature">{{icon:pen}}<h3>A real editor</h3><p>CodeMirror with syntax highlighting, and a preview with Shiki, Mermaid and MathJax. The two halves scroll together.</p></div>
+  <div class="feature">{{icon:upload}}<h3>Publish to one wiki or several</h3><p>Books, chapters, pages, tags and cross references go into BookStack and stay in sync. A push is a background task that picks up where it stopped.</p></div>
+  <div class="feature">{{icon:plug}}<h3>The whole app over MCP</h3><p>[[count:tools]] tools let Claude Code, the Claude app, Codex, Cursor, VS Code or Gemini CLI do anything the browser can, including writing pages on your own subscription.</p></div>
+  <div class="feature">{{icon:file-text}}<h3>Every prompt editable</h3><p>[[count:slots]] documented prompt slots, overridable for the whole installation or for one profile. Nothing the AI is told is hidden in code.</p></div>
+  <div class="feature">{{icon:shield-check}}<h3>Built to be left running</h3><p>Accounts with roles, invites, an audit log, a security self-check and one-click updates that back up first and roll back if the new version fails.</p></div>
+</div>
+
+<h2 class="section-title">Two ways to write a course</h2>
+<p class="section-lead">Let CourseForge call a model with your API key, or connect an AI client and let it do the writing. You can mix the two in one course.</p>
+<div class="split">
+  <div>
+    <h3>{{icon:robot}} CourseForge writes it</h3>
+    <p>A profile holds your AI account and models. CourseForge designs the outline and writes the pages, live in the browser, in the background, or through a batch queue.</p>
+    <ul><li>Runs with the browser closed</li><li>About half price through a batch queue</li><li>Estimate the tokens before you start</li></ul>
+  </div>
+  <div>
+    <h3>{{icon:terminal}} Your AI client writes it</h3>
+    <p>Connect Claude Code or another MCP client. It asks CourseForge for each page's brief, writes the page, stores it and moves on.</p>
+    <ul><li>Uses your existing subscription; the server spends nothing</li><li>No API key ever reaches the server</li><li>Exactly the same rules as an API-written page</li></ul>
+  </div>
+</div>
+
+<h2 class="section-title">A look around</h2>
+<p class="section-lead">The application as it ships, in the dark theme it opens with. There is a light theme too, and an automatic one that follows the system.</p>
+<div class="gallery">
+  <figure class="shot"><a class="shot__link" href="images/structure.webp"><img src="images/structure.webp" alt="The Structure tab" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption><strong>Structure.</strong> The outline in an editor, and what applying it would make, with every page's scope.</figcaption></figure>
+  <figure class="shot"><a class="shot__link" href="images/courses.webp"><img src="images/courses.webp" alt="The course list" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption><strong>Courses.</strong> Everything being written on the installation, and how far each course has got.</figcaption></figure>
+  <figure class="shot"><a class="shot__link" href="images/details.webp"><img src="images/details.webp" alt="The Details tab" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption><strong>Details.</strong> What every page is made of: objectives, exercises, diagrams, formulas, length.</figcaption></figure>
+  <figure class="shot"><a class="shot__link" href="images/publish.webp"><img src="images/publish.webp" alt="The Publish tab" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption><strong>Publish.</strong> Every destination, and the log of every push, kept on the server.</figcaption></figure>
+  <figure class="shot"><a class="shot__link" href="images/profiles.webp"><img src="images/profiles.webp" alt="A profile" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption><strong>Profiles.</strong> AI accounts, BookStack instances, models, language and prompt overrides.</figcaption></figure>
+  <figure class="shot"><a class="shot__link" href="images/connect.webp"><img src="images/connect.webp" alt="The Connect screen" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption><strong>Connect.</strong> A token and a ready-made setup line for each AI client.</figcaption></figure>
+</div>
+
+<h2 class="section-title">Find your way around</h2>
+<p class="section-lead">Start with the introduction and the quick start, or jump straight to the part you need.</p>
+<!--cards-->
+
+<footer class="landing-foot"><span>CourseForge {{version}} · MIT licence</span><span><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener">Source on GitHub</a> · <a href="changelog/">Changelog</a> · <a href="troubleshooting/">Troubleshooting</a></span></footer>

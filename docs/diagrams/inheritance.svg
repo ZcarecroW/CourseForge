@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 176" role="img" aria-labelledby="inh-t">
+  <title id="inh-t">Content details are inherited down a chain: the installation's defaults, then the profile, the course, the chapter and the page. Each level either decides on or off, or inherits what the level above resolves to.</title>
+  <rect class="box" x="20" y="28" width="140" height="84" rx="12"/>
+  <rect class="box-magic" x="185" y="28" width="140" height="84" rx="12"/>
+  <rect class="box-accent" x="350" y="28" width="140" height="84" rx="12"/>
+  <rect class="box-accent" x="515" y="28" width="140" height="84" rx="12"/>
+  <rect class="box-accent" x="680" y="28" width="120" height="84" rx="12"/>
+  <g text-anchor="middle">
+    <text class="t-head" x="90" y="60">Installation</text>
+    <text class="t-sm" x="90" y="80">defaults.json, then</text>
+    <text class="t-sm" x="90" y="96">Settings › Course defaults</text>
+    <text class="t-head" x="255" y="60">Profile</text>
+    <text class="t-sm" x="255" y="80">the house style of</text>
+    <text class="t-sm" x="255" y="96">every course on it</text>
+    <text class="t-head" x="420" y="60">Course</text>
+    <text class="t-sm" x="420" y="80">the Details tab</text>
+    <text class="t-head" x="585" y="60">Chapter</text>
+    <text class="t-sm" x="585" y="80">the inspector, with</text>
+    <text class="t-sm" x="585" y="96">a chapter selected</text>
+    <text class="t-head" x="740" y="60">Page</text>
+    <text class="t-sm" x="740" y="80">the inspector</text>
+  </g>
+  <path class="line" d="M160 70H177"/><path class="arrow" d="M185 70l-9-5v10z"/>
+  <path class="line" d="M325 70H342"/><path class="arrow" d="M350 70l-9-5v10z"/>
+  <path class="line" d="M490 70H507"/><path class="arrow" d="M515 70l-9-5v10z"/>
+  <path class="line" d="M655 70H672"/><path class="arrow" d="M680 70l-9-5v10z"/>
+  <text class="t-sm" x="410" y="146" text-anchor="middle">Every level below the installation is a three-way switch: <tspan class="t-b t-accent">inherit</tspan> (follow the arrow), <tspan class="t-b t-success">on</tspan> or <tspan class="t-b t-warn">off</tspan> - for itself and everything under it.</text>
+  <text class="t-sm" x="410" y="164" text-anchor="middle">Only the levels that disagree store anything, so changing a default moves everything that never disagreed.</text>
+</svg>

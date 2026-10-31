@@ -16,6 +16,10 @@ chapters, written pages, flashcards — and publishes it into a
 You can do all of that in a browser, or you can do all of it from an AI client —
 Claude Code, the Claude desktop app, OpenAI Codex, Cursor, VS Code or Gemini CLI.
 
+**Documentation: [zcarecrow.github.io/CourseForge](https://zcarecrow.github.io/CourseForge/)** — installation, a
+quick start, a guide to every screen, and references for every setting, prompt
+slot and MCP tool.
+
 ## What it is made of
 
 No build step, no package manager, no framework runtime to compile at load time.
@@ -54,49 +58,50 @@ Then: create a **Profile** (an AI account, one or more BookStack instances,
 models, language), create a **Course**, generate the **Structure**, write the
 **Content**, and **Publish** — into one BookStack, or into several at once.
 
-Full documentation, including the nginx configuration and the technical
-background, is in [docs.md](docs.md).
+Full documentation, including the nginx configuration, the MCP tool reference and
+the technical background, is at [zcarecrow.github.io/CourseForge](https://zcarecrow.github.io/CourseForge/).
+The long-form background is also in [docs.md](docs.md).
 
 ## A look around
 
 Every screen below is the application as it ships, in the dark theme it opens
 with (there is a light one, and an automatic one that follows the system).
 
-![The course list](docs/screenshots/courses.png)
+![The course list](docs/images/courses.webp)
 
 **Courses** is everything being written on the installation: how far each has
 got, which profile writes it, how many wikis it publishes to. A course starts as
 one line - *"Vue.js, beginner to professional; IDE: PhpStorm"* - and the AI
 designs the outline from it.
 
-![The Content tab: editor and preview](docs/screenshots/content.png)
+![The Content tab: editor and preview](docs/images/content.webp)
 
 **Content** is where the pages are written: by hand in the Markdown editor, one
 at a time while you watch, or in a background run that carries on after the
 laptop is shut. The preview renders code, diagrams and formulas exactly as
 BookStack will, and the two halves scroll together.
 
-![The Publish tab: every destination, and the log](docs/screenshots/publish.png)
+![The Publish tab: every destination, and the log](docs/images/publish.webp)
 
 **Publish** sends the book to BookStack - one wiki or several. Since 5.2 a push
 is a task the scheduler works, so you can close the tab; a wiki that stops
 answering half way is picked up again from the page it stopped at, and the log
 of every push is kept on the server. Each destination has a card of its own.
 
-![One destination's card](docs/screenshots/publish-destinations.png)
+![One destination's card](docs/images/publish-destinations.webp)
 
 Per wiki: the book, the shelf, how many pages it holds, what is out of sync,
 what has never been pushed, how its cross references resolve, and what last
 happened to it - with **Publish here** for that wiki alone.
 
-![The guided tour](docs/screenshots/tour.png)
+![The guided tour](docs/images/tour.webp)
 
 The **guided tour** starts by itself the first time an account signs in and
 walks through every screen and every setting - forty-odd steps for an
 administrator, fewer for a user - lighting up each section as it explains it.
 Open it again any time from the button above the theme switch.
 
-![Administration › Security](docs/screenshots/security.png)
+![Administration › Security](docs/images/security.webp)
 
 **Security** asks the server for CourseForge's own private files over HTTP and
 reports which came back. On nginx, Caddy, IIS or a misconfigured Apache the
@@ -104,23 +109,23 @@ reports which came back. On nginx, Caddy, IIS or a misconfigured Apache the
 says so - with the configuration block to paste for the server it detected.
 Until the verdict is *secure*, every API key and token field is locked.
 
-![What the server was asked for](docs/screenshots/security-probes.png)
+![What the server was asked for](docs/images/security-probes.webp)
 
-![Accounts, with the open invites](docs/screenshots/accounts.png)
+![Accounts, with the open invites](docs/images/accounts.webp)
 
 **Accounts** is who may sign in. Several invites can be open at once, each with
 a label, a role, an expiry and a number of places - one for the marketing team,
 one for a contractor, one for a colleague who should be an administrator.
 
-![Profiles, with the key fields locked](docs/screenshots/profiles.png)
+![Profiles: BookStack instances and AI accounts](docs/images/profiles.webp)
 
 **Profiles** bundle the AI accounts, the BookStack instances, the models, the
 language, the content defaults and the prompt wording a course is written with.
-The key fields are greyed out with a red mark until the server has passed the
+The key fields stay greyed out with a red mark until the server has passed the
 security check - a secret must not be written into a database anybody can
 download.
 
-![Settings: the scheduler](docs/screenshots/settings.png)
+![Settings: the scheduler](docs/images/settings.webp)
 
 **Settings** holds everything the installation can be told to do differently,
 one card per group. The scheduler card is the one that matters most: your host

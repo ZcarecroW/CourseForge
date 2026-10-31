@@ -1,0 +1,65 @@
+# Builds the documentation in docs/ and publishes it to GitHub Pages.
+#
+# The reference pages are generated from the code (tools/docs-data.php reads the
+# tool registry, the settings and the prompt library), so a change there
+# rebuilds the site as well as a change to the pages themselves. The build
+# needs Node and PHP and nothing to install: both are on the runner image.
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - 'config/defaults.json'
+      - 'src/**'
+      - 'tools/docs-data.php'
+      - 'assets/favicon.svg'
+      - 'assets/js/components/AppIcon.js'
+      - 'assets/vendor/marked.esm.js'
+      - 'assets/vendor/shiki/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer push waits rather than cancelling one
+# that is half way through.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+
+      - name: Build the site
+        run: |
+          php --version
+          node docs/build.mjs
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

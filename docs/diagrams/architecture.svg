@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 316" role="img" aria-labelledby="arch-t">
+  <title id="arch-t">Four kinds of caller reach four PHP front doors: the browser reaches api/index.php, an MCP client api/mcp.php, the scheduler cron.php, and a BookStack page bs.php. All of them call the same classes under src/, which keep their state in SQLite and call the AI providers and the BookStack API.</title>
+  <g text-anchor="middle">
+    <text class="t-sm t-b" x="105" y="16">WHO CALLS</text>
+    <text class="t-sm t-b" x="335" y="16">FRONT DOOR</text>
+    <text class="t-sm t-b" x="555" y="16">ONE CODE BASE</text>
+    <text class="t-sm t-b" x="740" y="16">WHAT IT TALKS TO</text>
+  </g>
+  <rect class="box" x="20" y="30" width="170" height="54" rx="10"/>
+  <rect class="box" x="20" y="98" width="170" height="54" rx="10"/>
+  <rect class="box" x="20" y="166" width="170" height="54" rx="10"/>
+  <rect class="box" x="20" y="234" width="170" height="54" rx="10"/>
+  <g text-anchor="middle">
+    <text class="t-b" x="105" y="53">Browser</text><text class="t-sm" x="105" y="71">Vue 3, no build step</text>
+    <text class="t-b" x="105" y="121">MCP client</text><text class="t-sm" x="105" y="139">Claude Code, Cursor, Codex…</text>
+    <text class="t-b" x="105" y="189">Scheduler</text><text class="t-sm" x="105" y="207">once a minute</text>
+    <text class="t-b" x="105" y="257">A BookStack page</text><text class="t-sm" x="105" y="275">wearing a look</text>
+  </g>
+  <rect class="box-accent" x="250" y="30" width="170" height="54" rx="10"/>
+  <rect class="box-accent" x="250" y="98" width="170" height="54" rx="10"/>
+  <rect class="box-accent" x="250" y="166" width="170" height="54" rx="10"/>
+  <rect class="box-accent" x="250" y="234" width="170" height="54" rx="10"/>
+  <g text-anchor="middle">
+    <text class="t-b" x="335" y="53">api/index.php</text><text class="t-sm" x="335" y="71">session, CSRF, routes</text>
+    <text class="t-b" x="335" y="121">api/mcp.php</text><text class="t-sm" x="335" y="139">bearer token, JSON-RPC</text>
+    <text class="t-b" x="335" y="189">cron.php</text><text class="t-sm" x="335" y="207">or tools/cron.php</text>
+    <text class="t-b" x="335" y="257">bs.php</text><text class="t-sm" x="335" y="275">a look's loader and assets</text>
+  </g>
+  <path class="line" d="M190 57H242M190 125H242M190 193H242M190 261H242"/>
+  <path class="arrow" d="M250 57l-9-5v10zM250 125l-9-5v10zM250 193l-9-5v10zM250 261l-9-5v10z"/>
+  <rect class="box-magic" x="480" y="30" width="150" height="258" rx="12"/>
+  <g text-anchor="middle">
+    <text class="t-head t-magic" x="555" y="58">src/</text>
+    <text class="t-sm" x="555" y="88">Security</text>
+    <text class="t-sm" x="555" y="110">Domain</text>
+    <text class="t-sm" x="555" y="132">Ai · providers · runs</text>
+    <text class="t-sm" x="555" y="154">Publish · tasks</text>
+    <text class="t-sm" x="555" y="176">Mcp · tools</text>
+    <text class="t-sm" x="555" y="198">Update</text>
+    <text class="t-sm" x="555" y="220">Support</text>
+    <text class="t-sm" x="555" y="254">no Composer,</text>
+    <text class="t-sm" x="555" y="270">no framework</text>
+  </g>
+  <path class="line" d="M420 57H472M420 125H472M420 193H472M420 261H472"/>
+  <path class="arrow" d="M480 57l-9-5v10zM480 125l-9-5v10zM480 193l-9-5v10zM480 261l-9-5v10z"/>
+  <rect class="box-success" x="680" y="30" width="120" height="70" rx="10"/>
+  <rect class="box" x="680" y="124" width="120" height="70" rx="10"/>
+  <rect class="box" x="680" y="218" width="120" height="70" rx="10"/>
+  <g text-anchor="middle">
+    <text class="t-b" x="740" y="58">SQLite</text><text class="t-sm" x="740" y="78">data/app.sqlite</text>
+    <text class="t-b" x="740" y="152">AI providers</text><text class="t-sm" x="740" y="172">live and batch</text>
+    <text class="t-b" x="740" y="246">BookStack</text><text class="t-sm" x="740" y="266">REST API</text>
+  </g>
+  <path class="line" d="M630 65H672M630 159H672M630 253H672"/>
+  <path class="arrow" d="M680 65l-9-5v10zM680 159l-9-5v10zM680 253l-9-5v10z"/>
+</svg>

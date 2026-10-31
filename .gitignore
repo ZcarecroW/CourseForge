@@ -25,6 +25,7 @@ desktop.ini
 
 # --- scratch ----------------------------------------------------------------
 node_modules/
+docs/dist/
 *.log
 .cf-tmp/
 
