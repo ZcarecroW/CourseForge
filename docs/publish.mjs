@@ -40,7 +40,7 @@ writeFileSync(join(OUT, '.nojekyll'), '');
 
 rmSync(join(OUT, '.git'), { recursive: true, force: true });
 run('git', ['init', '-q', '-b', 'gh-pages'], OUT);
-run('git', ['add', '-A'], OUT);
+run('git', ['-c', 'core.autocrlf=false', 'add', '-A'], OUT);
 run('git', ['-c', `user.name=${name}`, '-c', `user.email=${email}`, '-c', 'core.autocrlf=false',
   'commit', '-q', '-m', `Documentation built from ${commit}`], OUT);
 run('git', ['push', '-q', '-f', remote, 'gh-pages'], OUT);
