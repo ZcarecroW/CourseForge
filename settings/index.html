@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings - CourseForge docs</title>
+<meta name="description" content="Every setting an administrator can change, what it does and its default - generated from the one declaration the Settings screen, the API and the MCP tools all read.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/settings/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="Settings">
+<meta property="og:description" content="Every setting an administrator can change, what it does and its default - generated from the one declaration the Settings screen, the API and the MCP tools all read.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/settings/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.4.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/">Profiles</a></li><li><a href="../outline/">The outline (Structure)</a></li><li><a href="../writing-pages/">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/">Connect an AI client</a></li><li><a href="../mcp-tools/">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/">Accounts and roles</a></li><li><a href="../settings/" aria-current="page">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p>
+<h1>Settings</h1>
+<p class="lead">Every setting an administrator can change, what it does and its default - generated from the one declaration the Settings screen, the API and the MCP tools all read.</p>
+<p><strong>Administration › Settings</strong> holds everything the installation can be told to do differently, one card per group. There are 60 settings in 8 groups. Each field carries its own description, its range and whether this installation has changed it.</p>
+<figure class="shot"><a href="../images/settings.webp" class="shot__link"><img src="../images/settings.webp" alt="Settings: the scheduler card" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption>Settings, one card per group. The scheduler card writes the cron line out for you.</figcaption></figure>
+<h2 id="how-settings-are-stored">How settings are stored<a class="anchor" href="#how-settings-are-stored" aria-label="Link to this section">#</a></h2>
+<div class="code"><div class="code__bar"><span class="code__lang">text</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line">config/defaults.json   ships with the release: settings, the security policy, the content</span>
+<span class="line">                       details and the whole prompt library. Replaced by every update.</span>
+<span class="line">                       Never written to.</span>
+<span class="line">data/config.json       what this installation changed, and only that. Written from the</span>
+<span class="line">                       admin screens. No update touches it.</span></code></pre></div>
+<p>Splitting them is what makes an update safe: a new release brings new defaults and new prompt slots, and your decisions live in a file the update may not write. It also makes <strong>Reset</strong> a delete rather than a copy - setting a value back to the shipped default removes it from <code>data/config.json</code>, which stays a short, readable list of what this installation actually decided.</p>
+<p>Every setting is declared once in the code (<code>Support\Settings</code>). The Settings screen draws a field from that declaration, the API validates against it, and the MCP tools describe and change settings from it - so a setting added in a release appears in all three at once. The reference below is generated from the same declaration.</p>
+<h2 id="the-ones-with-consequences">The ones with consequences<a class="anchor" href="#the-ones-with-consequences" aria-label="Link to this section">#</a></h2>
+<p><strong><code>app.cron_token</code></strong> - the secret in the URL your host calls once a minute. Without one, <code>cron.php</code> answers 404 to everybody and CourseForge offers no background runs at all. At least sixteen characters; the screen generates one and hands you the finished URL. Rotating it invalidates the old URL immediately. See <a href="../scheduler/">The scheduler</a>.</p>
+<p><strong><code>app.cron_workers</code></strong> - how many scheduler ticks may work side by side, which is where parallelism in background generation comes from. Raise it only as far as your provider&#39;s rate limits allow; too high gives a run full of 429 errors, not a faster course.</p>
+<p><strong>The timeouts</strong> - <code>app.ai_timeout_seconds</code> defaults to 1800, because a long page on a reasoning model takes minutes; below about 600 you will lose work the provider was about to deliver. Your web server has its own limit too, and the smallest one wins.</p>
+<p><strong><code>updates.auto_install</code></strong> - off by default. On, the installation replaces its own files unattended at the configured hour. It backs up first and rolls back if the new version fails to start, but it is still an unattended change to a production system. See <a href="../updates/">Updates</a>.</p>
+<p><strong><code>mcp.allowed_origins</code></strong> - empty by default, which refuses every <em>browser-based</em> MCP client and affects nothing else. Add an exact origin only when you have such a client.</p>
+<p><strong><code>app.debug</code></strong> - puts exception details and stack traces into API responses and MCP errors. Leave it off on anything reachable from the internet.</p>
+<p><strong><code>app.task_max_attempts</code></strong> - how often a publish that ran into trouble is resumed before it is given up (twenty by default). Each attempt waits longer, up to a quarter of an hour.</p>
+<p>Two settings hold secrets - <code>app.cron_token</code> and <code>updates.github_token</code>. Neither is ever sent to a browser: the screen is told whether one is stored, not what it is, and saving an empty box leaves the stored value alone. Neither can be stored until <a href="../security/">Security</a> has passed.</p>
+<h2 id="diagnostics-and-set-up-php">Diagnostics and Set up PHP<a class="anchor" href="#diagnostics-and-set-up-php" aria-label="Link to this section">#</a></h2>
+<p>The Settings screen also carries <strong>Diagnostics</strong> - the same rows <code>php tools/diagnose.php</code> prints: PHP version and extensions, writable directories, the database, the scheduler&#39;s last tick, open invites - and <strong>Set up PHP</strong>, which raises PHP limits that are too low through <code>.user.ini</code> (<a href="../installation/#php-limits-set-up-php">Installation</a>).</p>
+<h2 id="over-mcp">Over MCP<a class="anchor" href="#over-mcp" aria-label="Link to this section">#</a></h2>
+<p><code>list_settings</code>, <code>set_settings</code> and <code>reset_setting</code> in the <code>admin</code> group reach every setting by its key, with the same validation as the screen. <code>generate_cron_token</code> rotates the cron token; <code>get_cron_url</code> reads the URL.</p>
+<h2 id="every-setting">Every setting<a class="anchor" href="#every-setting" aria-label="Link to this section">#</a></h2>
+<h2 id="general">General<a class="anchor" href="#general" aria-label="Link to this section">#</a></h2>
+<p>What this installation is called and how it behaves by default.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Installation name</strong><br><code>app.name</code></td>
+<td>&quot;CourseForge&quot;</td>
+<td>Shown in the header and in the browser tab. Useful when you run more than one.</td>
+</tr>
+<tr>
+<td><strong>Default course language</strong><br><code>app.default_language</code></td>
+<td>&quot;English&quot;</td>
+<td>What a new profile starts with. Every course can still choose its own. Fuzzy search, or type any language at all.</td>
+</tr>
+<tr>
+<td><strong>Pages at a time, in the browser</strong><br><code>app.default_concurrency</code></td>
+<td>2</td>
+<td>How many pages the in-tab generator writes in parallel. Background runs use the cron worker count instead. Range 1-16.</td>
+</tr>
+<tr>
+<td><strong>Public address</strong><br><code>app.public_url</code></td>
+<td><em>empty</em></td>
+<td>The address this installation is reached at. CourseForge works it out from the request, so leave it empty unless it guesses wrong - behind a reverse proxy, for instance. It is what the cron URL is built from; the MCP connection line has its own setting below.</td>
+</tr>
+<tr>
+<td><strong>Correct punctuation after the AI</strong><br><code>app.typography</code></td>
+<td>true</td>
+<td>Sets the quotation marks, apostrophes, ellipses, dashes and spacing of a generated page the way the course language does, before it is stored - German gets „ and “ where the model wrote &quot; and &quot;, French gets its guillemets and its narrow spaces, an ellipsis becomes one character and a hyphen between two words becomes a dash. Code, links, formulas and the markers CourseForge writes are never touched. This is what a new profile starts from, and each profile can decide for itself. It says nothing about a course that is already written: Course &gt; Settings &gt; Punctuation corrects one of those whatever this is set to.</td>
+</tr>
+<tr>
+<td><strong>Debug mode</strong><br><code>app.debug</code></td>
+<td>false</td>
+<td>Puts exception details into API responses. Leave this off on anything reachable from the internet.</td>
+</tr>
+<tr>
+<td><strong>Searches for a course briefing</strong><br><code>app.research_default_searches</code></td>
+<td>8</td>
+<td>How many searches to ask for when researching a whole course and the course itself names no number. This is the one-off briefing that get_research_brief asks for, not the per-page budget under Content details. Range 0-50 max.</td>
+</tr>
+<tr>
+<td><strong>Description length BookStack accepts</strong><br><code>app.bookstack_description_max</code></td>
+<td>2000</td>
+<td>BookStack validates description_html at 2000 characters and refuses anything longer, so a description past that is shortened for the cover page - never in CourseForge, where it stays whole and is what the pages are written from. Raise it only if your BookStack raised it too; 0 turns the shortening off entirely. Range 0-100000 characters.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="course-defaults">Course defaults<a class="anchor" href="#course-defaults" aria-label="Link to this section">#</a></h2>
+<p>What a generated page is made of before any course has decided otherwise. This is the bottom of the chain the Details tab shows: course, then chapter, then page, each overriding the one above.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Learning objectives</strong><br><code>details.features.objectives.default</code></td>
+<td>false</td>
+<td>Opens the page with a short list of what the reader will be able to do afterwards. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Summary section</strong><br><code>details.features.summary.default</code></td>
+<td>true</td>
+<td>Closes the page with a compact recap of the key points. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Practice exercises</strong><br><code>details.features.exercises.default</code></td>
+<td>true</td>
+<td>Adds hands-on tasks with worked solutions. Uses the &quot;Exercises per page&quot; value. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Key terms glossary</strong><br><code>details.features.key_terms.default</code></td>
+<td>false</td>
+<td>Adds a short glossary of the terms introduced on this page. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Further reading</strong><br><code>details.features.further_reading.default</code></td>
+<td>false</td>
+<td>Points to official documentation, standards or classic references. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Code examples</strong><br><code>details.features.code_examples.default</code></td>
+<td>true</td>
+<td>Allows fenced, runnable code samples with language identifiers. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Comparison tables</strong><br><code>details.features.tables.default</code></td>
+<td>true</td>
+<td>Allows Markdown tables for comparisons, options and overviews. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Note / Tip / Warning callouts</strong><br><code>details.features.callouts.default</code></td>
+<td>true</td>
+<td>Allows blockquote callouts for the remarks that really matter. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Mermaid diagrams</strong><br><code>details.features.mermaid.default</code></td>
+<td>true</td>
+<td>Allows ```mermaid blocks for flows, states, hierarchies and timelines. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>MathJax formulas</strong><br><code>details.features.mathjax.default</code></td>
+<td>true</td>
+<td>Allows LaTeX formulas using the delimiters BookStack renders. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Emojis</strong><br><code>details.features.emojis.default</code></td>
+<td>true</td>
+<td>Allows a handful of emojis in headings, callouts and do/don&#39;t markers. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Anki cloze cards</strong><br><code>details.features.anki.default</code></td>
+<td>false</td>
+<td>Appends an importable cloze-deletion card set. Uses the &quot;Anki cards&quot; value. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Auto links</strong><br><code>details.features.auto_links.default</code></td>
+<td>false</td>
+<td>Lets the AI drop (🔗 Title) cross references, which CourseForge turns into real BookStack links after publishing. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Web research</strong><br><code>details.features.web_research.default</code></td>
+<td>false</td>
+<td>Look up the current state of the topic before writing - latest versions, current documentation, recent releases - and cite what was found. Costs money on most providers, and a client connected over MCP does its own searching instead. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Minimum length</strong><br><code>details.params.min_length.default</code></td>
+<td>3000</td>
+<td>Lower bound for the body of a page. 0 leaves it to the model. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not. Range 0-100000 words.</td>
+</tr>
+<tr>
+<td><strong>Maximum length</strong><br><code>details.params.max_length.default</code></td>
+<td>15000</td>
+<td>Upper bound for the body of a page. 0 leaves it to the model. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not. Range 0-100000 words.</td>
+</tr>
+<tr>
+<td><strong>Diagrams per page</strong><br><code>details.params.diagram_max.default</code></td>
+<td>2</td>
+<td>Upper bound for Mermaid diagrams. Only used when diagrams are enabled. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not. Range 0-20 max.</td>
+</tr>
+<tr>
+<td><strong>Exercises per page</strong><br><code>details.params.exercise_count.default</code></td>
+<td>3</td>
+<td>How many practice tasks a page gets. Only used when exercises are enabled. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not. Range 0-50 tasks.</td>
+</tr>
+<tr>
+<td><strong>Anki cards per page</strong><br><code>details.params.anki_cards.default</code></td>
+<td>5</td>
+<td>How many cloze cards a page gets. Only used when Anki cards are enabled. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not. Range 0-100 cards.</td>
+</tr>
+<tr>
+<td><strong>Auto links per page</strong><br><code>details.params.link_count.default</code></td>
+<td>5</td>
+<td>Roughly how many cross references a page gets. Only used when auto links are enabled. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not. Range 0-50 links.</td>
+</tr>
+<tr>
+<td><strong>Audience</strong><br><code>details.params.audience.default</code></td>
+<td><em>empty</em></td>
+<td>Who the text is written for. Empty means the model derives it from the course topic. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not.</td>
+</tr>
+<tr>
+<td><strong>Searches per page</strong><br><code>details.params.research_max_searches.default</code></td>
+<td>0</td>
+<td>Upper bound on web searches while writing one page. 0 lets the model decide how much to look up. Only used where web research is switched on. Every course starts from this and any course, chapter or page can override it; changing it here moves everything that has not. Range 0-20 max.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="scheduler">Scheduler<a class="anchor" href="#scheduler" aria-label="Link to this section">#</a></h2>
+<p>The cron endpoint that keeps writing courses after the browser is closed.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Cron token</strong><br><code>app.cron_token</code></td>
+<td><em>empty</em></td>
+<td>The secret in the URL your host calls once a minute. Without one, cron.php answers 404 to everybody and background runs are not offered at all.</td>
+</tr>
+<tr>
+<td><strong>Seconds of work per tick</strong><br><code>app.cron_seconds</code></td>
+<td>50</td>
+<td>A tick stops handing out new pages after this long, so it finishes before your host cuts the request off. Keep it under the PHP time limit. Range 5-3000 seconds.</td>
+</tr>
+<tr>
+<td><strong>Parallel workers</strong><br><code>app.cron_workers</code></td>
+<td>2</td>
+<td>How many ticks may work side by side. Two writes roughly two pages a minute. Raise it only as far as your provider rate limits allow. Range 1-16.</td>
+</tr>
+<tr>
+<td><strong>Attempts per page</strong><br><code>app.cron_max_attempts</code></td>
+<td>3</td>
+<td>How often a page that fails is handed back to a later tick before it is given up on. Range 1-10.</td>
+</tr>
+<tr>
+<td><strong>Worker lease</strong><br><code>app.cron_item_timeout_seconds</code></td>
+<td>1800</td>
+<td>How long a page stays claimed by a worker that has stopped answering, before another one may take it. Range 60-7200 seconds.</td>
+</tr>
+<tr>
+<td><strong>Attempts per publish</strong><br><code>app.task_max_attempts</code></td>
+<td>20</td>
+<td>How often a publish or a link pass that ran into trouble - a wiki that stopped answering, a host time limit - is picked up again from where it stopped before it is given up on. Each attempt waits a little longer than the last, up to a quarter of an hour, and a task that was given up on can still be retried by hand. Range 1-200.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="batch-and-runs">Batch and runs<a class="anchor" href="#batch-and-runs" aria-label="Link to this section">#</a></h2>
+<p>How queued generation is polled and how long its records are kept.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Minimum time between polls</strong><br><code>app.batch_poll_seconds</code></td>
+<td>60</td>
+<td>How rarely CourseForge asks a provider whether a queued batch has finished. Batches take hours; polling every minute wastes rate limit for nothing. Range 10-3600 seconds.</td>
+</tr>
+<tr>
+<td><strong>Keep finished runs for</strong><br><code>app.batch_keep_days</code></td>
+<td>30</td>
+<td>Finished run records are removed after this long. The pages they wrote are never touched. Range 1-3650 days.</td>
+</tr>
+<tr>
+<td><strong>Default output ceiling</strong><br><code>app.anthropic_max_tokens</code></td>
+<td>32000</td>
+<td>Used where a provider demands an explicit ceiling and the profile does not set one. Too low truncates a long page mid-sentence: a page at the shipped maximum length of 15,000 words is well over 20,000 tokens, which is why this ships at 32,000. A model whose own ceiling is lower is held to that ceiling, never to this number. Range 1000-200000 tokens.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="updates">Updates<a class="anchor" href="#updates" aria-label="Link to this section">#</a></h2>
+<p>Checking GitHub for a new version, and installing it.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Updates enabled</strong><br><code>updates.enabled</code></td>
+<td>true</td>
+<td>Off means CourseForge never contacts GitHub and never replaces its own files.</td>
+</tr>
+<tr>
+<td><strong>GitHub repository</strong><br><code>updates.repository</code></td>
+<td>&quot;ZcarecroW/CourseForge&quot;</td>
+<td>Where releases are published, as owner/name. Change it only if you run your own fork.</td>
+</tr>
+<tr>
+<td><strong>Channel</strong><br><code>updates.channel</code></td>
+<td>&quot;stable&quot;</td>
+<td>Stable takes published releases only. Pre-release also takes betas and release candidates. One of <code>stable</code>, <code>prerelease</code>.</td>
+</tr>
+<tr>
+<td><strong>Check for updates automatically</strong><br><code>updates.auto_check</code></td>
+<td>true</td>
+<td>Once a day, from the scheduler, so this screen is current when you open it. Needs cron. Automatic installation asks GitHub on its own and does not depend on this.</td>
+</tr>
+<tr>
+<td><strong>Install them automatically</strong><br><code>updates.auto_install</code></td>
+<td>false</td>
+<td>Unattended updates at the time below, from the scheduler. Needs cron. A backup is taken first and restored if the new version fails to start.</td>
+</tr>
+<tr>
+<td><strong>Time of day</strong><br><code>updates.auto_time</code></td>
+<td>&quot;05:00&quot;</td>
+<td>Local server time. Pick an hour when nobody is generating anything.</td>
+</tr>
+<tr>
+<td><strong>Time zone for that clock</strong><br><code>updates.timezone</code></td>
+<td><em>empty</em></td>
+<td>An IANA name such as Europe/Berlin - fuzzy search the list, or type one. CourseForge itself works in UTC; this is only for reading the hour above. Leave it empty and the server&#39;s own time zone is used, which is almost always the one you meant.</td>
+</tr>
+<tr>
+<td><strong>Keep backups of</strong><br><code>updates.keep_backups</code></td>
+<td>2</td>
+<td>How many replaced versions stay on disk so an update can be rolled back. Range 0-10 versions.</td>
+</tr>
+<tr>
+<td><strong>GitHub token</strong><br><code>updates.github_token</code></td>
+<td><em>empty</em></td>
+<td>Only needed for a private fork, or to lift the 60-requests-an-hour limit GitHub applies per IP address to anonymous callers.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="mcp">MCP<a class="anchor" href="#mcp" aria-label="Link to this section">#</a></h2>
+<p>The endpoint Claude and other MCP clients connect to.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>MCP endpoint enabled</strong><br><code>mcp.enabled</code></td>
+<td>true</td>
+<td>The second front door, for Claude Code and other MCP clients. Turning it off refuses every token at once.</td>
+</tr>
+<tr>
+<td><strong>Public URL</strong><br><code>mcp.public_url</code></td>
+<td><em>empty</em></td>
+<td>The address an MCP client should use, if CourseForge cannot work it out for itself - behind a proxy, for instance.</td>
+</tr>
+<tr>
+<td><strong>Allowed browser origins</strong><br><code>mcp.allowed_origins</code></td>
+<td>[]</td>
+<td>Origins a browser-based MCP client may connect from. Command-line clients send no Origin and are unaffected. Leave empty to refuse all of them.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="security">Security<a class="anchor" href="#security" aria-label="Link to this section">#</a></h2>
+<p>Sign-in throttling and session lifetime.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Failed sign-ins before an account is locked</strong><br><code>security.max_login_attempts</code></td>
+<td>5</td>
+<td>Counted for one account, wherever the attempts came from. This is what stands between a password and somebody working through a list of guesses at it. Range 1-100.</td>
+</tr>
+<tr>
+<td><strong>Failed sign-ins before an address is locked</strong><br><code>security.max_address_attempts</code></td>
+<td>20</td>
+<td>Counted for one address, against any account, and deliberately looser than the figure above: an address is shared - an office, a mobile network, a VPN - and a cap of five there would let one person mistyping their password lock out everybody behind it. Raise it for a busy shared address; lower it towards the per-account figure for an installation only you reach. It is never used below that figure, because an address that locked first would put the door shut before the per-account count could ever fill. Range 1-1000.</td>
+</tr>
+<tr>
+<td><strong>Counting window</strong><br><code>security.attempt_window_minutes</code></td>
+<td>15</td>
+<td>Failures older than this stop counting towards a lockout. Range 1-1440 minutes.</td>
+</tr>
+<tr>
+<td><strong>Lockout length</strong><br><code>security.lockout_minutes</code></td>
+<td>15</td>
+<td>undefined Range 1-1440 minutes.</td>
+</tr>
+<tr>
+<td><strong>Sign out after inactivity</strong><br><code>security.session_lifetime_minutes</code></td>
+<td>480</td>
+<td>undefined Range 5-43200 minutes.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="timeouts">Timeouts<a class="anchor" href="#timeouts" aria-label="Link to this section">#</a></h2>
+<p>How long CourseForge waits for somebody else.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>AI request timeout</strong><br><code>app.ai_timeout_seconds</code></td>
+<td>1800</td>
+<td>A long page on a reasoning model can genuinely take minutes. Below about 600 you will start losing work. Range 30-7200 seconds.</td>
+</tr>
+<tr>
+<td><strong>Model list timeout</strong><br><code>app.ai_models_timeout_seconds</code></td>
+<td>240</td>
+<td>For the call that asks a provider which models the account can use. Range 10-1200 seconds.</td>
+</tr>
+<tr>
+<td><strong>Connection timeout</strong><br><code>app.connect_timeout_seconds</code></td>
+<td>60</td>
+<td>How long to wait for a provider to answer at all, before any content arrives. Range 5-300 seconds.</td>
+</tr>
+<tr>
+<td><strong>BookStack timeout</strong><br><code>app.bookstack_timeout_seconds</code></td>
+<td>240</td>
+<td>Publishing a large course is one long sequence of API calls. Range 10-1800 seconds.</td>
+</tr>
+</tbody></table>
+</div>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/settings.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.4.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../accounts/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>Accounts and roles</strong></a><a class="pager__next" href="../scheduler/"><span>Next<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12L21 12L20.5 12"/><path d="M14 19L21 12L14 5"/></svg></span><strong>The scheduler</strong></a></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#how-settings-are-stored">How settings are stored</a></li><li class="toc--2"><a href="#the-ones-with-consequences">The ones with consequences</a></li><li class="toc--2"><a href="#diagnostics-and-set-up-php">Diagnostics and Set up PHP</a></li><li class="toc--2"><a href="#over-mcp">Over MCP</a></li><li class="toc--2"><a href="#every-setting">Every setting</a></li><li class="toc--2"><a href="#general">General</a></li><li class="toc--2"><a href="#course-defaults">Course defaults</a></li><li class="toc--2"><a href="#scheduler">Scheduler</a></li><li class="toc--2"><a href="#batch-and-runs">Batch and runs</a></li><li class="toc--2"><a href="#updates">Updates</a></li><li class="toc--2"><a href="#mcp">MCP</a></li><li class="toc--2"><a href="#security">Security</a></li><li class="toc--2"><a href="#timeouts">Timeouts</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>

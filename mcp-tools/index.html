@@ -1,0 +1,2779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP tool reference - CourseForge docs</title>
+<meta name="description" content="Every tool the MCP endpoint offers, grouped by scope, with its arguments - generated from the tool registry of this release.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/mcp-tools/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="MCP tool reference">
+<meta property="og:description" content="Every tool the MCP endpoint offers, grouped by scope, with its arguments - generated from the tool registry of this release.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/mcp-tools/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.4.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/">Profiles</a></li><li><a href="../outline/">The outline (Structure)</a></li><li><a href="../writing-pages/">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/">Connect an AI client</a></li><li><a href="../mcp-tools/" aria-current="page">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/">Accounts and roles</a></li><li><a href="../settings/">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p>
+<h1>MCP tool reference</h1>
+<p class="lead">Every tool the MCP endpoint offers, grouped by scope, with its arguments - generated from the tool registry of this release.</p>
+<p>CourseForge 5.4.0 offers <strong>107 tools</strong> in 11 groups. This page is generated from the tool registry itself, so it lists exactly what <code>tools/list</code> returns to a connection with every scope. Each tool also carries protocol annotations - whether it reads or writes, whether it is destructive, whether it spends credit - which clients may use to warn before calling it.</p>
+<p><span class="badge badge--read">reads</span> changes nothing &nbsp; <span class="badge badge--write">writes</span> changes data &nbsp; <span class="badge badge--danger">destructive</span> deletes something &nbsp; <span class="badge badge--spend">spends credit</span> calls the account's own AI provider &nbsp; <span class="badge badge--admin">admin</span> administrators only &nbsp; <span class="req">*</span> required argument</p><h2 id="the-groups">The groups<a class="anchor" href="#the-groups" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Group</th>
+<th align="right">Tools</th>
+<th>What it is for</th>
+<th>Who</th>
+<th>Spends</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>courses</code></td>
+<td align="right">6</td>
+<td>List, read, create, rename and delete courses.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>research</code></td>
+<td align="right">3</td>
+<td>Take the research assignment for a course, and store what searching the web found. The client does the searching, so nothing here spends anything.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>structure</code></td>
+<td align="right">6</td>
+<td>Read the outline brief, write an outline, and have CourseForge design one itself.</td>
+<td>everyone</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>pages</code></td>
+<td align="right">8</td>
+<td>List and read pages, take a writing brief, store a finished page, and generate one through the profile&#39;s model. Also retitles pages and chapters and rewrites a chapter description, which edits the stored outline, because chapters and pages are matched by title.</td>
+<td>everyone</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>details</code></td>
+<td align="right">5</td>
+<td>The thirteen switchable elements and seven values, at course, chapter or page level.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td align="right">8</td>
+<td>The tag library and what is tagged with what.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>runs</code></td>
+<td align="right">8</td>
+<td>Start, watch and cancel background and batch runs. This is the group that spends money at scale.</td>
+<td>everyone</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>profiles</code></td>
+<td align="right">25</td>
+<td>AI accounts, models and BookStack instances. Keys are never readable, but they can be replaced.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>publish</code></td>
+<td align="right">5</td>
+<td>Push a course into BookStack and resolve cross references.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>account</code></td>
+<td align="right">9</td>
+<td>Who you are connected as, your own password and display name, and your own connections. Never anybody else&#39;s.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>admin</code></td>
+<td align="right">24</td>
+<td>Accounts, settings, the cron token, diagnostics and updates. Only ever available to an administrator.</td>
+<td>administrators</td>
+<td>no</td>
+</tr>
+</tbody></table>
+</div>
+<p>How to connect, narrow a connection and choose between writing pages yourself and having CourseForge write them: <a href="../mcp/">Connect an AI client</a>.</p>
+<h2 id="courses">Courses<a class="anchor" href="#courses" aria-label="Link to this section">#</a></h2>
+<p>List, read, create, rename and delete courses.</p>
+<h3 id="get_next_step"><code>get_next_step</code><a class="anchor" href="#get_next_step" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">What to do next</span> <span class="badge badge--read">reads</span></p><p>Where a course has got to and the single next tool call that moves it forward, with the reason and the arguments. Call it with no course_id to be pointed at the right course, or with one to be told the next step for that course. Start here if you do not know the sequence, and come back to it whenever you lose track: the answer is worked out from the database every time, so it is correct even after a restart, and it never depends on remembering anything. The whole sequence runs without an AI account configured in CourseForge - you do the writing. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code></td>
+<td>integer</td>
+<td>The course to report on. Omit to be pointed at one.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_courses"><code>list_courses</code><a class="anchor" href="#list_courses" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List courses</span> <span class="badge badge--read">reads</span></p><p>Every course this account can see, with its progress: how many chapters and pages it has, how many are written, how many are published, and whether a generation run is open. An administrator sees every account&#39;s courses, each marked with its owner.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>owner</code></td>
+<td>string</td>
+<td>Administrators only: list one account&#39;s courses instead of all of them.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_course"><code>get_course</code><a class="anchor" href="#get_course" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read a course</span> <span class="badge badge--read">reads</span></p><p>The full outline of one course: every chapter and page with its id, title and status, plus the book title, the topic, the resolved content details and the publishing state. Use it to see what still needs writing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>include_content</code></td>
+<td>boolean</td>
+<td>Include the Markdown of the written pages. A finished course holds far more text than one answer can carry, so this fills up to about 300,000 characters of it and then stops, whole pages at a time; the outline always comes back complete either way. Leave it off unless you need the text.</td>
+</tr>
+<tr>
+<td><code>content_from_page_id</code></td>
+<td>integer</td>
+<td>Where the text should start. Omit it for the beginning of the course; to read on past a previous answer, pass the page id that answer returned as content.next_page_id. Only meaningful together with include_content.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="create_course"><code>create_course</code><a class="anchor" href="#create_course" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Create a course</span> <span class="badge badge--write">writes</span></p><p>Creates an empty course from a one-line brief. It has no outline yet: follow this with generate_structure to have CourseForge design one, or with get_structure_brief and apply_structure to write one yourself. Pass web_research for a subject that moves - a framework, an API, a product, a standard - and every brief this course hands out afterwards asks for the current state of it to be established first, starting with the outline.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>A short name for the course, for the course list.</td>
+</tr>
+<tr>
+<td><code>topic</code></td>
+<td>string</td>
+<td>The brief the outline is designed from. One or two sentences saying what the course covers, for whom, and anything that must be assumed - tooling, prerequisites, depth.</td>
+</tr>
+<tr>
+<td><code>profile_id</code></td>
+<td>integer</td>
+<td>The profile to generate with. Omit to use the only one, if there is only one.</td>
+</tr>
+<tr>
+<td><code>web_research</code></td>
+<td>boolean</td>
+<td>Switches web research on for the whole course, rather than leaving it to the installation default. With it on, get_research_brief hands you the assignment for the subject, get_structure_brief asks for the outline to be designed against what you found, and every get_page_brief asks the page to be written against it and to cite sources. A client that can search the web - Claude Code, for instance - does that searching itself, so it costs nothing here; a course generated by CourseForge&#39;s own model instead uses that provider&#39;s search tool, which does cost. Leave it out to inherit the default.</td>
+</tr>
+<tr>
+<td><code>research_max_searches</code></td>
+<td>integer</td>
+<td>Roughly how many searches one page may make while it is being written. 0 leaves it to whoever is doing the searching. Only meaningful with web_research on.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="update_course"><code>update_course</code><a class="anchor" href="#update_course" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Change a course</span> <span class="badge badge--write">writes</span></p><p>Renames a course, changes its brief, assigns a different profile, or sets the book title and description that are published to BookStack. Only the fields you give are changed.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>A new name for the course.</td>
+</tr>
+<tr>
+<td><code>topic</code></td>
+<td>string</td>
+<td>A new brief. This does not rewrite an existing outline by itself.</td>
+</tr>
+<tr>
+<td><code>profile_id</code></td>
+<td>integer</td>
+<td>A different profile to generate with.</td>
+</tr>
+<tr>
+<td><code>book_title</code></td>
+<td>string</td>
+<td>The title of the published book.</td>
+</tr>
+<tr>
+<td><code>book_description</code></td>
+<td>string</td>
+<td>The description of the published book.</td>
+</tr>
+<tr>
+<td><code>bookstack_instance</code></td>
+<td>string</td>
+<td>The id of the BookStack instance in the course&#39;s profile to publish into. list_profiles shows which a profile has. A course may publish into several at once: this replaces the first of them - naming a different instance means the course stops publishing to the one it names now - and leaves any others it has behind that first one alone. set_publish_targets writes the whole list, which is what to use to add a second destination rather than change the one there is.</td>
+</tr>
+<tr>
+<td><code>shelf_id</code></td>
+<td>integer</td>
+<td>The BookStack shelf the book belongs on in that first instance. list_bookstack_shelves finds it.</td>
+</tr>
+<tr>
+<td><code>shelf_name</code></td>
+<td>string</td>
+<td>The name of that shelf, for display.</td>
+</tr>
+<tr>
+<td><code>auto_tags</code></td>
+<td>boolean</td>
+<td>Whether the outline generator may invent tags for the course, written as {{Tag}} markers in the outline.</td>
+</tr>
+<tr>
+<td><code>tag_pool</code></td>
+<td>string</td>
+<td>A comma-separated list of tag names the generator should choose from. Leave empty to let it choose freely.</td>
+</tr>
+<tr>
+<td><code>tag_pool_strict</code></td>
+<td>boolean</td>
+<td>Whether the generator must stay inside that pool.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="delete_course"><code>delete_course</code><a class="anchor" href="#delete_course" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Delete a course</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Removes a course and everything in it: chapters, pages, written content, tag links and run records. This cannot be undone, and it does not remove anything already published to BookStack. Requires the course name as confirmation.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>confirm_name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The exact name of the course, as a confirmation that the right one is being deleted.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="research">Research<a class="anchor" href="#research" aria-label="Link to this section">#</a></h2>
+<p>Take the research assignment for a course, and store what searching the web found. The client does the searching, so nothing here spends anything.</p>
+<h3 id="get_research_brief"><code>get_research_brief</code><a class="anchor" href="#get_research_brief" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Get the assignment for researching a course</span> <span class="badge badge--read">reads</span></p><p>The research assignment for a whole course: what to establish about the subject before any of it is designed or written - the current stable version and its release date, what changed recently enough that a model would get it wrong, what has been deprecated and what replaced it, where the official documentation now lives, and what practitioners currently recommend. Search the web from this brief with your own tools, then send what you found to store_research. It is stored once on the course and then read by the outline and by every single page, so a course about something that moves - WordPress, a framework, an API, a standard - is researched one time rather than once per page. Costs nothing: no model is called and no search is run on this server.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="store_research"><code>store_research</code><a class="anchor" href="#store_research" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Store what the research found</span> <span class="badge badge--write">writes</span></p><p>Stores the findings from get_research_brief on the course and stamps them with today&#39;s date. From then on they travel into the outline brief and into every page brief, and the model is told when they were established so it can say which version a statement holds for. Send Markdown: short sections, dense bullets, and a closing &quot;## Sources&quot; list of what you actually read. Sending an empty string clears the findings. Replaces whatever was stored before - to add to a briefing rather than replace it, read the old one with get_research first and send both.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>findings</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The research findings as Markdown. Anything past 12,000 characters is cut at a line boundary, because this text is carried in the context of every page of the course and is therefore paid for once per page. Send an empty string to clear.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_research"><code>get_research</code><a class="anchor" href="#get_research" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read the stored research</span> <span class="badge badge--read">reads</span></p><p>The research findings stored on a course, with the date they were established and how old that makes them. Nothing here ever expires by itself - old findings still beat a guess - so this is what a client reads to decide whether the subject has moved far enough to be worth researching again. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="outlines">Outlines<a class="anchor" href="#outlines" aria-label="Link to this section">#</a></h2>
+<p>Read the outline brief, write an outline, and have CourseForge design one itself.</p>
+<h3 id="get_structure_brief"><code>get_structure_brief</code><a class="anchor" href="#get_structure_brief" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Get the brief for designing an outline</span> <span class="badge badge--read">reads</span></p><p>The complete brief for designing a course outline, or for revising the one that already exists: the system instructions and user message CourseForge would send its own model, the course topic, the current outline, the requested changes, and the exact Markdown format that apply_structure parses. Pass feedback to be given the revision brief instead of the design brief - a revision must reproduce every unaffected title character for character, because pages are matched by title. Design the outline from this brief and send it to apply_structure. Costs nothing: no model is called.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>feedback</code></td>
+<td>string</td>
+<td>The changes you want made to the existing outline. Omit to design one from scratch.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="apply_structure"><code>apply_structure</code><a class="anchor" href="#apply_structure" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Replace the outline</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Replaces a course&#39;s outline with the Markdown you give it. Chapters and pages are matched by title: a page whose title is unchanged keeps its text and its details, a page with a new title starts empty, and a page that is no longer in the outline is deleted along with everything written on it. Always send the complete outline - anything left out is removed. Run preview_structure first when the Markdown did not come from get_structure_brief. If the outline would remove a page that has text on it, this refuses and names those pages unless confirm_removals is true, so an outline that only adds and renames applies in one call. Returns what was added, what was kept and what was removed. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>structure</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The complete outline in CourseForge&#39;s Markdown format, as described by get_structure_brief.</td>
+</tr>
+<tr>
+<td><code>confirm_removals</code></td>
+<td>boolean</td>
+<td>Set true only when you mean to delete written pages that this outline leaves out. Without it the call is refused and the pages at stake are named.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="generate_structure"><code>generate_structure</code><a class="anchor" href="#generate_structure" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Have CourseForge design the outline</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span> <span class="badge badge--spend">spends credit</span></p><p>CourseForge calls the course&#39;s own model and designs a complete outline. Existing chapters and pages are matched by title, so a new outline over a course that has already been written would delete every page it does not name. When it would take a page that has text on it, the outline is handed back for you to look at instead of being applied, and applying it then costs nothing - so the model is never called twice over the same decision. Pass confirm_removals to have it applied whatever it removes. Pass feedback to revise the existing outline rather than design a new one. It blocks while the model works, which on a large course takes a minute or two. To design an outline without spending anything at all, use get_structure_brief and apply_structure instead.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>feedback</code></td>
+<td>string</td>
+<td>The changes you want made to the existing outline. Omit to design one from scratch.</td>
+</tr>
+<tr>
+<td><code>confirm_removals</code></td>
+<td>boolean</td>
+<td>Set true only when you mean to delete written pages the new outline leaves out. Without it the designed outline is returned unapplied and the pages at stake are named.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="plan_page_scopes"><code>plan_page_scopes</code><a class="anchor" href="#plan_page_scopes" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Have CourseForge plan what each page teaches</span> <span class="badge badge--write">writes</span> <span class="badge badge--spend">spends credit</span></p><p>Every page in an outline can carry a scope: one line, indented under its title, naming what that page and no other page teaches. Every page brief carries every page&#39;s scope, which is how a page knows what the others cover and leaves it to them. Outlines designed now come with scopes; this fills them in for pages that have none - an older outline, pages added by hand - in one request to the course&#39;s outline model, and writes them into the stored outline. Pass all to plan every page afresh. No page text is touched. To plan them without spending anything, add the scope lines to the outline yourself and store it with apply_structure.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>all</code></td>
+<td>boolean</td>
+<td>Plan every page afresh instead of only the pages that have no scope.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_structure"><code>get_structure</code><a class="anchor" href="#get_structure" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read the outline</span> <span class="badge badge--read">reads</span></p><p>The stored outline of a course exactly as it is, plus what CourseForge reads out of it: the book title and description, how many chapters and pages there are, and every title. Read this before revising an outline, so that the titles you mean to keep stay byte-identical and their pages keep their text. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="preview_structure"><code>preview_structure</code><a class="anchor" href="#preview_structure" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Check outline Markdown before applying it</span> <span class="badge badge--read">reads</span></p><p>Parses outline Markdown and reports what CourseForge understood from it - the book title, the description, every chapter with its pages, and any {{Tag}} markers - without touching any course. It takes no course_id and changes nothing. Use it whenever an outline was assembled by hand, because apply_structure deletes every page the outline leaves out and there is no undo. Reports duplicate titles, chapters with no pages and anything the parser could not read. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>structure</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The outline Markdown to check.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="pages">Pages<a class="anchor" href="#pages" aria-label="Link to this section">#</a></h2>
+<p>List and read pages, take a writing brief, store a finished page, and generate one through the profile&#39;s model. Also retitles pages and chapters and rewrites a chapter description, which edits the stored outline, because chapters and pages are matched by title.</p>
+<h3 id="get_page_brief"><code>get_page_brief</code><a class="anchor" href="#get_page_brief" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Get the writing brief for a page</span> <span class="badge badge--read">reads</span></p><p>The complete writing brief for one page: the system instructions and the user prompt CourseForge would send a model, the content details resolved for it, and the shared course context - the course map, in which every page carries the scope it alone teaches, plus the chapter it belongs to. Write the page from this brief and send the result to write_page. Omit page_id to be given the next page that has not been written yet. The shared context is the same for page after page: pass the ids you were given back as known_context, and while they still match that text is left out of the answer instead of being sent again. Costs nothing: no model is called.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>page_id</code></td>
+<td>integer</td>
+<td>A specific page. Omit for the next unwritten one.</td>
+</tr>
+<tr>
+<td><code>feedback</code></td>
+<td>string</td>
+<td>Revision instructions, when rewriting a page that already has text.</td>
+</tr>
+<tr>
+<td><code>known_context</code></td>
+<td>string</td>
+<td>The shared_context_id and chapter_context_id you already hold from earlier briefs of this course, comma-separated. A segment whose id is listed is not repeated; one that has changed since - an edited outline, the next chapter - is sent again under a new id.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="write_page"><code>write_page</code><a class="anchor" href="#write_page" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Store a written page</span> <span class="badge badge--write">writes</span></p><p>Stores the Markdown of one page. The text must follow the brief: GitHub-flavoured Markdown, no level-1 heading, no raw HTML. Returns how many pages are still unwritten, so a loop of brief - write - store knows when it is finished.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>page_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The page this text belongs to.</td>
+</tr>
+<tr>
+<td><code>content</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The finished page, in Markdown.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_pages"><code>list_pages</code><a class="anchor" href="#list_pages" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List the pages of a course</span> <span class="badge badge--read">reads</span></p><p>Every page of a course in reading order, with its chapter, status, word count and whether it has been published. Lighter than get_course when all you need is what to write next.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>only</code></td>
+<td>string</td>
+<td>Which pages to return. One of <code>all</code>, <code>written</code>, <code>unwritten</code>, <code>failed</code>, <code>unpublished</code>.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_page"><code>get_page</code><a class="anchor" href="#get_page" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read one page</span> <span class="badge badge--read">reads</span></p><p>One page in full: its title, its Markdown, its extra context, its status and where it sits in the course.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>page_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The page to read.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="update_page"><code>update_page</code><a class="anchor" href="#update_page" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Edit a page</span> <span class="badge badge--write">writes</span></p><p>Changes a page&#39;s title, its scope, its Markdown, or the extra context that is added to its brief the next time it is written. Only the fields you give are changed. A new title or scope also rewrites the stored outline, because both are lines of it and chapters and pages are matched by title.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>page_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The page to change.</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>string</td>
+<td>A new title.</td>
+</tr>
+<tr>
+<td><code>scope</code></td>
+<td>string</td>
+<td>What this page and no other page teaches, as one line - concepts separated by semicolons. Every page brief shows every page&#39;s scope. An empty string removes it.</td>
+</tr>
+<tr>
+<td><code>content</code></td>
+<td>string</td>
+<td>New Markdown for the page.</td>
+</tr>
+<tr>
+<td><code>extra_context</code></td>
+<td>string</td>
+<td>Notes that are added to this page&#39;s brief - things this page in particular must cover, or must not. They are instructions to the writer, not text that appears on the page.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="update_chapter"><code>update_chapter</code><a class="anchor" href="#update_chapter" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Edit a chapter</span> <span class="badge badge--write">writes</span></p><p>Changes a chapter&#39;s title or its description. Renaming a chapter rewrites the stored outline, because chapters are matched by title.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>chapter_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The chapter to change.</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>string</td>
+<td>A new title.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>A new description. This is part of what the pages are written from.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="generate_page"><code>generate_page</code><a class="anchor" href="#generate_page" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Have CourseForge write a page</span> <span class="badge badge--write">writes</span> <span class="badge badge--spend">spends credit</span></p><p>CourseForge calls the course&#39;s own model and writes one page, start to finish, and stores it. This is the opposite of get_page_brief: the work happens on the server and is billed to the profile&#39;s AI account. It blocks until the page is finished, which on a long page can take minutes - to write a whole course, use start_run instead.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>page_id</code></td>
+<td>integer</td>
+<td>The page to write. Omit for the next unwritten one.</td>
+</tr>
+<tr>
+<td><code>feedback</code></td>
+<td>string</td>
+<td>Revision instructions, when rewriting a page that already has text.</td>
+</tr>
+<tr>
+<td><code>extra_context</code></td>
+<td>string</td>
+<td>Notes to store on the page and add to its brief before writing it - things this page in particular must cover, or must not. Saved with the page, so a later rewrite carries them too. Omit to leave whatever the page already holds; update_page sets it without spending anything.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="fix_typography"><code>fix_typography</code><a class="anchor" href="#fix_typography" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Correct the punctuation of what is already written</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Sets the quotation marks, apostrophes, ellipses, dashes and spacing of a course, one chapter or one page the way the course language sets them - German gets „ and “ where the model wrote &quot; and &quot;, French gets its guillemets and its narrow spaces, an ellipsis becomes one character and a hyphen between two words becomes a dash. Code, links, formulas, HTML and anything the author escaped are never touched. Costs nothing: no model is called, the rules are all in code. page_id wins over chapter_id, which wins over the course, so course_id alone corrects the whole course. Send preview to be told what would change without changing it. Running it twice changes nothing the second time.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>chapter_id</code></td>
+<td>integer</td>
+<td>One chapter and its pages. Omit for the whole course.</td>
+</tr>
+<tr>
+<td><code>page_id</code></td>
+<td>integer</td>
+<td>One page. Omit for the whole chapter or course.</td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>string</td>
+<td>Set the text as this language instead of the course&#39;s own.</td>
+</tr>
+<tr>
+<td><code>preview</code></td>
+<td>boolean</td>
+<td>Report what would change and write nothing.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="content-details">Content details<a class="anchor" href="#content-details" aria-label="Link to this section">#</a></h2>
+<p>The thirteen switchable elements and seven values, at course, chapter or page level.</p>
+<h3 id="get_detail_catalogue"><code>get_detail_catalogue</code><a class="anchor" href="#get_detail_catalogue" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List every content detail</span> <span class="badge badge--read">reads</span></p><p>Every content detail this installation has, with what it does and its installation-wide default: the switchable features - summary, exercises, diagrams, formulas, flashcards, code examples, tables, callouts, emojis, auto links and the rest - and the values such as minimum and maximum length, diagram count, card count and audience. This is the only place the valid keys, the value types and the permitted ranges are listed, so read it before calling set_details. Takes no arguments and costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="get_details"><code>get_details</code><a class="anchor" href="#get_details" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read the content details of one level</span> <span class="badge badge--read">reads</span></p><p>What the content details are at one level and where each of them comes from. Give course_id alone for the course, add chapter_id for one chapter, or page_id for one page - page_id wins over chapter_id, which wins over the course. Every detail is reported three ways: what this level stores of its own, what it would inherit if it stored nothing, and what actually applies to a page written here. The chain is installation default, then the course&#39;s profile (see set_profile_details), then course, chapter, page. Features are tri-state, so a stored 0 means inherited, never off. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>chapter_id</code></td>
+<td>integer</td>
+<td>Read one chapter&#39;s level instead of the course&#39;s.</td>
+</tr>
+<tr>
+<td><code>page_id</code></td>
+<td>integer</td>
+<td>Read one page&#39;s level. Takes precedence over chapter_id.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_detail_overrides"><code>list_detail_overrides</code><a class="anchor" href="#list_detail_overrides" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List every content detail a course overrides</span> <span class="badge badge--read">reads</span></p><p>Every chapter and page of one course that stores a detail of its own, and what it stores - the whole of what the Details tab calls &quot;overrides below the course&quot;, in one call. get_details answers for one level and says nothing about the rest, so finding the three pages in a fifty-page course that were given exercises meant fifty calls. Levels that inherit everything are left out, because inheriting is the ordinary case and listing it would bury the answer. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="set_details"><code>set_details</code><a class="anchor" href="#set_details" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Set content details at one level</span> <span class="badge badge--write">writes</span></p><p>Sets content detail overrides on the course, on one chapter or on one page. The ids choose the level: page_id wins over chapter_id, which wins over the course, so course_id alone changes the whole course. features is an object keyed by feature - 1 or true switches it on, -1 or false switches it off, 0 or null removes the override so that level inherits again. values is an object keyed by value - a number or a string sets it, null clears it back to inherited. Only the keys you send are touched; everything else stays as it was. Keys are checked against get_detail_catalogue and a wrong one is rejected with the list of valid ones. Returns the resolved details afterwards so you can see the effect. This changes what the next generation writes and never edits a page that already has text.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>chapter_id</code></td>
+<td>integer</td>
+<td>Set the override on one chapter instead of the course.</td>
+</tr>
+<tr>
+<td><code>page_id</code></td>
+<td>integer</td>
+<td>Set the override on one page. Takes precedence over chapter_id.</td>
+</tr>
+<tr>
+<td><code>features</code></td>
+<td>object</td>
+<td>Feature keys mapped to 1 / true (on), -1 / false (off) or 0 / null (inherit). For example {&quot;exercises&quot;: 1, &quot;emojis&quot;: -1, &quot;mermaid&quot;: 0}.</td>
+</tr>
+<tr>
+<td><code>values</code></td>
+<td>object</td>
+<td>Value keys mapped to a number, a string, or null to inherit. For example {&quot;min_length&quot;: 800, &quot;diagram_max&quot;: 1, &quot;audience&quot;: &quot;experienced developers&quot;}.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="reset_details"><code>reset_details</code><a class="anchor" href="#reset_details" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Clear the content details of one level</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Removes every content detail override at one level so it inherits everything again: a page falls back to its chapter, a chapter to its course, and the course to the installation defaults. The ids choose the level the same way as set_details - page_id wins over chapter_id, which wins over the course. Nothing else is touched: resetting a chapter leaves its pages&#39; own overrides in place. The cleared overrides are returned, so the same set_details call can put them back if this was a mistake.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>chapter_id</code></td>
+<td>integer</td>
+<td>Clear one chapter&#39;s overrides instead of the course&#39;s.</td>
+</tr>
+<tr>
+<td><code>page_id</code></td>
+<td>integer</td>
+<td>Clear one page&#39;s overrides. Takes precedence over chapter_id.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="tags">Tags<a class="anchor" href="#tags" aria-label="Link to this section">#</a></h2>
+<p>The tag library and what is tagged with what.</p>
+<h3 id="list_tags"><code>list_tags</code><a class="anchor" href="#list_tags" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List the tag library</span> <span class="badge badge--read">reads</span></p><p>One account&#39;s tag library: every tag with its name, its value, and how many courses, chapters and pages it is attached to. Tags belong to an account, not to a course, so the same tag is reused everywhere. An administrator sees every account&#39;s tags, each marked with its owner - a library stays your own unless you widen it. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>owner</code></td>
+<td>string</td>
+<td>Administrators only: one other account&#39;s library.</td>
+</tr>
+<tr>
+<td><code>all</code></td>
+<td>boolean</td>
+<td>Administrators only: widen to every account on the installation. Without it a listing is your own.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="create_tag"><code>create_tag</code><a class="anchor" href="#create_tag" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Add a tag to the library</span> <span class="badge badge--write">writes</span></p><p>Adds a tag to your library. It is attached to nothing yet, so this is only worth calling when you want the tag to exist before it is used - attach_tag creates a missing tag itself. A name already in the library is refused; change that one with update_tag instead. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The tag name, as it will appear in BookStack.</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>string</td>
+<td>The tag value. BookStack shows a tag as &quot;name: value&quot;; leave it out for a bare label.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="update_tag"><code>update_tag</code><a class="anchor" href="#update_tag" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Rename or revalue a tag</span> <span class="badge badge--write">writes</span></p><p>Changes a tag&#39;s name or value in the library, which changes it everywhere it is attached at once. Anything already in BookStack keeps the old tag until that course is pushed again, so follow this with publish_course for any course that is live. Only the fields you give are changed. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tag_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The tag to change, as returned by list_tags.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>A new name.</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>string</td>
+<td>A new value. Send an empty string to clear it.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="delete_tag"><code>delete_tag</code><a class="anchor" href="#delete_tag" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Delete a tag</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Removes a tag from the library and from every course, chapter and page it is attached to. This cannot be undone, and it does not remove the tag from anything already published - push those courses again afterwards. Requires the tag name as confirmation. To stop one tag being published from one place without losing it everywhere, use set_tag_link with enabled false instead. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tag_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The tag to delete, as returned by list_tags.</td>
+</tr>
+<tr>
+<td><code>confirm_name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The exact name of the tag, as a confirmation that the right one is being deleted.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_course_tags"><code>get_course_tags</code><a class="anchor" href="#get_course_tags" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read every tag in a course</span> <span class="badge badge--read">reads</span></p><p>Every tag in play anywhere in one course: what is attached at the course, at each chapter and at each page, which of those inherit downwards, which CourseForge created itself from {{Tag}} markers in the outline, and which are switched off. Each item also carries its effective tags - what would actually be published for it, its own plus everything inherited from above. Items with no tags at all are left out. Costs nothing: no model is called.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="attach_tag"><code>attach_tag</code><a class="anchor" href="#attach_tag" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Attach a tag</span> <span class="badge badge--write">writes</span></p><p>Attaches a tag to the course, to one chapter or to one page, adding it to the owner&#39;s library first if it is not there yet. Set inherit to have it apply to everything below as well - from the course to every chapter and page, from a chapter to its own pages - which is how a course-wide tag is done without one link per page. Attaching by hand also turns an automatic tag into a manual one and switches it back on. Call publish_course afterwards to push the change to BookStack. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The tag name. A tag of this name is created if the library has none.</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>string</td>
+<td>The tag value. This is the value in the library, so setting it here changes the tag everywhere it is used. Leave it out to keep whatever the tag already has.</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td>What to attach it to: the whole course (the default), one chapter, or one page. One of <code>course</code>, <code>project</code>, <code>chapter</code>, <code>page</code>.</td>
+</tr>
+<tr>
+<td><code>target_id</code></td>
+<td>integer</td>
+<td>The chapter id or page id, when target is chapter or page.</td>
+</tr>
+<tr>
+<td><code>inherit</code></td>
+<td>boolean</td>
+<td>Also apply this tag to everything below the item. Ignored on a page, which has nothing below it.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="detach_tag"><code>detach_tag</code><a class="anchor" href="#detach_tag" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Detach a tag</span> <span class="badge badge--write">writes</span></p><p>Removes one link between a tag and a course, chapter or page. The tag stays in the library and stays attached to everything else. A tag CourseForge created from a {{Tag}} marker comes back the next time the outline is generated, so for one of those use set_tag_link with enabled false - that decision is kept. Name the tag with exactly one of tag_id and name, whichever you have to hand. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>tag_id</code></td>
+<td>integer</td>
+<td>The tag to detach, as returned by get_course_tags. Give this or name, and not both.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>The tag to detach, by name, looked up in the library of the account that owns the course - the same name attach_tag takes. Give this or tag_id, and not both.</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td>Where to detach it from: the whole course (the default), one chapter, or one page. One of <code>course</code>, <code>project</code>, <code>chapter</code>, <code>page</code>.</td>
+</tr>
+<tr>
+<td><code>target_id</code></td>
+<td>integer</td>
+<td>The chapter id or page id, when target is chapter or page.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="set_tag_link"><code>set_tag_link</code><a class="anchor" href="#set_tag_link" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Change how a tag is attached</span> <span class="badge badge--write">writes</span></p><p>Changes an existing link without removing it: whether it inherits downwards, and whether it is switched on. A switched-off link is kept but ignored everywhere - it reaches no writing brief and no BookStack push - which is how an automatic tag is stopped from being published without deleting it, and unlike a detach it survives a regenerated outline. Give at least one of inherit and enabled. The tag has to be attached to that item already; use attach_tag if it is not. Name the tag with exactly one of tag_id and name, whichever you have to hand. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>tag_id</code></td>
+<td>integer</td>
+<td>The tag whose link is being changed, as returned by get_course_tags. Give this or name, and not both.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>The tag whose link is being changed, by name, looked up in the library of the account that owns the course. Give this or tag_id, and not both.</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>string</td>
+<td>Which link: the one on the course (the default), on one chapter, or on one page. One of <code>course</code>, <code>project</code>, <code>chapter</code>, <code>page</code>.</td>
+</tr>
+<tr>
+<td><code>target_id</code></td>
+<td>integer</td>
+<td>The chapter id or page id, when target is chapter or page.</td>
+</tr>
+<tr>
+<td><code>inherit</code></td>
+<td>boolean</td>
+<td>Whether the tag also applies to everything below. Cannot be set on a page.</td>
+</tr>
+<tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td>Whether the link counts at all. False keeps it but hides it from every brief and every push.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="generation-runs">Generation runs<a class="anchor" href="#generation-runs" aria-label="Link to this section">#</a></h2>
+<p>Start, watch and cancel background and batch runs. This is the group that spends money at scale.</p>
+<h3 id="start_run"><code>start_run</code><a class="anchor" href="#start_run" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Write pages on the server</span> <span class="badge badge--write">writes</span> <span class="badge badge--spend">spends credit</span></p><p>Starts writing a set of pages on the server, and returns at once. The run is recorded before any work begins, so it carries on after this client disconnects, after the session ends and across a restart of the server - start it, go away, and call poll_run or list_runs later to see where it got to. A live run is written by CourseForge&#39;s own scheduler in the background and therefore needs cron to be configured: when it is not, this tool starts nothing and says so, and the ways round it are to have an administrator set app.cron_token, to switch to a batch run, or to write pages one at a time with generate_page. A batch run hands the whole selection to the provider&#39;s own queue at roughly half the price and is answered within 24 hours, which is the right choice for a large course where time is not critical. mode auto reads the profile&#39;s page model: a model ending in &quot;:batch&quot; queues, anything else goes to the background worker. Call estimate_run first to see the size of it.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>pages</code></td>
+<td>any</td>
+<td>Which pages to write. Omit it, or &quot;unwritten&quot;, for every page that has no text yet - the usual case. &quot;all&quot; rewrites the whole course, pages that are already written included. &quot;failed&quot; retries the ones whose last attempt errored. Or give a list of page ids from list_pages. Pages already claimed by another run are left out of the keyword selections.</td>
+</tr>
+<tr>
+<td><code>chapter_id</code></td>
+<td>integer</td>
+<td>Restrict the run to one chapter. It combines with pages: the selection is then made inside that chapter only.</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>string</td>
+<td>How the work is done. auto reads the profile&#39;s page model and is almost always right. live means CourseForge writes the pages itself from the scheduler; batch means the provider&#39;s queue, at about half the price, answered within a day. One of <code>auto</code>, <code>live</code>, <code>batch</code>.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="estimate_run"><code>estimate_run</code><a class="anchor" href="#estimate_run" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">What a run would cost</span> <span class="badge badge--read">reads</span></p><p>What start_run would do with the same arguments, without doing it and without spending anything: how many pages, which model and provider, whether it would go to the background worker or to the batch queue, and roughly how many input and output tokens are involved. The input figure is measured from the real prompts - the same ones the run would send - sampled across the selection and scaled up, and the answer says how many pages were measured and at how many characters to the token. No price is given: CourseForge does not know what an account pays, and a confident number in the wrong currency is worse than a token count. Read the warnings: the usual one is that the provider has a batch queue nobody is using. The prompts it measures are built and thrown away and no model is ever called, so finding out what a run would cost is itself free. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>pages</code></td>
+<td>any</td>
+<td>Which pages to write. Omit it, or &quot;unwritten&quot;, for every page that has no text yet - the usual case. &quot;all&quot; rewrites the whole course, pages that are already written included. &quot;failed&quot; retries the ones whose last attempt errored. Or give a list of page ids from list_pages. Pages already claimed by another run are left out of the keyword selections.</td>
+</tr>
+<tr>
+<td><code>chapter_id</code></td>
+<td>integer</td>
+<td>Restrict the estimate to one chapter.</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>string</td>
+<td>Which way to cost it. auto reads the profile&#39;s page model, as start_run would. One of <code>auto</code>, <code>live</code>, <code>batch</code>.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_runs"><code>list_runs</code><a class="anchor" href="#list_runs" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List generation runs</span> <span class="badge badge--read">reads</span></p><p>Every run this account can see, newest first, with the course it belongs to, whether it is live or batch, its status, and how many of its pages are written, still pending, skipped or failed. This is the tool to call after reconnecting, to find out whether work ordered earlier is still going. only=open lists just the runs that have not ended; all and finished look at the 100 newest. Follow with get_run for the detail of one, or poll_run to make a batch check in now. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code></td>
+<td>integer</td>
+<td>One course only. Omit for every course this account can see.</td>
+</tr>
+<tr>
+<td><code>only</code></td>
+<td>string</td>
+<td>Which runs to return. open means anything that has not ended. One of <code>all</code>, <code>open</code>, <code>finished</code>.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_run"><code>get_run</code><a class="anchor" href="#get_run" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read one run</span> <span class="badge badge--read">reads</span></p><p>One run in detail: its status, its mode, the model and provider behind it, the page counts, when it started, when it was last checked, and - for a batch - the provider&#39;s own id and the moment its results expire and stop being collectable. include_items adds every page in the run with its own status and error message, which is how you find out which three of five hundred pages failed and why. This reads what is stored and asks the provider nothing; poll_run is the one that goes out to the network. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>run_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The run, as returned by list_runs or start_run.</td>
+</tr>
+<tr>
+<td><code>include_items</code></td>
+<td>boolean</td>
+<td>Include every page in the run with its own status and error. On a large run this is a long list.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="poll_run"><code>poll_run</code><a class="anchor" href="#poll_run" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Check a run now</span> <span class="badge badge--write">writes</span></p><p>Asks the provider now whether a batch has finished, and writes home every page that has, instead of waiting for the next scheduler tick to do it. Use it when you want the answer in this conversation. On a live run there is no provider to ask: it reports where the background worker has got to and closes the run if the last page has landed. Safe to call as often as you like - the same page is never written twice - and it spends nothing beyond what the run has already committed. It reports how many pages arrived since the previous check. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>run_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The run to check.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="cancel_run"><code>cancel_run</code><a class="anchor" href="#cancel_run" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Stop a run</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Stops a run and releases the pages it was holding back to unwritten. At the provider it is best effort: a batch that has already finished cannot be cancelled, and is collected and written home instead of being thrown away. A page a live worker is writing at this very moment is left to finish, because it has already been paid for. Pages that were written before the cancel stay written - this stops the work, it does not undo it. Use delete_run afterwards to remove the record. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>run_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The run to stop.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="delete_run"><code>delete_run</code><a class="anchor" href="#delete_run" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Forget a finished run</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Removes the record of a run that has ended. This is bookkeeping only: every page the run wrote stays exactly as it is, and nothing is refunded or recalled. A run that is still open is refused - stop it with cancel_run first, then delete it. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>run_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The finished run to forget.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="scheduler_status"><code>scheduler_status</code><a class="anchor" href="#scheduler_status" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Is anything collecting background work</span> <span class="badge badge--read">reads</span></p><p>Whether background work will actually be picked up on this installation: whether a cron token is configured, when the scheduler last called in, how many worker slots it has, and how many runs and pages are waiting for it. Ask before starting a live run if you want to be sure something will collect it, because a background run on an installation with no scheduler sits untouched for ever. A batch run can be submitted without the scheduler - the provider holds that work - but then its results have to be collected with poll_run. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h2 id="profiles">Profiles<a class="anchor" href="#profiles" aria-label="Link to this section">#</a></h2>
+<p>AI accounts, models and BookStack instances. Keys are never readable, but they can be replaced.</p>
+<h3 id="list_profiles"><code>list_profiles</code><a class="anchor" href="#list_profiles" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List profiles</span> <span class="badge badge--read">reads</span></p><p>The profiles this account can generate with: the id to pass to update_course, the AI accounts each one holds and what kind they are, whether each account has a key stored, the models chosen for the outline and the page slot, the BookStack instances, and the language. API keys are never included - only whether one is set. An administrator sees every account&#39;s profiles, each marked with its owner - a working set stays your own unless you widen it. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>owner</code></td>
+<td>string</td>
+<td>Administrators only: one other account&#39;s profiles.</td>
+</tr>
+<tr>
+<td><code>all</code></td>
+<td>boolean</td>
+<td>Administrators only: widen to every account on the installation. Without it a listing is your own.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_profile"><code>get_profile</code><a class="anchor" href="#get_profile" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read a profile</span> <span class="badge badge--read">reads</span></p><p>One profile in full: every AI account with its kind, base URL and whether a key is stored, every BookStack instance, both model slots with their temperature and token ceiling, the language, the concurrency, the courses using it, and the prompt slots this profile overrides - so you can see how it differs from the installation defaults. No credential is ever returned. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile id, as returned by list_profiles.</td>
+</tr>
+<tr>
+<td><code>include_prompt_text</code></td>
+<td>boolean</td>
+<td>Include the full text of each prompt override rather than only which slots are overridden. These can be long.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="create_profile"><code>create_profile</code><a class="anchor" href="#create_profile" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Create a profile</span> <span class="badge badge--write">writes</span></p><p>Builds a working profile in one call: one AI account, both model slots pointed at it, the language, and optionally a BookStack instance. Call list_providers first to see which account kinds this installation speaks and which of them need a key. The key is stored on the server and can never be read back - only replaced. The profile belongs to the account that creates it. Follow with check_profile to prove the credentials work and list_models to choose a model. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>A short name for the profile, for the picker.</td>
+</tr>
+<tr>
+<td><code>ai_kind</code></td>
+<td>string</td>
+<td>The kind of AI account. Call list_providers for what each one is and whether it needs a key. One of <code>openai</code>, <code>anthropic</code>, <code>gemini</code>, <code>openrouter</code>, <code>oai-compat</code>.</td>
+</tr>
+<tr>
+<td><code>api_key</code></td>
+<td>string</td>
+<td>The API key for the account. Required for every kind whose needs_key is true. Written only: no tool will ever hand it back.</td>
+</tr>
+<tr>
+<td><code>base_url</code></td>
+<td>string</td>
+<td>The endpoint. Omit to use the default list_providers gives for this kind, which is right for everything but a self-hosted or proxied gateway.</td>
+</tr>
+<tr>
+<td><code>preset_key</code></td>
+<td>string</td>
+<td>A row of the provider catalogue rather than a raw driver kind - &quot;groq&quot;, &quot;together&quot;, &quot;deepseek&quot;, &quot;llamacpp&quot; and the rest, as list_providers reports them. Naming one picks the endpoint and the label with it, which is what the browser&#39;s provider picker does; ai_kind is then optional. Every preset runs on the OpenAI-compatible driver.</td>
+</tr>
+<tr>
+<td><code>organization</code></td>
+<td>string</td>
+<td>The OpenAI organization id, for an account that belongs to one.</td>
+</tr>
+<tr>
+<td><code>site_url</code></td>
+<td>string</td>
+<td>OpenRouter only: the site this traffic is attributed to.</td>
+</tr>
+<tr>
+<td><code>site_name</code></td>
+<td>string</td>
+<td>OpenRouter only: the name shown beside that attribution.</td>
+</tr>
+<tr>
+<td><code>model</code></td>
+<td>string</td>
+<td>The model that writes the pages - where the budget goes. Add &quot;:batch&quot; to route a whole course through the provider&#39;s queue at about half price.</td>
+</tr>
+<tr>
+<td><code>structure_model</code></td>
+<td>string</td>
+<td>The model that designs the outline. One call per course, so it can be the expensive one. Omit to use the same model as the pages.</td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>string</td>
+<td>The language the course is written in.</td>
+</tr>
+<tr>
+<td><code>temperature</code></td>
+<td>number</td>
+<td>Sampling temperature for both slots. 0.7 unless you have a reason. Ignored by reasoning models and by every Claude model.</td>
+</tr>
+<tr>
+<td><code>max_tokens</code></td>
+<td>integer</td>
+<td>The token ceiling for one reply. 0 means the provider&#39;s own default, which is usually right.</td>
+</tr>
+<tr>
+<td><code>concurrency</code></td>
+<td>integer</td>
+<td>How many pages a run writes at once.</td>
+</tr>
+<tr>
+<td><code>bookstack_url</code></td>
+<td>string</td>
+<td>The BookStack instance this course publishes to, without a trailing slash.</td>
+</tr>
+<tr>
+<td><code>bookstack_token_id</code></td>
+<td>string</td>
+<td>The BookStack API token id. Not a secret; it is readable back.</td>
+</tr>
+<tr>
+<td><code>bookstack_token_secret</code></td>
+<td>string</td>
+<td>The BookStack API token secret. Written only: no tool will ever hand it back.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="update_profile"><code>update_profile</code><a class="anchor" href="#update_profile" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Change a profile</span> <span class="badge badge--write">writes</span></p><p>Changes one profile. Only the fields you give are touched, and everything else - the other accounts, the prompt overrides - is left exactly as it was. An omitted or empty api_key keeps the stored key: passing &quot;&quot; does not clear it, and there is no way to blank a stored key at all, so an account whose key must go has to be replaced with a new one or the profile deleted and made again. Give ai_id when the profile holds more than one AI account, and bookstack_id when it holds more than one instance. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile to change.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>A new name for the profile.</td>
+</tr>
+<tr>
+<td><code>ai_id</code></td>
+<td>string</td>
+<td>Which AI account to change, when the profile holds more than one. get_profile lists the ids.</td>
+</tr>
+<tr>
+<td><code>ai_name</code></td>
+<td>string</td>
+<td>A new name for that AI account, for the picker.</td>
+</tr>
+<tr>
+<td><code>ai_kind</code></td>
+<td>string</td>
+<td>Change the account to another kind. The base URL follows the new kind&#39;s default unless you gave one yourself or had typed one. One of <code>openai</code>, <code>anthropic</code>, <code>gemini</code>, <code>openrouter</code>, <code>oai-compat</code>.</td>
+</tr>
+<tr>
+<td><code>api_key</code></td>
+<td>string</td>
+<td>A new key, replacing the stored one. Empty or omitted keeps what is stored.</td>
+</tr>
+<tr>
+<td><code>base_url</code></td>
+<td>string</td>
+<td>A new endpoint for the account.</td>
+</tr>
+<tr>
+<td><code>preset_key</code></td>
+<td>string</td>
+<td>A row of the provider catalogue rather than a raw driver kind - &quot;groq&quot;, &quot;together&quot;, &quot;deepseek&quot;, &quot;llamacpp&quot; and the rest, as list_providers reports them. Naming one picks the endpoint and the label with it, which is what the browser&#39;s provider picker does; ai_kind is then optional. Every preset runs on the OpenAI-compatible driver.</td>
+</tr>
+<tr>
+<td><code>organization</code></td>
+<td>string</td>
+<td>The OpenAI organization id, for an account that belongs to one.</td>
+</tr>
+<tr>
+<td><code>site_url</code></td>
+<td>string</td>
+<td>OpenRouter only: the site this traffic is attributed to.</td>
+</tr>
+<tr>
+<td><code>site_name</code></td>
+<td>string</td>
+<td>OpenRouter only: the name shown beside that attribution.</td>
+</tr>
+<tr>
+<td><code>model</code></td>
+<td>string</td>
+<td>The model that writes the pages. Add &quot;:batch&quot; to queue the run at about half price.</td>
+</tr>
+<tr>
+<td><code>structure_model</code></td>
+<td>string</td>
+<td>The model that designs the outline.</td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>string</td>
+<td>The language the course is written in.</td>
+</tr>
+<tr>
+<td><code>temperature</code></td>
+<td>number</td>
+<td>Sampling temperature. Applies to both model slots; ignored by reasoning models and by every Claude model.</td>
+</tr>
+<tr>
+<td><code>max_tokens</code></td>
+<td>integer</td>
+<td>The token ceiling for one reply, for both slots. 0 is the provider default.</td>
+</tr>
+<tr>
+<td><code>concurrency</code></td>
+<td>integer</td>
+<td>How many pages a run writes at once.</td>
+</tr>
+<tr>
+<td><code>bookstack_id</code></td>
+<td>string</td>
+<td>Which BookStack instance to change, when the profile holds more than one.</td>
+</tr>
+<tr>
+<td><code>bookstack_name</code></td>
+<td>string</td>
+<td>A new name for that BookStack instance, for the picker.</td>
+</tr>
+<tr>
+<td><code>bookstack_url</code></td>
+<td>string</td>
+<td>The BookStack base URL.</td>
+</tr>
+<tr>
+<td><code>bookstack_token_id</code></td>
+<td>string</td>
+<td>The BookStack API token id.</td>
+</tr>
+<tr>
+<td><code>bookstack_token_secret</code></td>
+<td>string</td>
+<td>A new BookStack token secret. Empty or omitted keeps the stored one.</td>
+</tr>
+<tr>
+<td><code>bookstackdev_id</code></td>
+<td>integer</td>
+<td>The BookStackDev look this instance wears, by id - list_bookstackdev_profiles has them. 0 takes the look off, back to plain BookStack.</td>
+</tr>
+<tr>
+<td><code>typography</code></td>
+<td>boolean</td>
+<td>Whether a page generated with this profile has its punctuation set the way the course language sets it before it is stored. Omitted leaves the profile as it is; a profile that has never said follows the installation. This decides nothing about courses that are already written - fix_typography corrects one of those whatever this says.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="delete_profile"><code>delete_profile</code><a class="anchor" href="#delete_profile" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Delete a profile</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Removes a profile and the credentials in it. The keys are gone and cannot be recovered, because nothing here can read them back to copy them elsewhere first. A profile a course still points at is refused, with the names of the courses - move them to another profile with update_course before deleting this one. Requires the profile name as confirmation. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile to delete.</td>
+</tr>
+<tr>
+<td><code>confirm_name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The exact name of the profile, as a confirmation that the right one is being deleted.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="add_ai_account"><code>add_ai_account</code><a class="anchor" href="#add_ai_account" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Add an AI account to a profile</span> <span class="badge badge--write">writes</span></p><p>Adds another AI account to a profile that already has one - an OpenAI key beside an Anthropic one, a self-hosted gateway beside both, the Claude subscription beside a metered key. update_profile changes an account a profile already holds; this is how it gets a second. Call list_providers first for the kinds this installation speaks. Nothing points at the new account until you say so: use set_model_slot to send the outline or the pages through it. The key is stored on the server and can never be read back. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile to add the account to.</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>string</td>
+<td>The kind of AI account. Call list_providers for what each one is and whether it needs a key. One of <code>openai</code>, <code>anthropic</code>, <code>gemini</code>, <code>openrouter</code>, <code>oai-compat</code>.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>A name for this account, which is how the model slots refer to it. Defaults to the provider&#39;s own label.</td>
+</tr>
+<tr>
+<td><code>api_key</code></td>
+<td>string</td>
+<td>The API key. Required for every kind whose needs_key is true. Written only: no tool will ever hand it back.</td>
+</tr>
+<tr>
+<td><code>base_url</code></td>
+<td>string</td>
+<td>The endpoint. Omit to use the default list_providers gives for this kind.</td>
+</tr>
+<tr>
+<td><code>preset_key</code></td>
+<td>string</td>
+<td>A row of the provider catalogue rather than a raw driver kind - &quot;groq&quot;, &quot;together&quot;, &quot;deepseek&quot;, &quot;llamacpp&quot; and the rest, as list_providers reports them. Naming one picks the endpoint and the label with it, which is what the browser&#39;s provider picker does; ai_kind is then optional. Every preset runs on the OpenAI-compatible driver.</td>
+</tr>
+<tr>
+<td><code>organization</code></td>
+<td>string</td>
+<td>The OpenAI organization id, for an account that belongs to one.</td>
+</tr>
+<tr>
+<td><code>site_url</code></td>
+<td>string</td>
+<td>OpenRouter only: the site this traffic is attributed to.</td>
+</tr>
+<tr>
+<td><code>site_name</code></td>
+<td>string</td>
+<td>OpenRouter only: the name shown beside that attribution.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="delete_ai_account"><code>delete_ai_account</code><a class="anchor" href="#delete_ai_account" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Remove an AI account from a profile</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Takes one AI account out of a profile. Its key goes with it and cannot be recovered, because nothing here can read a key back to copy it elsewhere first. A model slot pointing at the account is left pointing at nothing, which stops that slot generating until it is pointed somewhere with set_model_slot - so the answer says which slots those were. Removing the last account of a profile is refused: a profile with no account cannot write a word, and deleting the profile is the honest way to say that. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile the account belongs to.</td>
+</tr>
+<tr>
+<td><code>ai_id</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The account to remove. get_profile lists the ids.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="add_bookstack_instance"><code>add_bookstack_instance</code><a class="anchor" href="#add_bookstack_instance" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Add a BookStack instance to a profile</span> <span class="badge badge--write">writes</span></p><p>Adds another BookStack instance to a profile that already has one - a staging wiki beside a live one, the wikis of two departments, a customer&#39;s install beside your own. update_profile changes an instance a profile already holds; this is how it gets a second, which is what a course needs before set_publish_targets can send it to more than one wiki. The token secret is stored on the server and can never be read back. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile to add the instance to.</td>
+</tr>
+<tr>
+<td><code>url</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The BookStack base URL, without a trailing slash.</td>
+</tr>
+<tr>
+<td><code>token_id</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The BookStack API token id. Not a secret; it is readable back.</td>
+</tr>
+<tr>
+<td><code>token_secret</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The BookStack API token secret. Written only: no tool will ever hand it back.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>A name for this instance, which is how a course names its destination.</td>
+</tr>
+<tr>
+<td><code>bookstackdev_id</code></td>
+<td>integer</td>
+<td>The BookStackDev look this instance should wear, by id. Omit for plain BookStack.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="delete_bookstack_instance"><code>delete_bookstack_instance</code><a class="anchor" href="#delete_bookstack_instance" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Remove a BookStack instance from a profile</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Takes one BookStack instance out of a profile, with its token. A course that publishes to that instance loses the destination and the record of the book it made there, so publishing to the same wiki later would create a second book beside the first - the call is refused with the names of those courses unless you send confirm. Nothing is deleted inside BookStack itself, here or ever. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile the instance belongs to.</td>
+</tr>
+<tr>
+<td><code>bookstack_id</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The instance to remove. get_profile lists the ids.</td>
+</tr>
+<tr>
+<td><code>confirm</code></td>
+<td>boolean</td>
+<td>Go through with it even though courses publish to this instance. Their destinations and the record of what was published there are forgotten.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="set_model_slot"><code>set_model_slot</code><a class="anchor" href="#set_model_slot" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Point one model slot at an account and a model</span> <span class="badge badge--write">writes</span></p><p>Sets the outline slot or the page slot on its own: which AI account it runs through, which model, and that slot&#39;s own temperature and token ceiling. update_profile sets both slots together, which is right when a profile has one account and wrong as soon as it has two - the outline is one call and can afford the expensive model, while the pages are hundreds and may want a cheaper one, a different provider, or &quot;:batch&quot; on the end to go through the provider&#39;s queue at about half price. Call list_models for the ids an account will accept. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile to change.</td>
+</tr>
+<tr>
+<td><code>slot</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>Which slot: &quot;outline&quot; designs the course structure, &quot;page&quot; writes the pages. One of <code>outline</code>, <code>page</code>.</td>
+</tr>
+<tr>
+<td><code>model</code></td>
+<td>string</td>
+<td>The model id, as list_models reports it. Add &quot;:batch&quot; to route this slot through the provider&#39;s queue.</td>
+</tr>
+<tr>
+<td><code>ai_id</code></td>
+<td>string</td>
+<td>The AI account this slot runs through. Omit to leave it where it points, or when the profile holds only one account.</td>
+</tr>
+<tr>
+<td><code>temperature</code></td>
+<td>number</td>
+<td>Sampling temperature for this slot alone. 0.7 unless you have a reason.</td>
+</tr>
+<tr>
+<td><code>max_tokens</code></td>
+<td>integer</td>
+<td>The token ceiling for one reply from this slot. 0 means the provider&#39;s own default.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_prompt_slots"><code>list_prompt_slots</code><a class="anchor" href="#list_prompt_slots" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List the prompt slots a profile can override</span> <span class="badge badge--read">reads</span></p><p>Every prompt slot this installation has: its key, the group it belongs to, what it is for, the placeholders it may use, and the wording currently in force for the installation - which is what a profile that overrides nothing uses. This is the read a profile needs before set_profile_prompts can change one, and unlike get_prompts it needs no administrator, because overriding a slot for one profile is not the same power as rewriting it for everybody. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>group</code></td>
+<td>string</td>
+<td>One group only, as the group field of a slot reports it.</td>
+</tr>
+<tr>
+<td><code>include_text</code></td>
+<td>boolean</td>
+<td>Include the full wording of each slot rather than only what it is for. These are long.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="set_profile_prompts"><code>set_profile_prompts</code><a class="anchor" href="#set_profile_prompts" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Override prompt slots for one profile</span> <span class="badge badge--write">writes</span></p><p>Replaces the wording this profile uses for one or more prompt slots, leaving the installation&#39;s own prompts alone for every other profile. This is the per-profile half of get_prompts and set_prompts, which are the installation-wide pair and need an administrator: a profile override needs only the profile. Call get_prompts for the slot names and what each one is for, and get_profile with include_prompt_text to read back what this profile currently overrides. A slot named in reset goes back to the installation&#39;s wording; an empty string is a deliberate override that sends nothing for that slot, which is not the same thing. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile to change.</td>
+</tr>
+<tr>
+<td><code>prompts</code></td>
+<td>object</td>
+<td>Slot name to the text this profile should use instead. Unknown slot names are refused rather than silently stored.</td>
+</tr>
+<tr>
+<td><code>reset</code></td>
+<td>array</td>
+<td>Slot names to stop overriding, so the installation&#39;s wording applies again.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="set_profile_details"><code>set_profile_details</code><a class="anchor" href="#set_profile_details" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Set the content defaults of one profile</span> <span class="badge badge--write">writes</span></p><p>Decides content details for every course written with this profile - which elements a page gets and the values that size them - one level above the course. The chain is: installation default, then this profile, then course, chapter, page, the closest level winning. A course inherits whatever the profile decides until it overrides it, so this is where a house style lives: &quot;every course on this profile opens with learning objectives and aims at 1,500 words&quot;. Call get_detail_catalogue for the keys, the types and the ranges. features maps a key to 1 (on), -1 (off) or 0 (stop deciding, so the installation default applies again); values maps a key to a number or a piece of text, or null to stop deciding. reset_all drops everything this profile decided. Nothing already written changes - the next page generated on any course of this profile follows the new answer. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile to change.</td>
+</tr>
+<tr>
+<td><code>features</code></td>
+<td>object</td>
+<td>Feature key to 1 (on), -1 (off) or 0 (inherit the installation default). Unknown keys are refused rather than silently dropped.</td>
+</tr>
+<tr>
+<td><code>values</code></td>
+<td>object</td>
+<td>Value key to the number or text this profile decides, or null to stop deciding it. Numbers are clamped to the range get_detail_catalogue reports.</td>
+</tr>
+<tr>
+<td><code>reset_all</code></td>
+<td>boolean</td>
+<td>Drop every content detail this profile decided, so its courses follow the installation defaults again. Can be combined with features and values, which are applied afterwards.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_models"><code>list_models</code><a class="anchor" href="#list_models" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List the models an account can use</span> <span class="badge badge--read">reads</span></p><p>Asks the provider which models this account may actually call, and marks which of them its batch queue accepts. Writing a model as &quot;claude-opus-5:batch&quot; in a profile routes the whole course through that queue at about half the price, at the cost of waiting - up to a day for the answer, which is why the suffix belongs on the page slot and not on the outline. An empty batch list means the provider would not say, not that nothing can be queued: supports_batch is the answer then. This is a live call to the provider and can take a few seconds, but no provider charges for a model listing. Pass the chosen id back to update_profile as model or structure_model. Reaches the provider but buys nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile the account belongs to.</td>
+</tr>
+<tr>
+<td><code>ai_id</code></td>
+<td>string</td>
+<td>Which AI account to ask, when the profile holds more than one.</td>
+</tr>
+<tr>
+<td><code>refresh</code></td>
+<td>boolean</td>
+<td>Accepted and ignored: the list is fetched from the provider on every call, so it is never stale.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="check_profile"><code>check_profile</code><a class="anchor" href="#check_profile" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Check that an account works</span> <span class="badge badge--write">writes</span></p><p>Answers &quot;does this account work&quot; before a whole course depends on it, by making one live call and reporting what came back. For a key-based account that call is a model listing, which is the cheapest thing that proves the base URL and the key are both right, and no provider bills for it; for the Claude subscription account, which has no model listing to fetch, it reports whether the CLI is installed, whether it is signed in, and whether an API key in the server environment has quietly taken over the billing. Use list_models when the question is which models to choose rather than whether the credentials are good. Reaches the provider but buys nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile the account belongs to.</td>
+</tr>
+<tr>
+<td><code>ai_id</code></td>
+<td>string</td>
+<td>Which AI account to check, when the profile holds more than one.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_providers"><code>list_providers</code><a class="anchor" href="#list_providers" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List the account kinds</span> <span class="badge badge--read">reads</span></p><p>Every kind of AI account this installation can speak: its key for ai_kind, its label, the base URL it defaults to, whether it needs an API key, whether it has a batch queue, and a line of guidance on what belongs there. Call this before create_profile - the catalogue is what create_profile validates ai_kind against, and it grows. Read from this installation, so nothing is contacted. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="list_bookstack_shelves"><code>list_bookstack_shelves</code><a class="anchor" href="#list_bookstack_shelves" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List BookStack shelves</span> <span class="badge badge--read">reads</span></p><p>The shelves the profile&#39;s BookStack instance offers, with their ids, so a course can be filed onto one when it is published. This is a network call to the BookStack server and also proves the token works. A course carries the shelf on its own publishing settings, not on the profile: pass the id you choose to update_course as shelf_id, with the name as shelf_name. Reaches the BookStack server but buys nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>profile_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The profile the instance belongs to.</td>
+</tr>
+<tr>
+<td><code>bookstack_id</code></td>
+<td>string</td>
+<td>Which BookStack instance to ask, when the profile holds more than one. get_profile lists the ids.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_bookstackdev_profiles"><code>list_bookstackdev_profiles</code><a class="anchor" href="#list_bookstackdev_profiles" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List BookStackDev looks</span> <span class="badge badge--read">reads</span></p><p>The looks this account has made for its BookStack instances: name, which instances wear it, which other addresses the link is allowed on, and the embed line. A look is a BookStackDev configuration - Shiki code highlighting, Mermaid, MathJax, link embeds, an audio player, external-link marks, a light/dark button, page styling - served to a wiki by one script tag. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>owner</code></td>
+<td>string</td>
+<td>Administrators only: the account whose looks to list.</td>
+</tr>
+<tr>
+<td><code>all</code></td>
+<td>boolean</td>
+<td>Administrators only: every account&#39;s looks.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_bookstackdev_options"><code>list_bookstackdev_options</code><a class="anchor" href="#list_bookstackdev_options" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">What a look can be told</span> <span class="badge badge--read">reads</span></p><p>Every option a BookStackDev look has, grouped by feature, with its type, its default and its range - the keys create_bookstackdev_profile and update_bookstackdev_profile take in <code>settings</code>. Also the Shiki themes the code highlighter knows. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="get_bookstackdev_profile"><code>get_bookstackdev_profile</code><a class="anchor" href="#get_bookstackdev_profile" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read one look</span> <span class="badge badge--read">reads</span></p><p>One look in full: every setting, the instances wearing it, every address the link works on, the embed line for a wiki&#39;s custom head, and the conventions check - whether the prompts of the profiles publishing into it agree with what it renders. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bookstackdev_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The look, as returned by list_bookstackdev_profiles.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="create_bookstackdev_profile"><code>create_bookstackdev_profile</code><a class="anchor" href="#create_bookstackdev_profile" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Create a look</span> <span class="badge badge--write">writes</span></p><p>Makes a look with every feature switched on the way the shipped BookStackDev is, changed by whatever settings you give. Name the BookStack instances that should wear it (get_profile lists their ids) and any other address the link should work on - a wiki CourseForge holds no credentials for. The answer carries the embed line. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>What to call it, for the picker.</td>
+</tr>
+<tr>
+<td><code>settings</code></td>
+<td>object</td>
+<td>Settings to change from the defaults, keyed by group then field - see list_bookstackdev_options. {&quot;codeBlocks&quot;: {&quot;themeDark&quot;: &quot;github-dark&quot;}}</td>
+</tr>
+<tr>
+<td><code>instance_ids</code></td>
+<td>array</td>
+<td>BookStack instance ids, from get_profile, that wear this look.</td>
+</tr>
+<tr>
+<td><code>origins</code></td>
+<td>array</td>
+<td>Other addresses the link may be loaded on, as origins: <a href="https://wiki.example.com" rel="noopener">https://wiki.example.com</a>. The instances above are allowed without being listed here.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="update_bookstackdev_profile"><code>update_bookstackdev_profile</code><a class="anchor" href="#update_bookstackdev_profile" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Change a look</span> <span class="badge badge--write">writes</span></p><p>Changes one look. Only what you give is touched: a settings object changes the fields it names and no other, instance_ids replaces the list of instances wearing it, origins replaces the list of extra addresses. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bookstackdev_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The look to change.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>A new name.</td>
+</tr>
+<tr>
+<td><code>settings</code></td>
+<td>object</td>
+<td>Fields to change, keyed by group then field - see list_bookstackdev_options.</td>
+</tr>
+<tr>
+<td><code>instance_ids</code></td>
+<td>array</td>
+<td>The complete list of instance ids that wear this look afterwards.</td>
+</tr>
+<tr>
+<td><code>origins</code></td>
+<td>array</td>
+<td>The complete list of extra origins afterwards.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="delete_bookstackdev_profile"><code>delete_bookstackdev_profile</code><a class="anchor" href="#delete_bookstackdev_profile" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Delete a look</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Removes a look. Its link stops answering at once, and every instance wearing it goes back to plain BookStack. Requires the name as confirmation. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bookstackdev_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The look to delete.</td>
+</tr>
+<tr>
+<td><code>confirm_name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The exact name of the look, as a confirmation that the right one is being deleted.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="rotate_bookstackdev_link"><code>rotate_bookstackdev_link</code><a class="anchor" href="#rotate_bookstackdev_link" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Regenerate the link of a look</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Gives a look a new key, and so a new embed line. The old line is refused from this moment wherever it was pasted, which is how a link that got copied somewhere it should not have been is taken back. Every wiki using it has to paste the new line. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bookstackdev_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The look whose link to regenerate.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="check_bookstackdev_conventions"><code>check_bookstackdev_conventions</code><a class="anchor" href="#check_bookstackdev_conventions" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Check a look against the prompts</span> <span class="badge badge--read">reads</span></p><p>Whether the prompts of every profile publishing into an instance wearing this look agree with what the look renders: formulas written for delimiters it does not typeset, diagrams or formulas asked for while the feature is off. A finding about a prompt carries the recommended wording, which set_profile_prompts can write. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bookstackdev_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The look to check.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="publishing">Publishing<a class="anchor" href="#publishing" aria-label="Link to this section">#</a></h2>
+<p>Push a course into BookStack and resolve cross references.</p>
+<h3 id="get_publish_status"><code>get_publish_status</code><a class="anchor" href="#get_publish_status" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">What has been published</span> <span class="badge badge--read">reads</span></p><p>The publishing state of one course, worked out from CourseForge&#39;s own records without contacting BookStack: every BookStack instance the course publishes to with its shelf, its book and how much of the course is in each of them, how many chapters and pages are in sync, how many have changed since the last push, how many have never been pushed, how many pages have no text to push yet, and how many cross-reference markers would still fail to become links. A course may publish to several instances at once; the counts are folded across the ones that are switched on, so &quot;in sync&quot; means in sync everywhere and &quot;changed&quot; means at least one of them would be written to. Read this before publish_course to see what a push would do. It is counts and a summary rather than a list, so it stays small whatever the size of the course, and it changes nothing. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="publish_course"><code>publish_course</code><a class="anchor" href="#publish_course" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Publish to BookStack</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Pushes the course into every BookStack instance the course points at. For each of them it creates the book if it is not there yet, puts it on that instance&#39;s chosen shelf, then creates or updates every chapter and every page, carrying the effective tags with them. Items that have not changed since the last push to that instance are skipped and an item that was deleted there is recreated, so re-publishing never duplicates anything. Pages with no text yet are skipped. Each instance holds its own book with its own ids, and a page&#39;s cross references point inside the wiki it is in, so the same page is written slightly differently to each. An instance that cannot be reached does not stop the others: its failure is reported and the push carries on. This is a long sequence of API calls against somebody else&#39;s live wiki, times the number of instances, and can take several minutes on a large course; existing chapters and pages are overwritten in place, and none of it can be undone from CourseForge. part &quot;all&quot; publishes the whole course and resolves cross references afterwards; part &quot;chapter&quot; or &quot;page&quot; publishes one item and needs target_id, creates the book and the parent chapter around it, and leaves cross references alone - call resolve_links after those. force re-sends items whose fingerprint says they are unchanged, which also overwrites edits made in BookStack by hand. The course has to say where it publishes first: set_publish_targets sets the whole list, and update_course still sets a single one as bookstack_instance. No model is called - this reaches the BookStack server but buys nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>part</code></td>
+<td>string</td>
+<td>How much of the course to publish. &quot;all&quot; is the whole course and is the usual answer; &quot;book&quot; creates or updates the book itself and its shelf without touching a single chapter or page, which is how a renamed course or a moved shelf is pushed without rewriting five hundred pages; &quot;chapter&quot; is one chapter with its pages; &quot;page&quot; is a single page. The last two need target_id. One of <code>all</code>, <code>book</code>, <code>chapter</code>, <code>page</code>.</td>
+</tr>
+<tr>
+<td><code>target_id</code></td>
+<td>integer</td>
+<td>The chapter id or page id to publish, required when part is &quot;chapter&quot; or &quot;page&quot; and not allowed otherwise. Ids come from get_course or list_pages.</td>
+</tr>
+<tr>
+<td><code>instances</code></td>
+<td>array</td>
+<td>Publish to these BookStack instances only, named by their instance id. Leave it out to publish to every instance the course has switched on, which is the usual answer; name one when a single wiki was behind or failed and the others are already up to date. get_publish_status lists the ids.</td>
+</tr>
+<tr>
+<td><code>force</code></td>
+<td>boolean</td>
+<td>Re-send every item even when its fingerprint says it is unchanged. Use this to repair a book somebody has edited in BookStack; their edits are replaced.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="resolve_links"><code>resolve_links</code><a class="anchor" href="#resolve_links" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Turn cross references into links</span> <span class="badge badge--write">writes</span></p><p>Rewrites the ( 🔗 Title ) markers the writer left in the text into real BookStack links, using the URLs of what has already been published, and re-sends only the pages whose text actually changed. It calls no model and can be run as often as you like - the stored page always keeps the raw marker, so resolving is repeatable and never corrupts the source text. A reference whose target is not published yet keeps its marker and resolves on a later run; a reference that matches no chapter or page in the course goes out as plain text, and list_unresolved_links says which ones those are. A full publish_course already does this, so run it after publishing a single chapter or page, or after a page was rewritten. Each rewritten page is written back to the live wiki - this reaches the BookStack server but buys nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>instances</code></td>
+<td>array</td>
+<td>Resolve into these BookStack instances only, named by their instance id. Leave it out for every instance the course has switched on. Each wiki gets links pointing inside itself.</td>
+</tr>
+<tr>
+<td><code>force</code></td>
+<td>boolean</td>
+<td>Re-send every page that holds a marker, even one whose text has not changed.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="set_publish_targets"><code>set_publish_targets</code><a class="anchor" href="#set_publish_targets" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Where a course publishes</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Sets the whole list of BookStack instances a course publishes to, in one call. A course may have several: the same book written into a staging wiki and a live one, or into the wikis of two departments. Each entry names an instance the course&#39;s profile defines - list_profiles shows them - and may carry a shelf and a switch. The first entry is the one the course reports as its own book and shelf everywhere a single answer is wanted. An entry left off the list is forgotten together with the record of what was published into it, so the next push there creates a second book rather than updating the first: to stop publishing to a wiki without losing that record, send it with enabled false instead. Nothing here reaches BookStack and nothing already published is changed or deleted - this only says where the next push goes. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>targets</code> <span class="req" title="required">*</span></td>
+<td>array</td>
+<td>Every instance this course publishes to, in order. An empty list means the course publishes nowhere, which clears its book and shelf.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_unresolved_links"><code>list_unresolved_links</code><a class="anchor" href="#list_unresolved_links" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Cross references that will not become links</span> <span class="badge badge--read">reads</span></p><p>Every cross-reference marker that does not turn into a link, and the page it sits on. Two kinds: markers whose title matches no chapter or page in this course, each with the closest existing title as a suggestion - those go out as plain text and are the ones people never notice - and markers whose target does exist but has not been published yet, which resolve by themselves once it is. This is what to check after a publish. It lists one row per affected page, so on a large course with many cross references the answer is long. Reads the stored text only: no model, no BookStack, nothing changed. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="this-account">This account<a class="anchor" href="#this-account" aria-label="Link to this section">#</a></h2>
+<p>Who you are connected as, your own password and display name, and your own connections. Never anybody else&#39;s.</p>
+<h3 id="whoami"><code>whoami</code><a class="anchor" href="#whoami" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Who am I connected as</span> <span class="badge badge--read">reads</span></p><p>The account this connection belongs to, its role, and what this installation of CourseForge can currently do - whether the scheduler is running, so background runs are possible, and how many courses the account can see.</p>
+<p><em>No arguments.</em></p>
+<h3 id="get_my_account"><code>get_my_account</code><a class="anchor" href="#get_my_account" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read my account</span> <span class="badge badge--read">reads</span></p><p>Everything this installation records about the account this connection belongs to - its user name, display name, role, when it was made and when it last signed in - together with every MCP connection it owns and the tool groups each of those carries. Passwords are stored only as hashes and tokens only as digests, so neither appears here. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="set_my_display_name"><code>set_my_display_name</code><a class="anchor" href="#set_my_display_name" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Rename myself</span> <span class="badge badge--write">writes</span></p><p>Changes the name shown for this account in the interface and against its courses. The user name is the key everything is filed under and cannot be changed; this is only the friendly name beside it. An empty value falls back to the user name. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>display_name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The name to show for this account.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="change_my_password"><code>change_my_password</code><a class="anchor" href="#change_my_password" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Change my password</span> <span class="badge badge--write">writes</span></p><p>Sets a new password for this account. The current one has to be given and has to be right, so a connection that has been handed round cannot lock the owner out of their own installation. A password needs at least 10 characters and has to differ from the current one. This does not sign anything out and does not revoke any connection: open browser sessions and every MCP connection, this one included, carry on working. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>current_password</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The password this account has now. Ask the person for it rather than guessing - a wrong value changes nothing and is refused.</td>
+</tr>
+<tr>
+<td><code>new_password</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The password to set, at least 10 characters. Leading and trailing spaces are kept, because they are part of a password.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_my_connections"><code>list_my_connections</code><a class="anchor" href="#list_my_connections" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List my MCP connections</span> <span class="badge badge--read">reads</span></p><p>The MCP connections this account owns: the name each was given, the tool groups it is limited to, when it was made, when it was last used, how often, and whether it still works. Two things stop one working without removing it - passing its expiry date, and being older than the last password an administrator set for this account. Only connections belonging to this account are ever listed, whatever its role. Tokens are stored as hashes and can never be shown again. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="revoke_my_connection"><code>revoke_my_connection</code><a class="anchor" href="#revoke_my_connection" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Revoke one of my connections</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span></p><p>Deletes the token of one connection belonging to this account, so the next request it makes is refused. Revoking the connection you are talking through ends this conversation immediately and no further tool call will work - and this tool cannot tell you whether that is the one, because a handler is told which account is calling and never which connection. Call list_my_connections first and match the name against the client you are running in. This cannot be undone: a replacement has to be made from the Connect screen in the browser. Requires the connection name as confirmation.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>connection_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The connection to revoke, as returned by list_my_connections.</td>
+</tr>
+<tr>
+<td><code>confirm_name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The exact name of that connection, as a confirmation that the right one is being cut off.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_scopes"><code>list_scopes</code><a class="anchor" href="#list_scopes" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List the tool groups a connection can be limited to</span> <span class="badge badge--read">reads</span></p><p>Every tool group this installation has: its key, what it covers, whether it needs an administrator and whether anything in it spends money on the AI account. It also says which groups this account may hold at all, and which the connection you are talking through holds right now - which is the ceiling on what create_my_connection will issue. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="create_my_connection"><code>create_my_connection</code><a class="anchor" href="#create_my_connection" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Issue a new MCP connection for this account</span> <span class="badge badge--write">writes</span></p><p>Mints a token for another Claude client to connect with, in this account&#39;s name - the same thing the Connect screen does, for setting a second machine up without opening a browser. The token is returned exactly once and is never recoverable: the database keeps only a hash. A new connection may hold no tool group that the connection asking for it does not already hold, so a narrowed token can copy itself or make something smaller and never something larger; naming a group this connection lacks is refused rather than quietly dropped. Leaving scopes out means the same groups this connection has. Call list_scopes for the keys. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>What to call the connection, so it is recognisable in the list.</td>
+</tr>
+<tr>
+<td><code>scopes</code></td>
+<td>array</td>
+<td>Tool groups the new connection may use, by key. Omit for the same groups this connection holds.</td>
+</tr>
+<tr>
+<td><code>ttl_days</code></td>
+<td>integer</td>
+<td>Days until it expires by itself. 0 means it never does, which is what the browser offers by default.</td>
+</tr>
+<tr>
+<td><code>note</code></td>
+<td>string</td>
+<td>A line about which machine it is for, shown beside it in the list.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="rename_my_connection"><code>rename_my_connection</code><a class="anchor" href="#rename_my_connection" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Rename one of my connections</span> <span class="badge badge--write">writes</span></p><p>Changes the name or the note on a connection belonging to this account. Only those two: the tool groups and the expiry are what the token was issued to do, and widening them afterwards would make the record of what was issued a lie - to change either, revoke it and issue another. An omitted field keeps what is stored. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>connection_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The connection to rename, as returned by list_my_connections.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>A new name.</td>
+</tr>
+<tr>
+<td><code>note</code></td>
+<td>string</td>
+<td>A new note.</td>
+</tr>
+</tbody></table>
+</div>
+<h2 id="administration">Administration<a class="anchor" href="#administration" aria-label="Link to this section">#</a></h2>
+<p>Accounts, settings, the cron token, diagnostics and updates. Only ever available to an administrator. <strong>Administrators only.</strong></p>
+<h3 id="transfer_course"><code>transfer_course</code><a class="anchor" href="#transfer_course" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Hand a course to another account</span> <span class="badge badge--write">writes</span> <span class="badge badge--admin">admin</span></p><p>Administrators only. Moves a course to another account. Its profile belongs to the old owner and will not resolve for the new one, so the assignment is cleared and has to be made again.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>course_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The course id, as returned by list_courses.</td>
+</tr>
+<tr>
+<td><code>to</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The user name of the account that should own the course.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_users"><code>list_users</code><a class="anchor" href="#list_users" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List accounts</span> <span class="badge badge--read">reads</span> <span class="badge badge--admin">admin</span></p><p>Every account on this installation: user name, role, whether it is disabled, when it last signed in, and how much it owns - courses, pages, profiles, tags and connections. Read this before changing or deleting an account, because those content counts are what a deletion is actually about. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="create_user"><code>create_user</code><a class="anchor" href="#create_user" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Create an account</span> <span class="badge badge--write">writes</span> <span class="badge badge--admin">admin</span></p><p>Creates an account. Leave password out and CourseForge generates one and returns it in this answer exactly once - only a hash is stored, so it cannot be read again afterwards. The account is asked to choose its own password at the first sign-in unless must_change_password is false. To let somebody create their own account instead of being handed a password, use issue_invite. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>username</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The user name to sign in with. Letters, digits, spaces and . _ @ + - are allowed.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>user owns its own courses and nothing else. admin can also manage accounts, settings and updates. Defaults to user. One of <code>user</code>, <code>admin</code>.</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>string</td>
+<td>A password of at least 10 characters. Omit it to have one generated and returned here.</td>
+</tr>
+<tr>
+<td><code>display_name</code></td>
+<td>string</td>
+<td>The name shown in the interface. Defaults to the user name.</td>
+</tr>
+<tr>
+<td><code>must_change_password</code></td>
+<td>boolean</td>
+<td>Ask this account to choose a new password at the first sign-in. Defaults to true.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="update_user"><code>update_user</code><a class="anchor" href="#update_user" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Change an account</span> <span class="badge badge--write">writes</span> <span class="badge badge--admin">admin</span></p><p>Changes one account: its role, its display name, whether it is disabled, or its password. Only the fields you give are changed. Setting a password here replaces the old one without knowing it, and asks the account to choose a new one at the next sign-in. The last enabled administrator cannot be demoted or disabled, and this connection&#39;s own account cannot demote or disable itself. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>username</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The account to change, as returned by list_users.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>A new role. One of <code>user</code>, <code>admin</code>.</td>
+</tr>
+<tr>
+<td><code>display_name</code></td>
+<td>string</td>
+<td>A new display name.</td>
+</tr>
+<tr>
+<td><code>disabled</code></td>
+<td>boolean</td>
+<td>true refuses every sign-in and every connection token this account owns, without deleting anything. false lets it back in.</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>string</td>
+<td>A new password, of at least 10 characters. Setting one cuts off every MCP connection the account made before now, because a reset is how somebody who has held this password is cut off.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="delete_user"><code>delete_user</code><a class="anchor" href="#delete_user" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Delete an account</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span> <span class="badge badge--admin">admin</span></p><p>Removes an account. content says what happens to everything it owns: &quot;delete&quot; destroys its courses, pages, profiles, tags and connections, and &quot;transfer&quot; hands them to transfer_to, or to you if that is left out. Deleted content cannot be recovered, so confirm_username has to match the account name exactly. Call list_users first to see how much is at stake. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>username</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The account to delete.</td>
+</tr>
+<tr>
+<td><code>content</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>What happens to the courses, profiles, tags and connections this account owns. One of <code>delete</code>, <code>transfer</code>.</td>
+</tr>
+<tr>
+<td><code>transfer_to</code></td>
+<td>string</td>
+<td>The account that inherits the content when content is &quot;transfer&quot;. Defaults to the account this connection belongs to.</td>
+</tr>
+<tr>
+<td><code>confirm_username</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The exact user name again, as a confirmation that the right account is being deleted.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="issue_invite"><code>issue_invite</code><a class="anchor" href="#issue_invite" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Issue an invite code</span> <span class="badge badge--write">writes</span> <span class="badge badge--admin">admin</span></p><p>Returns a fresh invite code exactly once, so somebody can create their own account from the sign-in screen rather than being handed a password over a chat. The database keeps only a hash, so the code cannot be read back later - pass it on now. Several invites may be open at once, each with its own label, role, expiry and number of places; issuing one leaves the others alone. It is good for a single account unless max_uses says otherwise. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>The role the account created with this code gets. Defaults to user. One of <code>user</code>, <code>admin</code>.</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>string</td>
+<td>Who this invite is for - &quot;marketing team&quot;, &quot;the contractor&quot; - so it can be told from the others in list_users and revoked by name. Up to 80 characters.</td>
+</tr>
+<tr>
+<td><code>ttl_hours</code></td>
+<td>integer</td>
+<td>How long the code stays valid. Defaults to 48 hours.</td>
+</tr>
+<tr>
+<td><code>max_uses</code></td>
+<td>integer</td>
+<td>How many accounts this one code may create. Defaults to 1. Anything above that is a code worth several accounts to whoever finds the file it is written in, so raise it only for a group you are expecting.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="revoke_invite"><code>revoke_invite</code><a class="anchor" href="#revoke_invite" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Revoke an open invite code</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span> <span class="badge badge--admin">admin</span></p><p>Cancels an open invite, so the code stops working and nobody else can redeem it. list_users shows the open invites with their ids and labels; name one with invite_id, or leave it out to revoke the newest. Accounts already created from it keep working - revoking closes the door, it does not undo who came through. Refused when there is no open invite. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>invite_id</code></td>
+<td>integer</td>
+<td>The invite to revoke, from list_users. Omit for the newest open one.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_cron_url"><code>get_cron_url</code><a class="anchor" href="#get_cron_url" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Show the scheduler URL</span> <span class="badge badge--read">reads</span> <span class="badge badge--admin">admin</span></p><p>The finished URL a scheduler calls to run background and batch work, built from the cron token this installation already has. generate_cron_token returns the same URL but makes a new token first, which stops every scheduler still calling the old one - so this is the tool for &quot;what should I paste into cron&quot;, and that one is for &quot;the secret has leaked&quot;. Refused when no token has been generated yet. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="list_settings"><code>list_settings</code><a class="anchor" href="#list_settings" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List settings</span> <span class="badge badge--read">reads</span> <span class="badge badge--admin">admin</span></p><p>Every setting this installation has: key, label, description, type, the current value, the value the release ships, and whether this installation has overridden it. The value of a secret - the cron token, the GitHub token - is never returned; you are told only whether one is stored. Use the keys from here with set_settings. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>group</code></td>
+<td>string</td>
+<td>One group only: general, content, scheduler, batch, updates, mcp, security, timeouts. Omit for all of them.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="set_settings"><code>set_settings</code><a class="anchor" href="#set_settings" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Change settings</span> <span class="badge badge--write">writes</span> <span class="badge badge--admin">admin</span></p><p>Writes one or more settings. values is an object of setting key to new value, and every value is validated against the catalogue before anything is written, so one bad value changes nothing at all. An unknown key is refused and the valid ones are listed. An empty string for a secret leaves the stored secret alone rather than clearing it - reset_setting clears one. Call list_settings first for the keys, their types and their ranges. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>values</code> <span class="req" title="required">*</span></td>
+<td>object</td>
+<td>Setting key to new value, for instance {&quot;app.name&quot;: &quot;Team CourseForge&quot;, &quot;app.cron_workers&quot;: 4}.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="reset_setting"><code>reset_setting</code><a class="anchor" href="#reset_setting" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Reset a setting</span> <span class="badge badge--write">writes</span> <span class="badge badge--admin">admin</span></p><p>Drops this installation&#39;s override for one setting, so the value the release ships applies again. Use it to undo a change without having to know what the default was. Resetting app.cron_token clears the cron secret and stops background runs until generate_cron_token makes a new one. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>key</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The setting to reset, as returned by list_settings.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="generate_cron_token"><code>generate_cron_token</code><a class="anchor" href="#generate_cron_token" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Generate the cron token</span> <span class="badge badge--write">writes</span> <span class="badge badge--admin">admin</span></p><p>Makes a new cron secret, stores it, and returns the finished URL to paste into a hosting control panel as a job that runs once a minute. This URL is what makes background and batch runs possible at all: with no token, cron.php answers 404 to everybody and long runs are not offered. The token is returned here once and cannot be read back afterwards, and any scheduler still calling the old URL stops working the moment this returns - so only generate a new one when you are able to update the scheduler as well. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="set_up_php"><code>set_up_php</code><a class="anchor" href="#set_up_php" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Measure PHP and raise what is too low</span> <span class="badge badge--write">writes</span> <span class="badge badge--admin">admin</span></p><p>Reads the PHP configuration this host gives CourseForge, works out which limits are below what it needs, and writes a .user.ini raising exactly those. Every number is a floor and every run only ever raises: a directive already set is never removed or lowered, and a limit the host is generous about is left alone. Reports what it could not change, because some directives are fixed by the host and a line for them would be ignored in silence. Idempotent - running it twice writes nothing the second time. Pass dry_run to see the plan without touching anything at all. Pass release to take CourseForge&#39;s settings back out and let the host&#39;s own values return, which is what moving to different hosting wants. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>dry_run</code></td>
+<td>boolean</td>
+<td>Report what would happen, writing and storing nothing.</td>
+</tr>
+<tr>
+<td><code>release</code></td>
+<td>boolean</td>
+<td>Remove CourseForge&#39;s block from .user.ini and let this host&#39;s own values return. They come back once PHP re-reads the file, which takes up to user_ini.cache_ttl seconds.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_diagnostics"><code>get_diagnostics</code><a class="anchor" href="#get_diagnostics" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Run the installation check</span> <span class="badge badge--read">reads</span> <span class="badge badge--admin">admin</span></p><p>The installation check: the PHP runtime and its extensions, directory permissions, the database, the scheduler, updates, the MCP endpoint and the AI providers, each as a row with a status and a hint about what to do. This is the first thing to call when something is not working. It reads only: nothing here is changed. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="get_audit_log"><code>get_audit_log</code><a class="anchor" href="#get_audit_log" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read the audit log</span> <span class="badge badge--read">reads</span> <span class="badge badge--admin">admin</span></p><p>Recent administrative actions - accounts created, roles changed, settings saved, connections revoked, updates installed - newest first, with who did it, when, from where, and whether it came through the web interface or through MCP. action matches the start of the action name, so &quot;user&quot; covers user.create, user.role and user.delete. The values of settings are never recorded here, only their keys. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>action</code></td>
+<td>string</td>
+<td>Keep only actions starting with this, for instance &quot;user&quot;, &quot;settings&quot; or &quot;update&quot;.</td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>integer</td>
+<td>How many entries to return. Defaults to 100.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="list_connections"><code>list_connections</code><a class="anchor" href="#list_connections" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">List MCP connections</span> <span class="badge badge--read">reads</span> <span class="badge badge--admin">admin</span></p><p>Every MCP connection on this installation: its name, the account it belongs to, the tool groups it is limited to, when it was made, when it was last used and how often. Tokens are stored only as hashes and can never be shown again. Use the connection_id from here with revoke_connection. Your own unless you name another account or ask for all of them. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>owner</code></td>
+<td>string</td>
+<td>One other account&#39;s connections.</td>
+</tr>
+<tr>
+<td><code>all</code></td>
+<td>boolean</td>
+<td>Administrators only: widen to every account on the installation. Without it a listing is your own.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="revoke_connection"><code>revoke_connection</code><a class="anchor" href="#revoke_connection" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Revoke an MCP connection</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span> <span class="badge badge--admin">admin</span></p><p>Deletes one connection&#39;s token, so the next request it makes is refused. Revoking the connection you are talking through ends this conversation immediately, and no further tool call will work - call list_connections first and be sure which one you have, and check the name against the one this conversation is using. This cannot be undone: a new connection has to be made from the Connect screen. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>connection_id</code> <span class="req" title="required">*</span></td>
+<td>integer</td>
+<td>The connection to revoke, as returned by list_connections.</td>
+</tr>
+<tr>
+<td><code>confirm_name</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The exact name of that connection, as a confirmation that the right one is being cut off.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="check_for_update"><code>check_for_update</code><a class="anchor" href="#check_for_update" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Check for a new version</span> <span class="badge badge--write">writes</span> <span class="badge badge--admin">admin</span></p><p>Asks GitHub whether a newer release exists and reports what is installed, what is available and whether the two differ. force ignores the cached answer and asks again, which is worth doing straight after a release and not much otherwise, because GitHub allows anonymous callers only sixty requests an hour per address. Nothing is downloaded or replaced here - install_update does that. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>force</code></td>
+<td>boolean</td>
+<td>Ignore the cached answer and ask GitHub again.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_update_status"><code>get_update_status</code><a class="anchor" href="#get_update_status" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Update status</span> <span class="badge badge--read">reads</span> <span class="badge badge--admin">admin</span></p><p>What the updater knows: the installed version, when it last checked, whether an update is waiting, whether automatic updates are switched on, and which backups are on disk to roll back to. It answers from the cached check where it can and asks GitHub only when that cache has gone stale, so it is the cheap way to ask; check_for_update is the one that always goes out. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="install_update"><code>install_update</code><a class="anchor" href="#install_update" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Install the update</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span> <span class="badge badge--admin">admin</span></p><p>Downloads the latest release and replaces the application&#39;s own files with it. A backup of the current version is taken first, so a version that fails to start can be put back with rollback_update. This takes minutes and rewrites the code that is answering you, so do not run it while a generation run is writing pages, and expect this call to be slow. Call check_for_update first to see what would be installed, because confirm_version has to name it exactly. Settings and data are never touched: they live outside the release directory. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>confirm_version</code> <span class="req" title="required">*</span></td>
+<td>string</td>
+<td>The version that would be installed, exactly as check_for_update or get_update_status reports it under latest.version. The install is refused unless the two agree.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="rollback_update"><code>rollback_update</code><a class="anchor" href="#rollback_update" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Roll an update back</span> <span class="badge badge--write">writes</span> <span class="badge badge--danger">destructive</span> <span class="badge badge--admin">admin</span></p><p>Puts the previously installed version back from the backup the last update took. Use it when a new version does not start or breaks something. With no backup on disk there is nothing to restore and the call reports that rather than doing anything. get_update_status lists what backups exist. confirm has to be true, because this replaces the running application with an older one and anything the newer version wrote to the database stays as it is. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>confirm</code> <span class="req" title="required">*</span></td>
+<td>boolean</td>
+<td>Must be true. Without it nothing is restored and the call reports what it would have done.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="get_update_history"><code>get_update_history</code><a class="anchor" href="#get_update_history" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read the update log</span> <span class="badge badge--read">reads</span> <span class="badge badge--admin">admin</span></p><p>Every update and rollback this installation has attempted, newest first: which version it came from and went to, who asked for it, whether it was a manual or an automatic attempt, how it ended, the log it wrote and the error if it failed. This is where to look when a version is not the one somebody expected. Alongside it: the backups on disk and whether an update is running right now. Costs nothing.</p>
+<p><em>No arguments.</em></p>
+<h3 id="get_prompts"><code>get_prompts</code><a class="anchor" href="#get_prompts" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Read the prompt library</span> <span class="badge badge--read">reads</span> <span class="badge badge--admin">admin</span></p><p>The prompt library: every instruction CourseForge sends a model, as a named slot you can read and rewrite. A slot is one piece of the eventual prompt - the persona the model writes as, the format contract an outline has to obey, the audience block, the tagging rules, the language instruction - and they are joined together for each job. Each slot comes back with its group, its label, what it is for, the placeholders it may use, the text this installation currently sends, the text the release ships, and whether the two differ. These are the installation-wide base layer: a profile may still override any slot for its own courses, and get_profile shows what a profile has changed. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>group</code></td>
+<td>string</td>
+<td>One group of slots only, as returned in groups. Omit for the whole library.</td>
+</tr>
+</tbody></table>
+</div>
+<h3 id="set_prompts"><code>set_prompts</code><a class="anchor" href="#set_prompts" aria-label="Link to this section">#</a></h3>
+<p class="tool-meta"><span class="tool-title">Rewrite the prompt library</span> <span class="badge badge--write">writes</span> <span class="badge badge--admin">admin</span></p><p>Rewrites one or more prompt slots for the whole installation, which is how the house style of everything CourseForge writes gets tuned. prompts is an object of slot key to new text, and only the slots you name are touched. An empty string is not an empty prompt: it drops this installation&#39;s override and puts the shipped default back. An unknown slot key is refused and nothing is written. Keep the placeholders the slot declares - they are filled in at generation time and a slot that loses one silently loses the thing it named. Read get_prompts first for the keys, the current text and the defaults. This is the base layer only: a profile can still override any of these for its own courses. Costs nothing.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>prompts</code> <span class="req" title="required">*</span></td>
+<td>object</td>
+<td>Slot key to new text, for instance {&quot;global_system&quot;: &quot;You are a patient technical writer.&quot;}. An empty string resets that slot to the shipped default.</td>
+</tr>
+</tbody></table>
+</div>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/mcp-tools.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.4.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../mcp/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>Connect an AI client</strong></a><a class="pager__next" href="../accounts/"><span>Next<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12L21 12L20.5 12"/><path d="M14 19L21 12L14 5"/></svg></span><strong>Accounts and roles</strong></a></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#the-groups">The groups</a></li><li class="toc--2"><a href="#courses">Courses</a></li><li class="toc--2"><a href="#research">Research</a></li><li class="toc--2"><a href="#outlines">Outlines</a></li><li class="toc--2"><a href="#pages">Pages</a></li><li class="toc--2"><a href="#content-details">Content details</a></li><li class="toc--2"><a href="#tags">Tags</a></li><li class="toc--2"><a href="#generation-runs">Generation runs</a></li><li class="toc--2"><a href="#profiles">Profiles</a></li><li class="toc--2"><a href="#publishing">Publishing</a></li><li class="toc--2"><a href="#this-account">This account</a></li><li class="toc--2"><a href="#administration">Administration</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>

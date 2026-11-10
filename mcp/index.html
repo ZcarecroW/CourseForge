@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect an AI client - CourseForge docs</title>
+<meta name="description" content="Drive CourseForge from Claude Code, the Claude desktop app, Codex, Cursor, VS Code or Gemini CLI over the Model Context Protocol - including writing whole courses on your own subscription.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/mcp/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="Connect an AI client">
+<meta property="og:description" content="Drive CourseForge from Claude Code, the Claude desktop app, Codex, Cursor, VS Code or Gemini CLI over the Model Context Protocol - including writing whole courses on your own subscription.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/mcp/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.4.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/">Profiles</a></li><li><a href="../outline/">The outline (Structure)</a></li><li><a href="../writing-pages/">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/" aria-current="page">Connect an AI client</a></li><li><a href="../mcp-tools/">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/">Accounts and roles</a></li><li><a href="../settings/">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p>
+<h1>Connect an AI client</h1>
+<p class="lead">Drive CourseForge from Claude Code, the Claude desktop app, Codex, Cursor, VS Code or Gemini CLI over the Model Context Protocol - including writing whole courses on your own subscription.</p>
+<p>CourseForge has a second front door: an <strong>MCP server</strong> at <code>api/mcp.php</code>. An AI client that speaks the Model Context Protocol connects to it and can do <strong>everything the browser can</strong> - create courses, design outlines, write pages, start runs, publish, and for an administrator manage accounts, settings and updates - through 107 tools.</p>
+<p>It also turns the usual arrangement around. Instead of CourseForge calling a model with an API key, <strong>the client does the writing</strong>: it asks CourseForge for a page&#39;s brief, writes the page itself and stores it. That is how you use a Claude Pro or Max subscription - or any other client&#39;s own plan - with a hosted CourseForge, and it costs the server nothing.</p>
+<h2 id="create-a-connection">Create a connection<a class="anchor" href="#create-a-connection" aria-label="Link to this section">#</a></h2>
+<p>Open <strong>Connect</strong> in the sidebar, give the connection a name (<em>&quot;Laptop - Claude Code&quot;</em>), choose an expiry if you want one (up to a year), and optionally narrow it to some tool groups. Create it, and the screen shows the token <strong>once</strong>, with a ready-made setup line for each client.</p>
+<figure class="shot"><a href="../images/connect.webp" class="shot__link"><img src="../images/connect.webp" alt="The Connect screen" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption>Connect: the endpoint, a new connection, and the connections you already have.</figcaption></figure>
+<p>The token starts with <code>cf4_</code> and is stored only as a SHA-256 digest; lose it and you make another. Each connection is separate - revoking the laptop does not touch the desktop - and the screen shows when each was last used and how often.</p>
+<h2 id="set-up-your-client">Set up your client<a class="anchor" href="#set-up-your-client" aria-label="Link to this section">#</a></h2>
+<p>Replace the address and token with the ones the Connect screen gives you. The address is whatever the installation reports (<code>mcp.public_url</code> if set), usually <code>https://your-install/api/mcp.php</code>.</p>
+<h3 id="claude-code">Claude Code<a class="anchor" href="#claude-code" aria-label="Link to this section">#</a></h3>
+<div class="code"><div class="code__bar"><span class="code__lang">bash</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k0">claude</span><span class="k1"> mcp</span><span class="k1"> add</span><span class="k2"> --transport</span><span class="k1"> http</span><span class="k1"> courseforge</span><span class="k1"> https://your-install/api/mcp.php</span><span class="k4"> \</span></span>
+<span class="line"><span class="k2">  --header</span><span class="k1"> "Authorization: Bearer cf4_…"</span></span></code></pre></div>
+<p>Run it in any directory; add <code>--scope user</code> to make the connection available in every project.</p>
+<h3 id="claude-desktop-app">Claude desktop app<a class="anchor" href="#claude-desktop-app" aria-label="Link to this section">#</a></h3>
+<p>In <code>claude_desktop_config.json</code> (<em>Settings › Developer › Edit Config</em>):</p>
+<div class="code"><div class="code__bar"><span class="code__lang">json</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k5">{</span></span>
+<span class="line"><span class="k8">  "mcpServers"</span><span class="k5">: {</span></span>
+<span class="line"><span class="k8">    "courseforge"</span><span class="k5">: {</span></span>
+<span class="line"><span class="k8">      "type"</span><span class="k5">: </span><span class="k1">"http"</span><span class="k5">,</span></span>
+<span class="line"><span class="k8">      "url"</span><span class="k5">: </span><span class="k1">"https://your-install/api/mcp.php"</span><span class="k5">,</span></span>
+<span class="line"><span class="k8">      "headers"</span><span class="k5">: { </span><span class="k8">"Authorization"</span><span class="k5">: </span><span class="k1">"Bearer cf4_…"</span><span class="k5"> }</span></span>
+<span class="line"><span class="k5">    }</span></span>
+<span class="line"><span class="k5">  }</span></span>
+<span class="line"><span class="k5">}</span></span></code></pre></div>
+<p>The desktop app&#39;s <strong>Settings › Connectors › Add custom connector</strong> takes a URL and nothing else, so the Connect screen also offers the token in the address:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">text</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line">https://your-install/api/mcp.php?token=cf4_…</span></code></pre></div>
+<p>That form puts a secret into browser history and server logs; prefer the header wherever the client allows it. Custom connectors are reached from the public internet, so a CourseForge on <code>localhost</code> needs a real hostname or a tunnel for them.</p>
+<h3 id="openai-codex-cli">OpenAI Codex CLI<a class="anchor" href="#openai-codex-cli" aria-label="Link to this section">#</a></h3>
+<p>In <code>~/.codex/config.toml</code>, or <code>.codex/config.toml</code> beside a project:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">toml</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k5">[</span><span class="k0">mcp_servers</span><span class="k5">.</span><span class="k0">courseforge</span><span class="k5">]</span></span>
+<span class="line"><span class="k5">url = </span><span class="k1">"https://your-install/api/mcp.php"</span></span>
+<span class="line"><span class="k5">bearer_token_env_var = </span><span class="k1">"COURSEFORGE_TOKEN"</span></span>
+<span class="line"><span class="k3"># A page can take minutes to write, and the default is sixty seconds.</span></span>
+<span class="line"><span class="k5">tool_timeout_sec = </span><span class="k2">1800</span></span></code></pre></div>
+<p>Then <code>export COURSEFORGE_TOKEN=cf4_…</code> in your shell profile. The file holds no secret and is safe to commit.</p>
+<h3 id="cursor">Cursor<a class="anchor" href="#cursor" aria-label="Link to this section">#</a></h3>
+<p>In <code>.cursor/mcp.json</code> in a project, or <code>~/.cursor/mcp.json</code> for all of them:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">json</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k5">{</span></span>
+<span class="line"><span class="k8">  "mcpServers"</span><span class="k5">: {</span></span>
+<span class="line"><span class="k8">    "courseforge"</span><span class="k5">: {</span></span>
+<span class="line"><span class="k8">      "url"</span><span class="k5">: </span><span class="k1">"https://your-install/api/mcp.php"</span><span class="k5">,</span></span>
+<span class="line"><span class="k8">      "headers"</span><span class="k5">: { </span><span class="k8">"Authorization"</span><span class="k5">: </span><span class="k1">"Bearer cf4_…"</span><span class="k5"> }</span></span>
+<span class="line"><span class="k5">    }</span></span>
+<span class="line"><span class="k5">  }</span></span>
+<span class="line"><span class="k5">}</span></span></code></pre></div>
+<p>Cursor expands <code>${env:NAME}</code>, so you can write <code>&quot;Bearer ${env:COURSEFORGE_TOKEN}&quot;</code> and keep the token out of the file.</p>
+<h3 id="vs-code-copilot">VS Code (Copilot)<a class="anchor" href="#vs-code-copilot" aria-label="Link to this section">#</a></h3>
+<p>In <code>.vscode/mcp.json</code>. Note that VS Code calls the top-level object <code>servers</code>, not <code>mcpServers</code>:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">json</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k5">{</span></span>
+<span class="line"><span class="k8">  "servers"</span><span class="k5">: {</span></span>
+<span class="line"><span class="k8">    "courseforge"</span><span class="k5">: {</span></span>
+<span class="line"><span class="k8">      "type"</span><span class="k5">: </span><span class="k1">"http"</span><span class="k5">,</span></span>
+<span class="line"><span class="k8">      "url"</span><span class="k5">: </span><span class="k1">"https://your-install/api/mcp.php"</span><span class="k5">,</span></span>
+<span class="line"><span class="k8">      "headers"</span><span class="k5">: { </span><span class="k8">"Authorization"</span><span class="k5">: </span><span class="k1">"Bearer cf4_…"</span><span class="k5"> }</span></span>
+<span class="line"><span class="k5">    }</span></span>
+<span class="line"><span class="k5">  }</span></span>
+<span class="line"><span class="k5">}</span></span></code></pre></div>
+<h3 id="gemini-cli">Gemini CLI<a class="anchor" href="#gemini-cli" aria-label="Link to this section">#</a></h3>
+<p>In <code>~/.gemini/settings.json</code>, or <code>.gemini/settings.json</code> beside a project. Gemini CLI calls the address <code>httpUrl</code>; a <code>url</code> would be read as an SSE endpoint, which this is not:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">json</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k5">{</span></span>
+<span class="line"><span class="k8">  "mcpServers"</span><span class="k5">: {</span></span>
+<span class="line"><span class="k8">    "courseforge"</span><span class="k5">: {</span></span>
+<span class="line"><span class="k8">      "httpUrl"</span><span class="k5">: </span><span class="k1">"https://your-install/api/mcp.php"</span><span class="k5">,</span></span>
+<span class="line"><span class="k8">      "headers"</span><span class="k5">: { </span><span class="k8">"Authorization"</span><span class="k5">: </span><span class="k1">"Bearer cf4_…"</span><span class="k5"> }</span></span>
+<span class="line"><span class="k5">    }</span></span>
+<span class="line"><span class="k5">  }</span></span>
+<span class="line"><span class="k5">}</span></span></code></pre></div>
+<h3 id="anything-else">Anything else<a class="anchor" href="#anything-else" aria-label="Link to this section">#</a></h3>
+<p>Any client that speaks streamable HTTP and can send one header can drive CourseForge. To check a token from a terminal:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">bash</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k0">curl</span><span class="k2"> -sS</span><span class="k1"> 'https://your-install/api/mcp.php'</span><span class="k4"> \</span></span>
+<span class="line"><span class="k2">  -H</span><span class="k1"> 'Authorization: Bearer cf4_…'</span><span class="k4"> \</span></span>
+<span class="line"><span class="k2">  -H</span><span class="k1"> 'Content-Type: application/json'</span><span class="k4"> \</span></span>
+<span class="line"><span class="k2">  -d</span><span class="k1"> '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</span></span></code></pre></div>
+<h2 id="start-with-get_next_step">Start with <code>get_next_step</code><a class="anchor" href="#start-with-get_next_step" aria-label="Link to this section">#</a></h2>
+<p>If you remember one tool, remember <strong><code>get_next_step</code></strong>. It reads the database and says which single call moves a course forward, why, and with what arguments. Because it works the answer out every time, it is right after a restart, a lost context window or a change of client - there is nothing to remember and nothing to resume. <code>whoami</code> is the other first call: who the connection belongs to, its role, and whether the scheduler is running.</p>
+<p>In practice you rarely call either yourself. You say <em>&quot;write the next three pages of my machine learning course in CourseForge&quot;</em>, and the client loops brief → write → store on its own.</p>
+<h2 id="guided-prompts">Guided prompts<a class="anchor" href="#guided-prompts" aria-label="Link to this section">#</a></h2>
+<p>Three prompts start a whole job without anybody having to explain the order. In Claude Code they appear as slash commands:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Prompt</th>
+<th>What it does</th>
+<th>Arguments</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/mcp__courseforge__build_a_course</code></td>
+<td>Take a subject and write a complete course from it - outline, every page, and optionally publish it. CourseForge hands over the briefs and stores the results; the writing happens here, so no AI account has to be configured in CourseForge and nothing is spent on one.</td>
+<td><code>topic</code>, <code>name</code> (optional)</td>
+</tr>
+<tr>
+<td><code>/mcp__courseforge__continue_a_course</code></td>
+<td>Pick up a course that is already started and take it as far as it will go. Works whether it was left after the outline, half written, or finished but unpublished.</td>
+<td><code>course_id</code> (optional)</td>
+</tr>
+<tr>
+<td><code>/mcp__courseforge__review_a_course</code></td>
+<td>Read a finished course and say what is wrong with it - gaps, repetition, pages that contradict each other, chapters in an order that does not teach. Changes nothing.</td>
+<td><code>course_id</code> (optional)</td>
+</tr>
+</tbody></table>
+</div>
+<p>Each tells the client to call <code>get_next_step</code> and do what it says, rather than reciting steps - which is right in every state, including a course somebody abandoned three weeks ago.</p>
+<h2 id="two-ways-to-write-a-course">Two ways to write a course<a class="anchor" href="#two-ways-to-write-a-course" aria-label="Link to this section">#</a></h2>
+<p>This is the one decision a model cannot work out from a tool description, which is why the server states it in its own instructions.</p>
+<p><strong>You write it.</strong> <code>get_page_brief</code> hands the client the <em>same</em> prompt CourseForge would send a model: the persona, the formatting rules, the content details resolved for that page, the course map with what every page owns, the page&#39;s place and scope, and its neighbours. The client writes the page and stores it with <code>write_page</code>. <strong>This spends nothing on the server</strong>: the work happens in the client, on your own plan, and CourseForge never holds a credential. A page written this way follows exactly the same rules as one written by the API, so a course can be half written each way and stay coherent.</p>
+<p>The brief&#39;s shared parts - the course map and the chapter - come with ids. Pass them back as <code>known_context</code> on the next call and they are not sent again, so the map enters the client&#39;s context once instead of once per page.</p>
+<p><strong>CourseForge writes it.</strong> <code>start_run</code> queues every unwritten page against the course&#39;s own AI account and keeps going after the client disconnects - in the background, or through the provider&#39;s batch queue at about half price. This spends real money on somebody&#39;s provider account, at scale: five hundred pages is five hundred requests. Call <code>estimate_run</code> first.</p>
+<p><code>generate_page</code> and <code>generate_structure</code> sit between the two: one call each, billed to the profile, blocking while the model works.</p>
+<h2 id="building-a-course-with-no-ai-provider-at-all">Building a course with no AI provider at all<a class="anchor" href="#building-a-course-with-no-ai-provider-at-all" aria-label="Link to this section">#</a></h2>
+<p>CourseForge needs an AI account only if you want <em>CourseForge</em> to do the writing (<code>generate_structure</code>, <code>generate_page</code>, <code>start_run</code>), and a profile only for publishing (which needs BookStack credentials). Everything else - the outline, every page, the content details, the tags - can be done by the client with four tools that need no model, no credential and no profile:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">text</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line">get_structure_brief  →  the client designs the outline  →  apply_structure</span>
+<span class="line">get_page_brief       →  the client writes the page      →  write_page</span></code></pre></div>
+<p>On an installation that will never have an AI account, leave <strong>Profiles</strong> empty.</p>
+<h2 id="scopes-narrowing-a-connection">Scopes: narrowing a connection<a class="anchor" href="#scopes-narrowing-a-connection" aria-label="Link to this section">#</a></h2>
+<p>A connection may be narrowed to some of the tool groups, so a token that only writes pages cannot delete a course or read your settings.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Group</th>
+<th align="right">Tools</th>
+<th>What it is for</th>
+<th>Who</th>
+<th>Spends</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>courses</code></td>
+<td align="right">6</td>
+<td>List, read, create, rename and delete courses.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>research</code></td>
+<td align="right">3</td>
+<td>Take the research assignment for a course, and store what searching the web found. The client does the searching, so nothing here spends anything.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>structure</code></td>
+<td align="right">6</td>
+<td>Read the outline brief, write an outline, and have CourseForge design one itself.</td>
+<td>everyone</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>pages</code></td>
+<td align="right">8</td>
+<td>List and read pages, take a writing brief, store a finished page, and generate one through the profile&#39;s model. Also retitles pages and chapters and rewrites a chapter description, which edits the stored outline, because chapters and pages are matched by title.</td>
+<td>everyone</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>details</code></td>
+<td align="right">5</td>
+<td>The thirteen switchable elements and seven values, at course, chapter or page level.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td align="right">8</td>
+<td>The tag library and what is tagged with what.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>runs</code></td>
+<td align="right">8</td>
+<td>Start, watch and cancel background and batch runs. This is the group that spends money at scale.</td>
+<td>everyone</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>profiles</code></td>
+<td align="right">25</td>
+<td>AI accounts, models and BookStack instances. Keys are never readable, but they can be replaced.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>publish</code></td>
+<td align="right">5</td>
+<td>Push a course into BookStack and resolve cross references.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>account</code></td>
+<td align="right">9</td>
+<td>Who you are connected as, your own password and display name, and your own connections. Never anybody else&#39;s.</td>
+<td>everyone</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>admin</code></td>
+<td align="right">24</td>
+<td>Accounts, settings, the cron token, diagnostics and updates. Only ever available to an administrator.</td>
+<td>administrators</td>
+<td>no</td>
+</tr>
+</tbody></table>
+</div>
+<ul>
+<li><strong>Scopes narrow, they never widen.</strong> Every tool runs as the account the token belongs to, through the same access checks as the browser. A connection with no groups chosen gets everything its account is allowed.</li>
+<li><strong><code>admin</code> is gated on the account, not the token.</strong> A normal account&#39;s connection cannot have it.</li>
+<li><strong><code>account</code> is never narrowed away</strong> - &quot;who am I&quot; and &quot;my own connections&quot; are always available.</li>
+<li><strong>The role is read on every request</strong>, so demoting or disabling an account takes effect on its connections at once.</li>
+<li><strong>A connection can create another</strong> (<code>create_my_connection</code>), but never a wider one than itself: an omitted scope list means &quot;the same as mine&quot;, and asking for a group the calling connection lacks is refused by name.</li>
+</ul>
+<p>A tool the connection cannot see is reported as <strong>unknown</strong> rather than forbidden: the model needs to stop trying, not learn what exists.</p>
+<p>Narrowing is worth doing even for a connection you trust completely: every tool&#39;s name, description and schema is context the model pays for. A page-writing connection with <code>courses</code>, <code>pages</code> and <code>account</code> puts a couple of dozen tools in front of the model instead of all 107.</p>
+<h2 id="confirming-before-anything-is-lost">Confirming before anything is lost<a class="anchor" href="#confirming-before-anything-is-lost" aria-label="Link to this section">#</a></h2>
+<p>One thing on this surface is irreversible: <strong>applying an outline that would delete pages that already have text</strong>. <code>apply_structure</code> works out what would be lost first and refuses unless the client confirms with <code>confirm_removals</code>.</p>
+<p>A client on protocol revision <strong>2026-07-28</strong> that can ask its user a question gets the question instead: the call pauses (<code>resultType: &quot;input_required&quot;</code>), the client asks you, and repeats the call with the answer. The continuation is signed with HMAC-SHA256, bound to the connection, the account, the tool and a digest of the arguments, expires after fifteen minutes and can be redeemed once - a confirmation for deleting three pages cannot be reused for fifty. Older clients get the refusal naming <code>confirm_removals</code>, as they always did.</p>
+<h2 id="protocol-details">Protocol details<a class="anchor" href="#protocol-details" aria-label="Link to this section">#</a></h2>
+<p>CourseForge answers <strong>both eras of MCP on one URL</strong>: the stateless 2026-07-28 revision (<code>server/discover</code>, <code>resultType</code>, cacheable lists with <code>ttlMs</code>) and the four legacy revisions (<code>initialize</code>, session-style). Which era a request belongs to is read from the request itself and never remembered. The transport is plain HTTP POST; <code>GET</code> and <code>DELETE</code> answer 405.</p>
+<p>Two client limits it works around:</p>
+<ul>
+<li><strong>Claude Code truncates a server&#39;s instructions at 2 KB</strong>, so CourseForge&#39;s instructions put the useful part first and stay short.</li>
+<li><strong>Claude Code truncates a tool result at 25,000 tokens by default</strong>, so tools that can return a lot - <code>get_course</code> with <code>include_content</code> is a whole book - declare a larger ceiling in the <code>_meta</code> slot the protocol reserves for it.</li>
+</ul>
+<h2 id="security">Security<a class="anchor" href="#security" aria-label="Link to this section">#</a></h2>
+<ul>
+<li>The endpoint has no session and no cookie: a bearer token, checked on every request, and 401 for an unknown one. An installation with no connections has no way in at all.</li>
+<li>A request carrying a browser <code>Origin</code> that is neither this host nor listed in <strong>Settings › MCP › allowed origins</strong> is refused with 403 - a defence against DNS rebinding. Claude Code, the desktop app and other command-line clients send no <code>Origin</code> and are unaffected. Add an origin only when you really have a browser-based client.</li>
+<li><strong>Settings › MCP</strong> can switch the endpoint off entirely.</li>
+<li>Signing in, redeeming an invite and first-run setup have no MCP equivalent: they create the credential a tool call needs. <code>revoke_my_connection</code> is the nearest thing to signing out, and it is permanent.</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting<a class="anchor" href="#troubleshooting" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Every request is 401 on Apache</td>
+<td>Apache drops the <code>Authorization</code> header under CGI/FastCGI. The shipped <code>.htaccess</code> re-exposes it; check it is in place. Or use <code>?token=</code>.</td>
+</tr>
+<tr>
+<td>403 &quot;origin not allowed&quot;</td>
+<td>A browser-based client: add its exact origin to <code>mcp.allowed_origins</code>.</td>
+</tr>
+<tr>
+<td>Tool calls time out while a page is written</td>
+<td>Raise the client&#39;s tool timeout (Codex: <code>tool_timeout_sec</code>) and your server&#39;s own limit.</td>
+</tr>
+<tr>
+<td>The client sees fewer tools than expected</td>
+<td>The connection is narrowed, or the account is not an administrator. <code>list_scopes</code> shows the ceiling.</td>
+</tr>
+<tr>
+<td>The Claude desktop app cannot reach a local install</td>
+<td>Custom connectors connect from the internet. Use a public hostname or a tunnel - or the config-file setup above, which runs on your machine.</td>
+</tr>
+</tbody></table>
+</div>
+<p>The full list of tools, with every argument, is in the <a href="../mcp-tools/">MCP tool reference</a>.</p>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/mcp.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.4.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../prompt-library/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>The prompt library</strong></a><a class="pager__next" href="../mcp-tools/"><span>Next<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12L21 12L20.5 12"/><path d="M14 19L21 12L14 5"/></svg></span><strong>MCP tool reference</strong></a></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#create-a-connection">Create a connection</a></li><li class="toc--2"><a href="#set-up-your-client">Set up your client</a></li><li class="toc--2"><a href="#start-with-get_next_step">Start with get_next_step</a></li><li class="toc--2"><a href="#guided-prompts">Guided prompts</a></li><li class="toc--2"><a href="#two-ways-to-write-a-course">Two ways to write a course</a></li><li class="toc--2"><a href="#building-a-course-with-no-ai-provider-at-all">Building a course with no AI provider at all</a></li><li class="toc--2"><a href="#scopes-narrowing-a-connection">Scopes: narrowing a connection</a></li><li class="toc--2"><a href="#confirming-before-anything-is-lost">Confirming before anything is lost</a></li><li class="toc--2"><a href="#protocol-details">Protocol details</a></li><li class="toc--2"><a href="#security">Security</a></li><li class="toc--2"><a href="#troubleshooting">Troubleshooting</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Writing pages - CourseForge docs</title>
+<meta name="description" content="The Content tab - generating pages, editing them in a real Markdown editor, and a preview that renders code, diagrams and formulas the way BookStack will.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/writing-pages/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="Writing pages">
+<meta property="og:description" content="The Content tab - generating pages, editing them in a real Markdown editor, and a preview that renders code, diagrams and formulas the way BookStack will.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/writing-pages/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.4.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/">Profiles</a></li><li><a href="../outline/">The outline (Structure)</a></li><li><a href="../writing-pages/" aria-current="page">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/">Connect an AI client</a></li><li><a href="../mcp-tools/">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/">Accounts and roles</a></li><li><a href="../settings/">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p>
+<h1>Writing pages</h1>
+<p class="lead">The Content tab - generating pages, editing them in a real Markdown editor, and a preview that renders code, diagrams and formulas the way BookStack will.</p>
+<p>The <strong>Content</strong> tab is where pages get written: by the AI in this tab while you watch, by a background run or a batch, or by hand. Three panes on a wide screen:</p>
+<figure class="shot"><a href="../images/content.webp" class="shot__link"><img src="../images/content.webp" alt="The Content tab" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption>Left: the outline with status dots and the generation controls. Middle: the editor in split mode. Right: the inspector.</figcaption></figure>
+<ul>
+<li><strong>Left: the outline</strong>, with a status dot per page, a filter, a search box and the generation controls at the bottom.</li>
+<li><strong>Middle: the editor</strong>: the page title, the Markdown body in <em>edit</em>, <em>split</em> or <em>preview</em> mode, a word count and a link to the published page.</li>
+<li><strong>Right: the inspector</strong> - <strong>details</strong>, <strong>tags</strong> and <strong>context</strong> for whatever is selected. Below 1280 px it becomes a slide-over.</li>
+</ul>
+<p>Selecting a <strong>chapter</strong> instead of a page turns the middle pane into a chapter editor (title and goal) and points the inspector at the chapter.</p>
+<h2 id="page-status">Page status<a class="anchor" href="#page-status" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Dot</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>grey</td>
+<td>not written yet</td>
+</tr>
+<tr>
+<td>amber, pulsing</td>
+<td>being written right now</td>
+</tr>
+<tr>
+<td>blue</td>
+<td>written</td>
+</tr>
+<tr>
+<td>amber</td>
+<td>changed since it was last published</td>
+</tr>
+<tr>
+<td>green</td>
+<td>published and in sync</td>
+</tr>
+<tr>
+<td>red</td>
+<td>the last attempt failed - hover for the reason</td>
+</tr>
+</tbody></table>
+</div>
+<p>The filter above the outline narrows the list to <strong>Not written yet</strong>, <strong>Written</strong>, <strong>Changed since publish</strong> or <strong>Failed</strong>. A link icon marks pages that contain cross-reference markers (<a href="../auto-links/">Auto links</a>).</p>
+<h2 id="generating-pages">Generating pages<a class="anchor" href="#generating-pages" aria-label="Link to this section">#</a></h2>
+<p>The panel at the bottom of the outline chooses <strong>what</strong> to write:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Choice</th>
+<th>Writes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Write all missing pages</strong></td>
+<td>every page that has no text yet</td>
+</tr>
+<tr>
+<td><strong>Write the next N pages</strong></td>
+<td>the next N unwritten pages in reading order</td>
+</tr>
+<tr>
+<td><strong>Retry the failed pages</strong></td>
+<td>only the pages whose last attempt failed</td>
+</tr>
+<tr>
+<td><strong>Rewrite everything</strong></td>
+<td>every page, replacing what is there</td>
+</tr>
+</tbody></table>
+</div>
+<p>…and <strong>how</strong>:</p>
+<ul>
+<li><strong>In this tab</strong> - the browser runs as many requests in parallel as the profile allows and you watch each page land. Pages already written are kept; <strong>Stop</strong> stops. It is a loop in the browser, so it stops when the tab closes.</li>
+<li><strong>As a run</strong> - the server takes over, in the background from the scheduler, or through the provider&#39;s batch queue at about half price. The button offers whichever the course is set up for, with <em>or write them now, in this tab</em> underneath. A run shows as a card with its own progress and is still there tomorrow.</li>
+</ul>
+<p>Which to use, what each costs and how to stop one is on <a href="../runs/">Runs</a>.</p>
+<p>A page that belongs to a run cannot be started again - not by a second run, not by the in-tab generator, not by <strong>Rewrite this page</strong>. The database enforces it, so two browser tabs cannot both start the same course.</p>
+<h2 id="what-the-ai-is-told-about-a-page">What the AI is told about a page<a class="anchor" href="#what-the-ai-is-told-about-a-page" aria-label="Link to this section">#</a></h2>
+<p>Every page is written from a brief that carries:</p>
+<ul>
+<li>the <strong>course map</strong> - every chapter, and every page with its title and <a href="../outline/#page-scopes">scope</a>, numbered <code>chapter.page</code>;</li>
+<li>its <strong>own chapter</strong> and the chapter&#39;s goal;</li>
+<li>its own <strong>place, scope and tags</strong>, and the pages either side of it;</li>
+<li>the <strong>section headings of the pages already written in its chapter</strong>, which is where plans drift;</li>
+<li>the resolved <strong>content details</strong> - which elements to include, how long, for whom;</li>
+<li>the course&#39;s <strong>research briefing</strong>, if it has one;</li>
+<li>the page&#39;s <strong>extra context</strong>, and on a rewrite your <strong>feedback</strong>.</li>
+</ul>
+<p>That is how a page knows what the others teach without reading them. The shared part is the same for every page and is cached by the provider. The full assembly order is on <a href="../prompt-library/#how-a-page-prompt-is-assembled">The prompt library</a>; the reasoning and the measurements are on <a href="../token-economy/">Tokens and caching</a>.</p>
+<h2 id="steering-one-page">Steering one page<a class="anchor" href="#steering-one-page" aria-label="Link to this section">#</a></h2>
+<p>The inspector&#39;s <strong>context</strong> tab holds two things the AI reads for this page only:</p>
+<ul>
+<li><strong>Scope</strong> - what this page alone teaches. The same line as in the outline; editing it here rewrites the outline.</li>
+<li><strong>Extra context</strong> - facts and instructions that <em>outrank the model&#39;s own assumptions</em>: &quot;use the <code>uv</code> workflow, not pip&quot;, &quot;the examples target PostgreSQL 18&quot;. Saved with the page and sent with every generation of it.</li>
+</ul>
+<p>To correct a page that is already written, type the correction into the <strong>feedback</strong> box and click <strong>Rewrite this page</strong>. The AI receives the existing text and your feedback and rewrites the page. Leaving the box empty writes the page from scratch.</p>
+<p>The inspector&#39;s <strong>details</strong> tab overrides the course&#39;s <a href="../content-details/">content details</a> for this page; <strong>tags</strong> attaches tags to it.</p>
+<h2 id="the-markdown-editor">The Markdown editor<a class="anchor" href="#the-markdown-editor" aria-label="Link to this section">#</a></h2>
+<p>The left half of the editor is a full CodeMirror editor, not a text box:</p>
+<ul>
+<li>Headings, emphasis, links, quotes, list markers and inline code are highlighted as you type; a fenced block is highlighted in its own language, for over a hundred languages.</li>
+<li>Two CourseForge markers are picked out, so a malformed one is visible before it is published: a cross reference <code>(🔗 Exact Title)</code> and an Anki cloze <code>{{c1::hidden text}}</code>.</li>
+<li><code>Ctrl+F</code> finds, <code>Ctrl+Z</code> / <code>Ctrl+Y</code> undo and redo, <code>Tab</code> indents, brackets close themselves, long lines wrap. Undo history belongs to the page: switching pages cannot undo into the wrong one.</li>
+<li><code>Ctrl+S</code> saves. Leaving with unsaved edits asks first.</li>
+</ul>
+<h2 id="the-preview">The preview<a class="anchor" href="#the-preview" aria-label="Link to this section">#</a></h2>
+<p>The right half renders the page the way BookStack will:</p>
+<ul>
+<li><strong>Code</strong> is highlighted with the grammars VS Code uses, in 232 languages, loaded one grammar at a time as they are needed. Every block has a header with its language and three controls: <strong>copy</strong>, <strong>line numbers</strong> and <strong>line wrapping</strong> (the last two apply everywhere and are remembered).</li>
+<li><strong>Diagrams</strong>: a <code>```mermaid</code> block is drawn as you type. A diagram that does not parse shows Mermaid&#39;s own error with the line and column, which is the point of having it here rather than discovering it after a publish.</li>
+<li><strong>Formulas</strong>: <code>\( … \)</code> inline and <code>$$ … $$</code> display maths are typeset with MathJax - the delimiters the prompts ask for and BookStack renders. A single <code>$</code> is left alone, so prices stay prices.</li>
+</ul>
+<p>In <strong>split</strong> mode the two halves scroll together, matched block by block rather than by percentage, so a tall diagram does not throw the alignment off. The ⇅ button turns linking off and on; whichever half you touched last leads.</p>
+<h3 id="code-blocks-with-no-language-or-the-wrong-one">Code blocks with no language, or the wrong one<a class="anchor" href="#code-blocks-with-no-language-or-the-wrong-one" aria-label="Link to this section">#</a></h3>
+<p>AIs write many fenced blocks and do not always label them. When a fence names no language, says <code>text</code>, or names a language that clearly does not match its contents, CourseForge reads the block and works the language out - in the preview and the editor alike.</p>
+<p>It is built to decline rather than guess. Each language is recognised by things that are hard to write by accident (<code>defmodule</code>, <code>#include &lt;stdio.h&gt;</code>, <code>let mut</code>, <code>{ get; set; }</code>), and a guess is only used when one language is well clear of every other. Program output, a directory tree or a line of prose stays plain.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>The fence says</th>
+<th>What it takes to override it</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>nothing</td>
+<td>a clear winner</td>
+</tr>
+<tr>
+<td><code>text</code>, <code>plain</code>, <code>none</code></td>
+<td>a strong winner - the author may have meant it</td>
+</tr>
+<tr>
+<td>a language</td>
+<td>an emphatic one, for a language the detector can assess</td>
+</tr>
+</tbody></table>
+</div>
+<p>A language that was worked out rather than read off the fence is marked <strong>auto</strong> in the block header; hover it to see what happened.</p>
+<h2 id="word-counts">Word counts<a class="anchor" href="#word-counts" aria-label="Link to this section">#</a></h2>
+<p>The word count under the editor is the same count <code>get_page</code> and the course list report, over the Markdown as stored. Chinese and Japanese are counted by character.</p>
+<h2 id="punctuation">Punctuation<a class="anchor" href="#punctuation" aria-label="Link to this section">#</a></h2>
+<p>Generated pages have their quotation marks, apostrophes, dashes and spacing set the way the course language sets them before they are stored. <strong>Punctuation</strong> in the inspector applies the same rules to one page by hand; the chapter editor has the same button for a chapter. See <a href="../typography/">Punctuation</a>.</p>
+<h2 id="publishing-one-page">Publishing one page<a class="anchor" href="#publishing-one-page" aria-label="Link to this section">#</a></h2>
+<p><strong>Publish just this page</strong> in the inspector sends the selected page to every destination of the course; the chapter editor&#39;s <strong>Publish chapter</strong> does the same for a chapter and its pages. See <a href="../publishing/">Publishing</a>.</p>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/writing-pages.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.4.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../outline/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>The outline</strong></a><a class="pager__next" href="../runs/"><span>Next<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12L21 12L20.5 12"/><path d="M14 19L21 12L14 5"/></svg></span><strong>Runs - background and batch</strong></a></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#page-status">Page status</a></li><li class="toc--2"><a href="#generating-pages">Generating pages</a></li><li class="toc--2"><a href="#what-the-ai-is-told-about-a-page">What the AI is told about a page</a></li><li class="toc--2"><a href="#steering-one-page">Steering one page</a></li><li class="toc--2"><a href="#the-markdown-editor">The Markdown editor</a></li><li class="toc--2"><a href="#the-preview">The preview</a></li><li class="toc--2"><a href="#word-counts">Word counts</a></li><li class="toc--2"><a href="#punctuation">Punctuation</a></li><li class="toc--2"><a href="#publishing-one-page">Publishing one page</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>

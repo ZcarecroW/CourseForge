@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokens and caching - CourseForge docs</title>
+<meta name="description" content="What a page knows about the rest of the course, why that keeps pages from repeating each other, and how CourseForge keeps the prompt small and cached.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/token-economy/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="Tokens and caching">
+<meta property="og:description" content="What a page knows about the rest of the course, why that keeps pages from repeating each other, and how CourseForge keeps the prompt small and cached.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/token-economy/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.4.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/">Profiles</a></li><li><a href="../outline/">The outline (Structure)</a></li><li><a href="../writing-pages/">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/" aria-current="page">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/">Connect an AI client</a></li><li><a href="../mcp-tools/">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/">Accounts and roles</a></li><li><a href="../settings/">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p>
+<h1>Tokens and caching</h1>
+<p class="lead">What a page knows about the rest of the course, why that keeps pages from repeating each other, and how CourseForge keeps the prompt small and cached.</p>
+<p>A page is written in a request of its own, so it knows about the rest of the course exactly what its prompt tells it. Two goals pull against each other here: a page should know enough about the others <strong>not to repeat them</strong>, and every page pays for whatever it is told. Since 5.3 CourseForge gets both.</p>
+<h2 id="what-a-page-is-told">What a page is told<a class="anchor" href="#what-a-page-is-told" aria-label="Link to this section">#</a></h2>
+<p><strong>What every page owns.</strong> The outline carries a <a href="../outline/#page-scopes">scope</a> under every page, and the page prompt carries the <strong>course map</strong>: every chapter, and every page numbered <code>chapter.page</code> with its title and scope.</p>
+<div class="code"><div class="code__bar"><span class="code__lang">text</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line">1. Foundations</span>
+<span class="line">   1.1 What a model learns - Supervised and unsupervised learning; features and labels</span>
+<span class="line">   1.2 Setting up the toolkit - Python 3.14 with uv; NumPy, pandas and scikit-learn</span>
+<span class="line">2. Your first models</span>
+<span class="line">   2.1 Linear regression - The hypothesis; least squares; reading coefficients</span>
+<span class="line">   2.2 Gradient descent - The loss surface; the update rule; learning rate</span></code></pre></div>
+<p>The model writing 2.1 can see that the update rule belongs to 2.2 and leave it there, naming that page instead of teaching it. The scopes are planned once, together, when the outline is designed - the one moment anything sees the whole course at once.</p>
+<p><strong>Its own chapter.</strong> The chapter&#39;s goal goes with every page of that chapter, and only that chapter&#39;s.</p>
+<p><strong>What its neighbours actually say.</strong> When pages of the same chapter are already written, the brief lists them with their section headings, read from the stored text. Plans drift; headings show where. They cost one line per heading, no extra request, and only the same chapter is shown - which is where overlap happens. A batch submits every page at once, so it has no written neighbours and relies on the map alone.</p>
+<h2 id="ordered-for-the-cache">Ordered for the cache<a class="anchor" href="#ordered-for-the-cache" aria-label="Link to this section">#</a></h2>
+<p>Providers cache the <strong>beginning</strong> of a prompt: if a request starts with exactly the same bytes as a recent one, that prefix is read back at a fraction of the price. So CourseForge puts everything shared first, byte-identical for every page that shares it, and everything that differs last.</p>
+<figure class="diagram"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 268" role="img" aria-labelledby="cache-t"><title id="cache-t">Two page prompts side by side. Both start with the same course map, the same chapter and the same system text, so the second page reads those from the provider's cache and pays in full only for its own short brief.</title><text class="t-sm t-b" x="20" y="22">cache breakpoints</text><path class="line-dash" d="M126 26V200"/><g class="cache"><path d="M394 30l5 5-5 5-5-5z"/><path d="M504 30l5 5-5 5-5-5z"/><path d="M634 30l5 5-5 5-5-5z"/></g><path class="line-dash" d="M394 40V200M504 40V200M634 40V200" style="stroke:var(--success);opacity:.55"/><text class="t-head" x="20" y="78">Page 2.1</text><text class="t-sm" x="20" y="96">the first of</text><text class="t-sm" x="20" y="110">its chapter</text><rect class="box-accent" x="134" y="56" width="254" height="56" rx="8"/><rect class="box-accent" x="398" y="56" width="100" height="56" rx="8"/><rect class="box-accent" x="508" y="56" width="120" height="56" rx="8"/><rect class="box-warn" x="642" y="56" width="158" height="56" rx="8"/><g text-anchor="middle"><text class="t-b" x="261" y="80">Course map + research</text><text class="t-sm" x="261" y="98">every page and its scope</text><text class="t-b" x="448" y="80">Chapter 2</text><text class="t-sm" x="448" y="98">its goal</text><text class="t-b" x="568" y="80">System text</text><text class="t-sm" x="568" y="98">rules, details</text><text class="t-b" x="721" y="80">Brief for 2.1</text><text class="t-sm" x="721" y="98">scope, neighbours</text></g><text class="t-head" x="20" y="166">Page 2.2</text><text class="t-sm" x="20" y="184">and every page</text><text class="t-sm" x="20" y="198">after it</text><rect class="box-success" x="134" y="144" width="254" height="56" rx="8"/><rect class="box-success" x="398" y="144" width="100" height="56" rx="8"/><rect class="box-success" x="508" y="144" width="120" height="56" rx="8"/><rect class="box-warn" x="642" y="144" width="158" height="56" rx="8"/><g text-anchor="middle"><text class="t-b" x="261" y="168">identical bytes</text><text class="t-sm" x="261" y="186">read from the cache</text><text class="t-b" x="448" y="168">identical</text><text class="t-sm" x="448" y="186">cache read</text><text class="t-b" x="568" y="168">identical</text><text class="t-sm" x="568" y="186">cache read</text><text class="t-b" x="721" y="168">Brief for 2.2</text><text class="t-sm" x="721" y="186">paid in full</text></g><g transform="translate(134 232)"><rect class="box-accent" width="14" height="14" rx="3"/><text class="t-sm" x="22" y="12">written to the cache once</text><rect class="box-success" x="200" width="14" height="14" rx="3"/><text class="t-sm" x="222" y="12">read back at a fraction of the price</text><rect class="box-warn" x="452" width="14" height="14" rx="3"/><text class="t-sm" x="474" y="12">differs for every page</text></g></svg><figcaption>The shared part comes first and is identical from page to page; only the short brief at the end is paid in full.</figcaption></figure><div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>What CourseForge sends</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Anthropic</strong></td>
+<td>A cache breakpoint behind the course map, the chapter and the system text. A request sent once - an outline, a scope plan - gets none, because a cache write costs a quarter more and would never be read. Batches use the one-hour cache.</td>
+</tr>
+<tr>
+<td><strong>OpenAI</strong> (gpt-5.6 and later)</td>
+<td>An explicit cache point behind each shared part and <code>prompt_cache_options.mode: explicit</code>, so only the shared part is written - these models bill cache writes. Plus <code>prompt_cache_key</code>, which keeps a course&#39;s pages where its cache is warm. Earlier models: the key, and the shared part first.</td>
+</tr>
+<tr>
+<td><strong>Google Gemini</strong></td>
+<td>The shared parts open the system instruction, which is what implicit caching keys on (4,096 tokens minimum on current models).</td>
+</tr>
+<tr>
+<td><strong>OpenRouter</strong></td>
+<td><code>cache_control</code> markers for Claude, Gemini and Qwen upstreams, and <code>prompt_cache_key</code> for every model.</td>
+</tr>
+<tr>
+<td><strong>Everything else</strong></td>
+<td>The shared part first, in one system message - the order any automatic prefix cache needs.</td>
+</tr>
+</tbody></table>
+</div>
+<div class="callout callout--important" role="note"><p class="callout__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 22V2"/><path d="M21 16.5V4.5L18.9348 5.11956C17.0654 5.68038 15.0462 5.42773 13.3726 4.42358C11.8492 3.50954 10.0332 3.21484 8.29895 3.60023L8 3.66667V15.6667L8.29895 15.6002C10.0332 15.2148 11.8492 15.5095 13.3726 16.4236C15.0462 17.4277 17.0654 17.6804 18.9348 17.1196L21 16.5Z"/></svg>Important</p><p>If you edit the prompt library, keep anything that differs from page to page in <code>page_user</code>, never in the shared segments or in <code>page_system</code>. One changed byte early in a prompt is a cache miss for everything after it. See <a href="../prompt-library/#how-a-page-prompt-is-assembled">The prompt library</a>.</p>
+</div>
+<h2 id="the-numbers">The numbers<a class="anchor" href="#the-numbers" aria-label="Link to this section">#</a></h2>
+<p>Measured on a course of 20 chapters × 7 pages with six-hundred-word chapter descriptions, all pages written, building every page&#39;s prompt with the old code and the new:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Per page</th>
+<th align="right">5.2</th>
+<th align="right">5.3</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Prompt size</td>
+<td align="right">138,832 characters (about 35,000 tokens)</td>
+<td align="right">47,464 characters (about 12,000 tokens)</td>
+</tr>
+<tr>
+<td>Identical for every page of the course or chapter</td>
+<td align="right">the system text, and only when no page had tags</td>
+<td align="right">35,727 characters</td>
+</tr>
+<tr>
+<td>Building the prompt</td>
+<td align="right">18 ms, 10 MB peak</td>
+<td align="right">7 ms, 6 MB peak</td>
+</tr>
+</tbody></table>
+</div>
+<p>That is <strong>two thirds less input before any cache</strong>, and with Anthropic&#39;s cache reading the shared part at a tenth of the price, a little over <strong>nine tenths less billed input</strong> on a live run. Building a prompt also stopped reading the text of every page of the course, which a batch used to do once per page.</p>
+<p>5.2&#39;s single cache breakpoint sat on a part of the prompt that differed for every page as soon as pages had tags, so it paid the cache-write premium on every page and was never read back. That is the kind of mistake the byte-identical-prefix rule exists to prevent.</p>
+<h2 id="over-mcp-sending-the-map-once">Over MCP: sending the map once<a class="anchor" href="#over-mcp-sending-the-map-once" aria-label="Link to this section">#</a></h2>
+<p>A client writing a whole course in one conversation would otherwise receive the course map with every page brief. <code>get_page_brief</code> hands the shared parts out separately, each with an id; a client that passes the ids back as <code>known_context</code> is not sent the same text again. For a hundred-page course that is the difference between the map entering the client&#39;s context once and entering it a hundred times. See <a href="../mcp/#two-ways-to-write-a-course">Connect an AI client</a>.</p>
+<h2 id="practical-advice">Practical advice<a class="anchor" href="#practical-advice" aria-label="Link to this section">#</a></h2>
+<ul>
+<li><strong>Plan scopes.</strong> A course with scopes writes better pages <em>and</em> the scopes are what make the map useful. <strong>Plan missing scopes</strong> on the Structure tab fills them in for an older outline in one request.</li>
+<li><strong>Write in chapter order</strong> when writing live, so later pages see their neighbours&#39; headings.</li>
+<li><strong>Use the batch queue</strong> for whole courses you can wait a day for: about half price on top of caching where the provider caches batch requests.</li>
+<li><strong>Keep the research briefing short.</strong> It rides in the shared part of every page (cached, but not free).</li>
+<li><strong>Research live on Claude when a page searches a lot.</strong> Live pages use the search tool that filters results before the model reads them; queued pages use the basic one, at half the price per token.</li>
+<li><strong>Estimate first.</strong> <code>estimate_run</code> measures the real prompts and reports tokens before anything is spent. See <a href="../runs/#estimating-first">Runs</a>.</li>
+</ul>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/token-economy.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.4.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../providers/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>AI providers</strong></a><a class="pager__next" href="../prompt-library/"><span>Next<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12L21 12L20.5 12"/><path d="M14 19L21 12L14 5"/></svg></span><strong>The prompt library</strong></a></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#what-a-page-is-told">What a page is told</a></li><li class="toc--2"><a href="#ordered-for-the-cache">Ordered for the cache</a></li><li class="toc--2"><a href="#the-numbers">The numbers</a></li><li class="toc--2"><a href="#over-mcp-sending-the-map-once">Over MCP: sending the map once</a></li><li class="toc--2"><a href="#practical-advice">Practical advice</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>

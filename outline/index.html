@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The outline - CourseForge docs</title>
+<meta name="description" content="How a course's chapters and pages are designed, written down as Markdown, revised and applied - and what a page scope is for.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/outline/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="The outline">
+<meta property="og:description" content="How a course's chapters and pages are designed, written down as Markdown, revised and applied - and what a page scope is for.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/outline/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.4.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/">Profiles</a></li><li><a href="../outline/" aria-current="page">The outline (Structure)</a></li><li><a href="../writing-pages/">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/">Connect an AI client</a></li><li><a href="../mcp-tools/">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/">Accounts and roles</a></li><li><a href="../settings/">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p>
+<h1>The outline</h1>
+<p class="lead">How a course&#39;s chapters and pages are designed, written down as Markdown, revised and applied - and what a page scope is for.</p>
+<p>The <strong>Structure</strong> tab is where a course gets its shape. The outline is plain Markdown: a title, a description, numbered chapters with a goal each, numbered pages, and a one-line <strong>scope</strong> under every page. The AI writes the first version from the course brief; you read it, change it and <strong>Apply</strong> it.</p>
+<figure class="shot"><a href="../images/structure.webp" class="shot__link"><img src="../images/structure.webp" alt="The Structure tab" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption>Left: the outline in an editor. Middle: what Apply would make of it, with every page's scope. Right: the AI panel.</figcaption></figure>
+<h2 id="the-screen">The screen<a class="anchor" href="#the-screen" aria-label="Link to this section">#</a></h2>
+<p>The tab is a split view, like the Content tab&#39;s editor:</p>
+<ul>
+<li><strong>Left: the outline</strong> in a Markdown editor, highlighted as Markdown with the <code>{{Tag, Tag}}</code> markers picked out.</li>
+<li><strong>Middle: what Apply would make of it</strong>, parsed as you type: the book title and its tags, the description, one box per chapter with its pages numbered and their scopes underneath, and a count of what is <em>new</em>, <em>moved</em> and kept. A page the outline no longer names is listed underneath in red, because applying deletes it - with its text.</li>
+<li><strong>Right: the AI panel</strong> (a drawer behind the sparkle button on narrow screens): the course prompt, <strong>Design a new outline</strong>, <strong>Request changes</strong>, and <strong>Page scopes</strong>.</li>
+</ul>
+<p>The two halves scroll together, passage for passage; the link button in the toolbar unlinks them, and <em>edit</em> and <em>preview</em> give either half the whole width.</p>
+<h2 id="the-format">The format<a class="anchor" href="#the-format" aria-label="Link to this section">#</a></h2>
+<div class="code"><div class="code__bar"><span class="code__lang">markdown</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k6"># Machine learning with Python {{Python, Machine learning}}</span></span>
+<span class="line"></span>
+<span class="line"><span class="k5">From a first linear model to a pipeline that serves predictions,</span></span>
+<span class="line"><span class="k5">for developers who already write Python.</span></span>
+<span class="line"></span>
+<span class="line"><span class="k0">1.</span><span class="k5"> Foundations</span></span>
+<span class="line"><span class="k5">   What a model is, the tools, and the data it learns from.</span></span>
+<span class="line"><span class="k0">   1.</span><span class="k5"> What a model learns</span></span>
+<span class="line"><span class="k5">      Supervised and unsupervised learning; features and labels; generalisation</span></span>
+<span class="line"><span class="k0">   2.</span><span class="k5"> Setting up the toolkit</span></span>
+<span class="line"><span class="k5">      Python 3.14 with uv; NumPy, pandas and scikit-learn; notebooks</span></span>
+<span class="line"><span class="k0">   3.</span><span class="k5"> Working with data in pandas {{pandas}}</span></span>
+<span class="line"><span class="k5">      DataFrame and Series; selecting and filtering; groupby; missing values</span></span>
+<span class="line"><span class="k0">2.</span><span class="k5"> Your first models</span></span>
+<span class="line"><span class="k5">   Fit, read and improve the two models every other one builds on.</span></span>
+<span class="line"><span class="k0">   1.</span><span class="k5"> Linear regression</span></span>
+<span class="line"><span class="k5">      The hypothesis; least squares; fitting and reading coefficients</span></span>
+<span class="line"><span class="k0">   2.</span><span class="k5"> Gradient descent</span></span>
+<span class="line"><span class="k5">      The loss surface; the update rule; learning rate; batch and mini-batch</span></span></code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Line</th>
+<th>Means</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code># Title</code></td>
+<td>The book title. Exactly one.</td>
+</tr>
+<tr>
+<td>Paragraphs after the title</td>
+<td>The book description, shown on the BookStack book.</td>
+</tr>
+<tr>
+<td><code>1. Title</code> at the left margin</td>
+<td>A chapter.</td>
+</tr>
+<tr>
+<td>Text indented under a chapter</td>
+<td>The chapter&#39;s goal: what the chapter leaves the reader able to do. It is sent with every page of that chapter. Several paragraphs are fine.</td>
+</tr>
+<tr>
+<td><code>1. Title</code> indented under a chapter</td>
+<td>A page.</td>
+</tr>
+<tr>
+<td>A line indented <strong>deeper</strong> than a page</td>
+<td>The page&#39;s <strong>scope</strong>.</td>
+</tr>
+<tr>
+<td><code>{{Tag, Tag}}</code> behind a title, or on the line below</td>
+<td>Tags for the book, chapter or page. See <a href="../tags/">Tags</a>.</td>
+</tr>
+</tbody></table>
+</div>
+<p>The parser is forgiving, because models drift: it also accepts bullets instead of numbers, <code>1)</code> markers, bold titles and stray blank lines. A list item that reads like a sentence - long, with a full stop - is treated as description rather than as a page, so a description paragraph that happens to begin &quot;3. Install…&quot; does not become a page. When CourseForge writes the outline back, it escapes description lines that look like list items.</p>
+<h2 id="page-scopes">Page scopes<a class="anchor" href="#page-scopes" aria-label="Link to this section">#</a></h2>
+<p>The scope is the most important line in the outline. It names <strong>what that page and no other page teaches</strong>:</p>
+<div class="code"><div class="code__bar"><span class="code__lang">markdown</span><button class="code__copy" type="button" aria-label="Copy to clipboard"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 1H19"/><path d="M21 5H3V22H21V5Z"/></svg><span>Copy</span></button></div><pre class="shiki" tabindex="0"><code><span class="line"><span class="k0">2.</span><span class="k5"> Reactivity</span></span>
+<span class="line"><span class="k5">   Hold state that the page follows.</span></span>
+<span class="line"><span class="k0">   1.</span><span class="k5"> Reactive state with ref and reactive</span></span>
+<span class="line"><span class="k5">      ref(); reactive(); when to use which; unwrapping in templates</span></span>
+<span class="line"><span class="k0">   2.</span><span class="k5"> Computed values and watchers</span></span>
+<span class="line"><span class="k5">      computed(); caching; watch(); watchEffect()</span></span></code></pre></div>
+<p>Every page is written knowing every other page&#39;s scope - the <a href="../token-economy/">course map</a>. So the page on <code>ref</code> sees that <code>watch()</code> belongs to the next page, and mentions that page instead of teaching <code>watch()</code> a second time. Scopes are how a course of a hundred independently written pages stays free of repetition.</p>
+<p><strong>Where scopes come from:</strong></p>
+<ul>
+<li><strong>Designing an outline</strong> produces them: the outline prompt asks for scopes that divide the subject between the pages without overlap. That request is the one moment anything sees the whole course at once.</li>
+<li><strong>Plan missing scopes</strong> in the AI panel fills them in, in one request for the whole course, for every page that has none - an outline from before 5.3, or pages you added by hand. The circular button next to it plans <strong>every</strong> page afresh.</li>
+<li><strong>You</strong> can write or edit a scope like any other line of the outline, or in the Content tab&#39;s <strong>context</strong> inspector, where it sits above the page&#39;s extra context.</li>
+</ul>
+<p>The preview shows each scope under its page and counts the pages that have none. A page with no scope is still written - it is told to work out its share from its title and the course map - but planned scopes divide a subject far more cleanly.</p>
+<div class="callout callout--tip" role="note"><p class="callout__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 17.7131L8.49996 23H15.5L16 17.7131"/><path d="M12 19C15.866 19 19 15.866 19 12C19 8.13401 15.866 5 12 5C8.13401 5 5 8.13401 5 12C5 15.866 8.13401 19 12 19Z"/><path d="M12 1V1.01"/><path d="M23.005 12.005L22.995 12.005"/><path d="M0.994995 12.005L1.005 12.005"/><path d="M19.7817 4.2233L19.7747 4.23037"/><path d="M4.21826 4.22327L4.22533 4.23034"/></svg>Tip</p><p>Good scopes are lists of concrete concepts separated by semicolons, not sentences: <em>&quot;computed(); caching; watch(); watchEffect()&quot;</em>. They cost a few tokens per page on every page of the course, so short is good.</p>
+</div>
+<h2 id="designing-and-revising">Designing and revising<a class="anchor" href="#designing-and-revising" aria-label="Link to this section">#</a></h2>
+<p><strong>Design a new outline</strong> sends the course prompt (the brief, which you can edit in the panel or on the <strong>Settings</strong> tab) to the profile&#39;s outline model and puts the answer in the editor. Nothing is applied until you click <strong>Apply</strong>.</p>
+<p><strong>Request changes</strong> asks the AI to revise the existing outline instead: <em>&quot;merge chapters 4 and 5&quot;</em>, <em>&quot;add a chapter on testing before deployment&quot;</em>, <em>&quot;make the pages shorter and more numerous&quot;</em>. The AI is told to reproduce every title it does not change character for character, because titles are what keep written pages attached (below).</p>
+<p>If the course has <strong>web research</strong> switched on, the outline is designed from the stored research briefing, so a course about a library is built around its current version. See <a href="../research/">Research</a>.</p>
+<h2 id="applying-matching-by-title">Applying: matching by title<a class="anchor" href="#applying-matching-by-title" aria-label="Link to this section">#</a></h2>
+<p><strong>Apply</strong> parses the Markdown into chapters and pages, and matches them against what the course already has <strong>by title</strong>:</p>
+<ul>
+<li>A page whose title did not change keeps its content, its tags, its content details and its publishing record, wherever it moved to.</li>
+<li>A page with a new title is new.</li>
+<li>A page the outline no longer names is <strong>deleted with its text</strong>.</li>
+</ul>
+<p>So a <strong>rename detaches a page&#39;s content</strong> deliberately. The preview shows the renamed page as new and the old one as removed, in red - that is the moment to notice. If you want to rename a written page and keep its text, rename it in the Content tab&#39;s chapter or page editor instead: that renames the row and rewrites the outline for you.</p>
+<p>If the outline cannot be parsed into at least one chapter, nothing is changed at all. An AI answer that is not an outline can never wipe a course.</p>
+<div class="callout callout--warning" role="note"><p class="callout__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="16.75" r="1.25" fill="currentColor" stroke="none"/><line x1="12" y1="13" x2="12" y2="9"/><path d="m10.171,4.06l-7.899,13.783c-.806,1.406.209,3.157,1.829,3.157h15.798c1.62,0,2.635-1.751,1.829-3.157l-7.899-13.783c-.81-1.413-2.849-1.413-3.659,0Z"/></svg>Warning</p><p>Over MCP, <code>apply_structure</code> refuses to delete pages that already have text unless the client confirms it - and clients on the 2026-07-28 protocol revision are asked the question interactively. In the browser, the red list in the preview is your confirmation.</p>
+</div>
+<h2 id="the-outline-and-the-published-book">The outline and the published book<a class="anchor" href="#the-outline-and-the-published-book" aria-label="Link to this section">#</a></h2>
+<p>The book title and description go onto the BookStack book; chapter goals become chapter descriptions; tags become BookStack tags. Scopes are not published: they are instructions for the writer, not text for the reader.</p>
+<h2 id="over-mcp">Over MCP<a class="anchor" href="#over-mcp" aria-label="Link to this section">#</a></h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>get_structure_brief</code></td>
+<td>The prompt CourseForge would send to design an outline, for a client to design it itself.</td>
+</tr>
+<tr>
+<td><code>preview_structure</code></td>
+<td>Parses an outline and reports what applying it would create, keep and delete.</td>
+</tr>
+<tr>
+<td><code>apply_structure</code></td>
+<td>Applies an outline.</td>
+</tr>
+<tr>
+<td><code>generate_structure</code></td>
+<td>Has the course&#39;s own model design or revise the outline. Spends credit.</td>
+</tr>
+<tr>
+<td><code>plan_page_scopes</code></td>
+<td>Plans the scope of every page that has none (<code>all</code> for every page). Spends credit.</td>
+</tr>
+</tbody></table>
+</div>
+<p>See the <a href="../mcp-tools/#outlines">MCP tool reference</a>.</p>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/outline.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.4.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../profiles/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>Profiles</strong></a><a class="pager__next" href="../writing-pages/"><span>Next<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12L21 12L20.5 12"/><path d="M14 19L21 12L14 5"/></svg></span><strong>Writing pages</strong></a></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#the-screen">The screen</a></li><li class="toc--2"><a href="#the-format">The format</a></li><li class="toc--2"><a href="#page-scopes">Page scopes</a></li><li class="toc--2"><a href="#designing-and-revising">Designing and revising</a></li><li class="toc--2"><a href="#applying-matching-by-title">Applying: matching by title</a></li><li class="toc--2"><a href="#the-outline-and-the-published-book">The outline and the published book</a></li><li class="toc--2"><a href="#over-mcp">Over MCP</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>

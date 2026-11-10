@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profiles - CourseForge docs</title>
+<meta name="description" content="A profile bundles the AI accounts, BookStack instances, models, language, content defaults and prompt wording a course is written with.">
+<link rel="canonical" href="https://zcarecrow.github.io/CourseForge/profiles/">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0e17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CourseForge">
+<meta property="og:title" content="Profiles">
+<meta property="og:description" content="A profile bundles the AI accounts, BookStack instances, models, language, content defaults and prompt wording a course is written with.">
+<meta property="og:url" content="https://zcarecrow.github.io/CourseForge/profiles/">
+<meta property="og:image" content="https://zcarecrow.github.io/CourseForge/images/content.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css?v=fe21a164b4">
+<script>try{var t=localStorage.getItem('cf-docs-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="../assets/site.js?v=38584c7ed4" defer></script>
+<script type="speculationrules">{"prefetch":[{"where":{"selector_matches":".nav a, .pager a, .cards a"},"eagerness":"moderate"}]}</script>
+</head>
+<body data-root="../">
+<a class="skip" href="#main">Skip to the content</a>
+<header class="topbar">
+<button class="topbar__menu" type="button" aria-label="Open the navigation" aria-controls="sidebar" aria-expanded="false"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="5" x2="22" y2="5"/><line x1="2" y1="19" x2="22" y2="19"/></svg></button>
+<a class="brand" href="../"><img src="../favicon.svg" alt="" width="26" height="26"><span>CourseForge</span><span class="brand__docs">Docs</span></a>
+<span class="version" title="The release these pages describe">v5.4.0</span>
+<button class="search-button" type="button" aria-label="Search the documentation" aria-keyshortcuts="Control+K"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+<nav class="topbar__links" aria-label="Elsewhere"><a href="https://github.com/ZcarecroW/CourseForge" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21L21 17L17 13"/><path d="M11.5 11L15.5 7L11.5 3"/><path d="M3 17H21H20.5"/><path d="M3 12L6.39951 7.75061C6.77906 7.27618 7.35368 7 7.96125 7H15.5H15"/></svg><span>GitHub</span></a><a href="https://github.com/ZcarecroW/CourseForge/releases/latest" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3V16.5V16"/><path d="M8.5 13L12 16.5L15.5 13"/><path d="M7 10H4L2 20H22L20 10H17"/></svg><span>Download</span></a></nav>
+<div class="theme" role="group" aria-label="Colour theme"><button type="button" data-theme-set="light" aria-label="Light theme" title="Light"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z"/><path d="M12 1V2"/><path d="M12 22V23"/><path d="M23 12L22 12"/><path d="M2 12L1 12"/><path d="M19.7782 4.2218L19.0711 4.92891"/><path d="M4.92893 19.071L4.22183 19.7782"/><path d="M19.7782 19.7782L19.0711 19.0711"/><path d="M4.92893 4.92896L4.22183 4.22185"/></svg></button><button type="button" data-theme-set="auto" aria-label="Follow the system" title="Auto"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17V21"/><path d="M7 21H17"/><path d="M2 6L2 15C2 16.1046 2.89543 17 4 17L20 17C21.1046 17 22 16.1046 22 15L22 6C22 4.89543 21.1046 4 20 4L19 4L4 4C2.89543 4 2 4.89543 2 6Z"/></svg></button><button type="button" data-theme-set="dark" aria-label="Dark theme" title="Dark"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.9309C4 16.9396 8.0596 21 13.0674 21C16.4803 21 19.4528 19.1141 21 16.3273C20.4852 16.4181 19.9554 16.4655 19.4145 16.4655C14.4068 16.4655 10.3472 12.4051 10.3472 7.39637C10.3472 5.80122 10.7589 4.30225 11.4819 3C7.23006 3.74996 4 7.46316 4 11.9309Z"/></svg></button></div>
+</header>
+<div class="shell">
+<nav class="nav" id="sidebar" aria-label="Documentation"><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10.001,7h-3.038c-.608,0-1.183.277-1.563.752l-3.602,4.51,4.553,1.089"/><path d="m17,13.999v3.038c0,.608-.277,1.183-.752,1.563l-4.51,3.602-1.089-4.553"/><circle cx="15.5" cy="8.5" r=".5" fill="currentColor" stroke="none"/><path d="m4.402,16.95c-.31.153-.62.372-.918.67-1.161,1.161-1.484,4.38-1.484,4.38,0,0,3.22-.324,4.38-1.484.297-.297.516-.608.67-.918"/><path d="m10.649,17.649c5.762-1.583,10.564-6.504,11.351-15.649-9.145.786-14.067,5.588-15.649,11.351l4.299,4.299Z"/></svg>Get started</p><ul><li><a href="../introduction/">What CourseForge is</a></li><li><a href="../installation/">Installation</a></li><li><a href="../quick-start/">Quick start</a></li><li><a href="../interface/">The interface</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p><ul><li><a href="../profiles/" aria-current="page">Profiles</a></li><li><a href="../outline/">The outline (Structure)</a></li><li><a href="../writing-pages/">Writing pages (Content)</a></li><li><a href="../runs/">Runs and batches</a></li><li><a href="../content-details/">Content details</a></li><li><a href="../research/">Research briefing</a></li><li><a href="../tags/">Tags</a></li><li><a href="../typography/">Punctuation</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3V3.5"/><path d="M8.5 6.5L12 3L15.5 6.5"/><path d="M7 10H4L2 20H22L20 10H17"/></svg>Publish</p><ul><li><a href="../publishing/">Publishing</a></li><li><a href="../auto-links/">Auto links</a></li><li><a href="../bookstackdev/">BookStackDev</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.85 15.15L16.5 12L15.15 15.15L12 16.5L15.15 17.85L16.5 21L17.85 17.85L21 16.5L17.85 15.15Z"/><path d="M8.85 6.15L7.5 3L6.15 6.15L3 7.5L6.15 8.85L7.5 12L8.85 8.85L12 7.5L8.85 6.15Z"/><path d="M20.2 3.8L19 1L17.8 3.8L15 5L17.8 6.2L19 9L20.2 6.2L23 5L20.2 3.8Z" fill="currentColor" stroke="none"/><path d="M6.2 17.8L5 15L3.8 17.8L1 19L3.8 20.2L5 23L6.2 20.2L9 19L6.2 17.8Z" fill="currentColor" stroke="none"/></svg>AI and prompts</p><ul><li><a href="../providers/">AI providers</a></li><li><a href="../token-economy/">Tokens and caching</a></li><li><a href="../prompt-library/">The prompt library</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V23"/><path d="M4 6V10.6667C4.00137 12.1131 4.4636 13.5237 5.32314 14.7043C6.18267 15.885 7.3973 16.7777 8.8 17.2599V20H15.2V17.2599C16.6027 16.7777 17.8173 15.885 18.6769 14.7043C19.5364 13.5237 19.9986 12.1131 20 10.6667V6"/><path d="M2 6H22"/><path d="M16 1V6"/><path d="M8 1V6"/></svg>Automate with MCP</p><ul><li><a href="../mcp/">Connect an AI client</a></li><li><a href="../mcp-tools/">MCP tool reference</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.25C21 19 12 22 12 22C12 22 3 19 3 12.25V4.75L12 2.5L21 4.75V12.25Z"/><path d="M12 15.5L8 11.5L12 7.5L16 11.5L12 15.5Z"/></svg>Administer</p><ul><li><a href="../accounts/">Accounts and roles</a></li><li><a href="../settings/">Settings reference</a></li><li><a href="../scheduler/">The scheduler</a></li><li><a href="../security/">Security</a></li><li><a href="../updates/">Updates</a></li><li><a href="../upgrading/">Upgrading</a></li></ul></div><div class="nav__group"><p class="nav__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4.5" cy="5.5" r="2.5"/><line x1="11" y1="6" x2="22" y2="6"/><line x1="11" y1="11" x2="22" y2="11"/><circle cx="4.5" cy="15.5" r="2.5"/><line x1="11" y1="16" x2="22" y2="16"/><line x1="11" y1="21" x2="22" y2="21"/></svg>Reference</p><ul><li><a href="../troubleshooting/">Troubleshooting and FAQ</a></li><li><a href="../architecture/">Architecture and contributing</a></li><li><a href="../changelog/">Changelog</a></li></ul></div></nav>
+<div class="nav-scrim" hidden></div>
+<main id="main" class="main">
+<article class="doc">
+<p class="crumbs"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2V18"/><path d="M18 18V22"/><path d="M4 20L4 4C4 2.89543 4.89543 2 6 2L20 2L20 18"/><path d="M20 22H6C4.89543 22 4 21.1046 4 20V20C4 18.8954 4.89543 18 6 18H20"/><path d="M16 7H12V11H16V7Z"/></svg>Build a course</p>
+<h1>Profiles</h1>
+<p class="lead">A profile bundles the AI accounts, BookStack instances, models, language, content defaults and prompt wording a course is written with.</p>
+<p>A <strong>profile</strong> is the reusable part of a course: who writes it, with which models, in which language, in which house style, and which wikis it may publish into. Several courses can share one profile; changing the profile changes all of them, except where a course has decided otherwise.</p>
+<p>Open <strong>Profiles</strong> in the sidebar and click <strong>New profile</strong>. A profile has four tabs: <strong>Accounts</strong>, <strong>Models &amp; output</strong>, <strong>Content defaults</strong> and <strong>Prompts</strong>.</p>
+<figure class="shot"><a href="../images/profiles.webp" class="shot__link"><img src="../images/profiles.webp" alt="A profile's Accounts tab" width="1440" height="900" loading="lazy" decoding="async"></a><figcaption>Accounts: BookStack instances on the left, AI accounts on the right. Each instance can wear a BookStackDev look.</figcaption></figure>
+<h2 id="accounts">Accounts<a class="anchor" href="#accounts" aria-label="Link to this section">#</a></h2>
+<h3 id="bookstack-instances">BookStack instances<a class="anchor" href="#bookstack-instances" aria-label="Link to this section">#</a></h3>
+<p>Add one per wiki: a name, the <strong>base URL</strong>, and an <strong>API token id and secret</strong>. Create the token in BookStack under <em>your profile › Access &amp; security › API tokens</em>, for a user allowed to create books, chapters, pages and shelves.</p>
+<p>It is worth adding more than one instance even for a single course - a staging wiki and the live one, say. A course chooses which of the profile&#39;s instances it publishes into, and it may choose several. See <a href="../publishing/">Publishing</a>.</p>
+<p>Each instance card has a <strong>Look</strong> select: the <a href="../bookstackdev/">BookStackDev</a> configuration that wiki wears, which decides how it renders code, diagrams and formulas.</p>
+<h3 id="ai-accounts">AI accounts<a class="anchor" href="#ai-accounts" aria-label="Link to this section">#</a></h3>
+<p>Add one or more. Every account has a <strong>type</strong>, and the fields change with it:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>What it needs</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>OpenAI</strong></td>
+<td>An OpenAI API key. The model picker is curated, because <code>/v1/models</code> mixes embeddings, audio and every fine-tune in with the chat models.</td>
+</tr>
+<tr>
+<td><strong>Anthropic API</strong></td>
+<td>An <code>sk-ant-</code> key. The native Messages API and the Message Batches queue.</td>
+</tr>
+<tr>
+<td><strong>Google Gemini</strong> (beta)</td>
+<td>A Gemini API key. The native <code>generateContent</code> API - see the note about Google&#39;s key migration on <a href="../providers/#google-gemini">AI providers</a>.</td>
+</tr>
+<tr>
+<td><strong>OpenRouter</strong></td>
+<td>One key for every vendor OpenRouter fronts. Model ids carry a vendor prefix, as in <code>anthropic/claude-opus-5</code>.</td>
+</tr>
+<tr>
+<td><strong>A preset</strong></td>
+<td>A gateway that speaks <code>/chat/completions</code>: Groq, DeepSeek, Together, Fireworks, xAI, Mistral, Cerebras, DeepInfra, Nebius, Moonshot, Z.ai, a LiteLLM proxy, or the local servers Ollama, LM Studio, vLLM and llama.cpp. The address and quirks are filled in; the local ones need no key.</td>
+</tr>
+<tr>
+<td><strong>Custom OpenAI-compatible endpoint</strong></td>
+<td>Any base URL you type, with nothing assumed. CourseForge probes it for a model list and a batch queue without spending anything.</td>
+</tr>
+</tbody></table>
+</div>
+<p><strong>Check this account</strong> proves an account works before a course depends on it: it fetches the model list, and for anything with a batch queue it records what that queue can do <em>for this key</em> - which is a different question from what the endpoint offers in general. See <a href="../providers/">AI providers</a> for what each type supports.</p>
+<div class="callout callout--note" role="note"><p class="callout__title"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m12,17v-5.5c0-.276-.224-.5-.5-.5h-1.5"/><circle cx="12" cy="7.25" r="1.25" fill="currentColor" stroke="none"/></svg>Note</p><p><strong>Secrets never travel back to the browser.</strong> A stored key shows as <code>•••••••• stored</code>; leaving the field empty on save keeps it. A stored key is only kept for the address it was stored against: change the base URL and the key has to be entered again, so a key can never be redirected somewhere new by editing the field beside it.</p>
+</div>
+<p>Until <a href="../security/">Administration › Security</a> has passed, key and token fields are locked with a red mark.</p>
+<h2 id="models-output">Models &amp; output<a class="anchor" href="#models-output" aria-label="Link to this section">#</a></h2>
+<h3 id="two-model-slots">Two model slots<a class="anchor" href="#two-model-slots" aria-label="Link to this section">#</a></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>What it does</th>
+<th>Advice</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Outline</strong></td>
+<td>Designs and revises the course outline, and plans page scopes.</td>
+<td>One request per course. Use your strongest model.</td>
+</tr>
+<tr>
+<td><strong>Pages</strong></td>
+<td>Writes every page.</td>
+<td>Hundreds of requests. A good mid-range model is usually the right trade.</td>
+</tr>
+</tbody></table>
+</div>
+<p>Each slot has its own <strong>account</strong>, so the outline can come from Anthropic and the pages from a cheaper gateway. The model box is a fuzzy search; <strong>fetch list</strong> pulls the live list from the provider. You can always type a model id by hand.</p>
+<p>Each slot also has a <strong>temperature</strong> and a <strong>token ceiling</strong>. The ceiling caps the length of one answer; leave it at 0 for the provider&#39;s own maximum. The temperature does <strong>not</strong> apply to Gemini, whose sampling parameters are deprecated, or to Claude: since 5.3 CourseForge speaks Anthropic API version <code>2026-10-21</code>, which refuses sampling parameters on every model, so none is sent. OpenAI&#39;s reasoning models refuse it as well, and CourseForge leaves it out for them.</p>
+<h3 id="the-batch-switch">The batch switch<a class="anchor" href="#the-batch-switch" aria-label="Link to this section">#</a></h3>
+<p>Under the page slot, <strong>write these pages through the provider&#39;s batch queue</strong> appends <code>:batch</code> to the model id. That is CourseForge&#39;s marker for bulk generation at about half price: a run started on this profile goes to the provider&#39;s queue and comes back within a day. It is offered on the page slot only, and it is disabled - with the reason underneath - when the account cannot queue. Where the provider publishes which models its queue accepts, they are listed with the chosen one highlighted. See <a href="../runs/">Runs</a>.</p>
+<p>Regenerating a single page from the editor always runs live, whatever the slot says.</p>
+<h3 id="language-parallelism-punctuation">Language, parallelism, punctuation<a class="anchor" href="#language-parallelism-punctuation" aria-label="Link to this section">#</a></h3>
+<ul>
+<li><strong>Course language</strong>: what every course on this profile is written in. A fuzzy list, or type any language at all.</li>
+<li><strong>Pages in parallel</strong>: how many pages the in-tab generator writes at once (default 2, up to 12). Background runs use the scheduler&#39;s worker count instead.</li>
+<li><strong>Correct the punctuation of a generated page</strong>: sets quotation marks, apostrophes, dashes and spacing the way the course language does before a page is stored. On by default; see <a href="../typography/">Punctuation</a>.</li>
+</ul>
+<h2 id="content-defaults">Content defaults<a class="anchor" href="#content-defaults" aria-label="Link to this section">#</a></h2>
+<p>What every course on this profile starts from: the same elements and values as a course&#39;s <strong>Details</strong> tab, one level up, in the same editor. Only deviations are stored, so a profile that decides nothing passes the installation&#39;s defaults straight through, and a course that never disagreed with its profile follows it when it changes. This is where a house style lives - <em>learning objectives on, a minimum length of 2,500 words, a standing audience</em>. See <a href="../content-details/">Content details</a>.</p>
+<h2 id="prompts">Prompts<a class="anchor" href="#prompts" aria-label="Link to this section">#</a></h2>
+<p>Every prompt CourseForge sends, grouped and documented, each overridable <strong>for this profile only</strong> - on top of whatever an administrator has set for the whole installation. The profile layer wins. A profile override that is deliberately left empty sends nothing at all for that slot, which is how you switch a block of instructions off. See <a href="../prompt-library/">The prompt library</a>.</p>
+<h2 id="several-profiles">Several profiles<a class="anchor" href="#several-profiles" aria-label="Link to this section">#</a></h2>
+<p>Profiles are cheap; make one per purpose. Typical sets:</p>
+<ul>
+<li><strong>House style</strong> - the production model, the live wiki, the content defaults your team agreed on.</li>
+<li><strong>Drafts</strong> - a local model through Ollama for trying outlines out, with no publishing.</li>
+<li><strong>Batch</strong> - the same as House style with the batch switch on, for large courses that can wait a day.</li>
+</ul>
+<p>A course switches profile on its <strong>Settings</strong> tab.</p>
+<h2 id="deleting-a-profile">Deleting a profile<a class="anchor" href="#deleting-a-profile" aria-label="Link to this section">#</a></h2>
+<p>A profile cannot be deleted while a generation run is still open under it. A batch submitted with its credentials is collected with its credentials, and deleting the profile mid-run would leave that batch running - and billing - at the provider with nothing left here to collect it. Stop the run, or let it finish, and the profile can go. Courses that used a deleted profile go back to the installation defaults and need a new profile before they can generate.</p>
+<h2 id="over-mcp">Over MCP<a class="anchor" href="#over-mcp" aria-label="Link to this section">#</a></h2>
+<p>Everything on this screen has a tool: <code>create_profile</code>, <code>update_profile</code>, <code>add_ai_account</code>, <code>delete_ai_account</code>, <code>add_bookstack_instance</code>, <code>delete_bookstack_instance</code>, <code>set_model_slot</code>, <code>set_profile_details</code>, <code>set_profile_prompts</code>, <code>list_providers</code> and more. Keys can be replaced over MCP but never read. See the <a href="../mcp-tools/#profiles">MCP tool reference</a>.</p>
+
+</article>
+<footer class="doc-foot"><a href="https://github.com/ZcarecroW/CourseForge/edit/main/docs/pages/profiles.md" rel="noopener"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="14" y1="5" x2="19" y2="10"/><path d="m9,20l-6,1,1-6L15.464,3.536c1.381-1.381,3.619-1.381,5,0h0c1.381,1.381,1.381,3.619,0,5l-11.464,11.464Z"/><line x1="16.5" y1="7.5" x2="8" y2="16"/></svg>Edit this page on GitHub</a><span>CourseForge 5.4.0 · MIT licence</span></footer>
+<nav class="pager" aria-label="Previous and next"><a class="pager__prev" href="../interface/"><span><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12L3 12L3.5 12"/><path d="M10 19L3 12L10 5"/></svg>Previous</span><strong>Finding your way around</strong></a><a class="pager__next" href="../outline/"><span>Next<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12L21 12L20.5 12"/><path d="M14 19L21 12L14 5"/></svg></span><strong>The outline</strong></a></nav>
+</main>
+<aside class="toc" aria-label="On this page"><p class="toc__title">On this page</p><ul><li class="toc--2"><a href="#accounts">Accounts</a></li><li class="toc--2"><a href="#models-output">Models &amp; output</a></li><li class="toc--2"><a href="#content-defaults">Content defaults</a></li><li class="toc--2"><a href="#prompts">Prompts</a></li><li class="toc--2"><a href="#several-profiles">Several profiles</a></li><li class="toc--2"><a href="#deleting-a-profile">Deleting a profile</a></li><li class="toc--2"><a href="#over-mcp">Over MCP</a></li></ul></aside>
+</div>
+<dialog class="search" aria-label="Search the documentation"><form method="dialog" class="search__box" role="search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20.5" y1="20.5" x2="15" y2="15"/><circle cx="10" cy="10" r="7"/></svg><input type="search" placeholder="Search the documentation" aria-label="Search" autocomplete="off" spellcheck="false"><button class="search__close" value="close" aria-label="Close search">Esc</button></form><ul class="search__results" role="listbox"></ul><p class="search__hint">Type to search every page. <kbd>↑</kbd> <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open.</p></dialog>
+</body>
+</html>
