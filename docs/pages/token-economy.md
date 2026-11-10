@@ -65,4 +65,5 @@ A client writing a whole course in one conversation would otherwise receive the 
 - **Write in chapter order** when writing live, so later pages see their neighbours' headings.
 - **Use the batch queue** for whole courses you can wait a day for: about half price on top of caching where the provider caches batch requests.
 - **Keep the research briefing short.** It rides in the shared part of every page (cached, but not free).
+- **Research live on Claude when a page searches a lot.** Live pages use the search tool that filters results before the model reads them; queued pages use the basic one, at half the price per token.
 - **Estimate first.** `estimate_run` measures the real prompts and reports tokens before anything is spent. See [Runs](runs.md#estimating-first).

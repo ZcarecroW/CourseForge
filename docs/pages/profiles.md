@@ -50,7 +50,7 @@ Until [Administration › Security](security.md) has passed, key and token field
 
 Each slot has its own **account**, so the outline can come from Anthropic and the pages from a cheaper gateway. The model box is a fuzzy search; **fetch list** pulls the live list from the provider. You can always type a model id by hand.
 
-Each slot also has a **temperature** and a **token ceiling**. The ceiling caps the length of one answer; leave it at 0 for the provider's own maximum. The temperature does **not** apply to Claude: since 5.3 CourseForge speaks Anthropic API version `2026-10-21`, which refuses sampling parameters on every model, so none is sent. OpenAI's reasoning models refuse it as well, and CourseForge leaves it out for them.
+Each slot also has a **temperature** and a **token ceiling**. The ceiling caps the length of one answer; leave it at 0 for the provider's own maximum. The temperature does **not** apply to Gemini, whose sampling parameters are deprecated, or to Claude: since 5.3 CourseForge speaks Anthropic API version `2026-10-21`, which refuses sampling parameters on every model, so none is sent. OpenAI's reasoning models refuse it as well, and CourseForge leaves it out for them.
 
 ### The batch switch
 

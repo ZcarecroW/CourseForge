@@ -10,13 +10,15 @@
  *
  * Three deliberate choices:
  *
- * - **SVG output, not CHTML.** The SVG component carries its glyph outlines
- *   inside the one vendored file, so there are no web fonts to ship and no font
- *   requests at runtime.
+ * - **SVG output, not CHTML.** The SVG component carries the common glyph
+ *   outlines inside the one vendored file, and the rarer ranges (calligraphic,
+ *   Cyrillic and so on) are vendored beside it, so there are no web fonts to
+ *   ship and nothing is fetched from anywhere but this server.
  * - **`require` and `autoload` are switched off.** Both fetch extension files
  *   on demand, which cannot work from a vendored single file, and `autoload` is
  *   what would otherwise pull in `\href` — the one TeX macro that can put a
- *   `javascript:` URL into the page.
+ *   `javascript:` URL into the page. The accessibility extras are off for the
+ *   same reason: they would load the speech engine from a CDN.
  * - **Formulas are converted one at a time** rather than by typesetting the
  *   container, so nothing that merely looks like a delimiter inside a code
  *   block is ever picked up.
@@ -26,6 +28,9 @@ import { stamped } from '@/core/assets.js';
 // Stamped by hand: a query string is not inherited through new URL(), and this
 // file is served immutable for a year (see core/assets.js).
 const SCRIPT_URL = stamped(new URL('../../vendor/mathjax/tex-mml-svg.js', import.meta.url).href);
+// MathJax builds the file names under this itself, so no stamp can reach them.
+// The version in the folder name does the stamp's job on this immutable path.
+const FONT_URL = new URL('../../vendor/mathjax/newcm-4.1.3', import.meta.url).href;
 const CACHE_LIMIT = 400;
 
 const cache = new Map();     // 'b' or 'i' plus the LaTeX → rendered HTML
@@ -40,8 +45,14 @@ function load() {
         displayMath: [['$$', '$$']],
         processEscapes: false,
       },
-      svg: { fontCache: 'local', displayAlign: 'left', displayIndent: '0' },
-      options: { enableMenu: false },
+      svg: { fontCache: 'local', displayAlign: 'left', displayIndent: '0', fontPath: FONT_URL },
+      options: {
+        enableMenu: false,
+        // In the menu's settings because those overwrite the enable* options
+        // when the document is created, menu or no menu. Left on, the speech
+        // worker starts, cannot be found, and every formula waits on it forever.
+        menuOptions: { settings: { enrich: false, speech: false, braille: false, collapsible: false } },
+      },
       startup: { typeset: false },
     };
 

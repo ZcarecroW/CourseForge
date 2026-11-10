@@ -10,7 +10,7 @@ Models are trained on the past. A course about a library written from a model's 
 
 Switch the **Web research** element on for a page, chapter or course ([Content details](content-details.md)) and the page is written against what the web says today, with a `## Sources` list at the end. The **Searches per page** value caps how many searches the model may run (0 lets it decide).
 
-That needs a provider with a server-side search tool: Anthropic, Gemini, OpenRouter, and the OpenAI models that have one. It is right for *"is this example still the recommended way?"*, and it is paid for on every page.
+That needs a provider with a server-side search tool: Anthropic, Gemini, OpenRouter or OpenAI. OpenAI's batch queue cannot search, so with OpenAI a page has to be generated live to be researched. It is right for *"is this example still the recommended way?"*, and it is paid for on every page.
 
 ## At course level: the research briefing
 
@@ -38,7 +38,7 @@ A briefing is headings, bullets and a list of sources:
 | Who | How |
 |---|---|
 | **An MCP client** - Claude Code most usefully | `get_research_brief` → it searches with its own tools → `store_research`. The searching happens inside a subscription you already pay for; the server spends nothing. |
-| **A provider with a search tool** | Anthropic, Gemini, OpenRouter and the OpenAI models that have one, when web research is on at course level. |
+| **A provider with a search tool** | Anthropic, Gemini, OpenRouter or OpenAI, when web research is on at course level. |
 | **You** | Course › **Details** › **Research**: a split editor with the Markdown on the left and the rendered briefing on the right. |
 
 Nothing downstream can tell the three apart.

@@ -12,9 +12,11 @@ use CourseForge\Ai\Batch\BatchStatus;
 use CourseForge\Ai\Batch\Driver\AnthropicInlineBatch;
 use CourseForge\Support\Config;
 use CourseForge\Support\HttpException;
+use CourseForge\Support\HttpResult;
 use CourseForge\Support\Meta;
 use CourseForge\Support\Runtime;
 use CourseForge\Support\Text;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -66,6 +68,30 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
      * submitted under the old version finishes under it.
      */
     private const VERSION = '2026-10-21';
+
+    /**
+     * The search tool every Claude model has ever taken: results go straight
+     * into the context window. Used by the queue, and by any model the listing
+     * does not say can do better.
+     */
+    private const SEARCH_TOOL = 'web_search_20250305';
+
+    /**
+     * The search tool that filters before it reads: the model runs code over
+     * the results and only what is relevant reaches the context window, which
+     * is where a searching page spends most of its input.
+     */
+    private const FILTERED_SEARCH_TOOL = 'web_search_20260318';
+
+    /** The beta that lets a declined request be retried on another model. */
+    private const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
+
+    /**
+     * How many times one page may be resumed after the API paused its search.
+     * Each resume is a further paid request, so it is a retry limit like any
+     * other; a page that needs more than this stops and says so.
+     */
+    private const MAX_RESUMES = 4;
 
     /** How long a fetched model listing stands before it is read again. */
     private const CATALOGUE_SECONDS = 86400;
@@ -124,6 +150,12 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
 
     private ?AnthropicInlineBatch $driver = null;
 
+    /** @var string[] the betas the request being sent asks for */
+    private array $betas = [];
+
+    /** @var array<string,true> fallbacks already logged this process */
+    private static array $noticed = [];
+
     public static function defaultBaseUrl(): string
     {
         return 'https://api.anthropic.com';
@@ -168,18 +200,24 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
      * single most common 400 against this API. It is set here, once, so no call
      * site can forget it - the batch driver is handed this same array.
      *
-     * Nothing else belongs here. `service_tier` is vestigial: batch pricing
-     * comes from using the batch endpoint and there is no value that asks for
-     * it. The `context-1m` and `extended-cache-ttl` beta flags are retired -
-     * both behaviours are on by default now - and carrying a stale beta header
-     * is how a working integration starts failing on a day nobody deployed.
+     * Nothing else belongs here permanently. `service_tier` is vestigial: batch
+     * pricing comes from using the batch endpoint and there is no value that
+     * asks for it. The `context-1m` and `extended-cache-ttl` beta flags are
+     * retired - both behaviours are on by default now - and carrying a stale
+     * beta header is how a working integration starts failing on a day nobody
+     * deployed. So a beta is named only on the request that uses it, and post()
+     * asks again without it when the API will not have it.
      */
     protected function headers(): array
     {
-        return [
+        $headers = [
             'x-api-key' => $this->apiKey,
             'anthropic-version' => self::VERSION,
         ];
+        if ($this->betas !== []) {
+            $headers['anthropic-beta'] = implode(',', $this->betas);
+        }
+        return $headers;
     }
 
     /* --------------------------------------------------------------- models */
@@ -262,17 +300,138 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
         $this->assertModel($request);
 
         $payload = $this->payload($request);
-        $res = $this->send('POST', '/v1/messages', $payload, $this->chatTimeout());
+        $res = $this->post($payload);
+
+        // A search that runs long comes back paused rather than finished. The
+        // turn carries on when the paused content is sent back as it arrived,
+        // so a page that has already paid for its searches is not thrown away
+        // for it. The queue has no such second request, which is why
+        // readMessage() still treats a pause as a failure.
+        for ($resumes = 0; $resumes < self::MAX_RESUMES && self::isPaused($res); $resumes++) {
+            $payload = self::resumed($payload, $res);
+            $res = $this->post($payload);
+        }
 
         $this->assertOk($res, 'the completion', $this->url('/v1/messages'));
         $this->assertJson($res, 'the completion');
 
-        $read = self::readMessage(is_array($res->data) ? $res->data : []);
+        $message = is_array($res->data) ? $res->data : [];
+        self::noteFallback($message, $request->model);
+
+        $read = self::readMessage($message);
         if ($read['problem'] !== '') {
             throw HttpException::badRequest($this->label() . ': ' . $read['problem']);
         }
 
         return $read['text'];
+    }
+
+    /**
+     * One live Messages call, asked again without whatever a 400 blamed.
+     *
+     * Both things this can remove are optional extras a model or an account may
+     * not have: the refusal fallback is a beta that not every model takes, and
+     * the filtering search needs code execution, which an administrator can
+     * turn off. Neither is worth losing a page over, and a 400 costs nothing,
+     * so the page is asked for again in the plainest form that still does what
+     * was requested. By reference so that a resumed turn keeps the shape the
+     * API accepted, as it has to.
+     *
+     * @param array<string,mixed> $payload
+     */
+    private function post(array &$payload): HttpResult
+    {
+        $this->betas = isset($payload['fallbacks']) ? [self::FALLBACK_BETA] : [];
+        try {
+            $res = $this->send('POST', '/v1/messages', $payload, $this->chatTimeout());
+        } finally {
+            $this->betas = [];
+        }
+
+        if ($res->status !== 400) {
+            return $res;
+        }
+
+        $reason = strtolower($res->errorMessage(500));
+        $changed = false;
+
+        if (isset($payload['fallbacks']) && str_contains($reason, 'fallback')) {
+            unset($payload['fallbacks']);
+            $changed = true;
+        }
+
+        $tool = $payload['tools'][0] ?? null;
+        if (is_array($tool) && ($tool['type'] ?? '') === self::FILTERED_SEARCH_TOOL
+            && (str_contains($reason, 'web_search') || str_contains($reason, 'code_execution')
+                || str_contains($reason, 'allowed_callers'))) {
+            $payload['tools'][0] = self::basicSearchTool((int)($tool['max_uses'] ?? 0));
+            $changed = true;
+        }
+
+        return $changed ? $this->post($payload) : $res;
+    }
+
+    private static function isPaused(HttpResult $res): bool
+    {
+        return $res->ok() && is_array($res->data) && ($res->data['stop_reason'] ?? '') === 'pause_turn';
+    }
+
+    /**
+     * The same request with the paused turn appended, ready to continue.
+     *
+     * Decoded a second time, as objects, because the content has to go back as
+     * it arrived: the array form every other reader uses turns an empty `{}`
+     * tool input into `[]`, and the API refuses a block that has changed.
+     *
+     * @param array<string,mixed> $payload
+     * @return array<string,mixed>
+     */
+    private static function resumed(array $payload, HttpResult $res): array
+    {
+        $message = json_decode($res->raw);
+
+        $payload['messages'][] = ['role' => 'assistant', 'content' => $message->content ?? []];
+
+        // Present when the search ran through code execution; the continuation
+        // has to land in the same container or the work so far is lost.
+        $container = $message->container->id ?? null;
+        if (is_string($container) && $container !== '') {
+            $payload['container'] = $container;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Writes a line when another model finished a page this one declined.
+     *
+     * The page is good and the run carries on, so it is a note and not an
+     * error - but a course with one chapter written by a different model is
+     * something its author may want to be able to find out. Once per process
+     * and pair of models, so a long run contributes one line.
+     *
+     * @param array<string,mixed> $message
+     */
+    private static function noteFallback(array $message, string $requested): void
+    {
+        if (($message['stop_reason'] ?? '') === 'refusal') {
+            return;
+        }
+
+        foreach ((array)($message['usage']['iterations'] ?? []) as $iteration) {
+            if (!is_array($iteration) || ($iteration['type'] ?? '') !== 'fallback_message') {
+                continue;
+            }
+            $served = (string)($message['model'] ?? 'another model');
+            $key = $requested . '|' . $served;
+            if (!isset(self::$noticed[$key])) {
+                self::$noticed[$key] = true;
+                Runtime::log('anthropic.fallback', new RuntimeException(
+                    $requested . ' declined a request, so ' . $served . ' wrote that page instead.'
+                ));
+            }
+            return;
+        }
     }
 
     /* ---------------------------------------------------------------- batch */
@@ -393,11 +552,14 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
             ];
         }
 
+        // Reached by a queued page, which has no way to continue, and by a live
+        // one that is still paused after every resume chat() will make.
         if ($stop === 'pause_turn') {
             return [
                 'text' => '',
                 'problem' => 'the model paused before finishing the answer (stop_reason=pause_turn), '
-                    . 'so the page would have been stored half written.',
+                    . 'so the page would have been stored half written. Generate this page live, or lower '
+                    . 'the number of searches it may make.',
             ];
         }
 
@@ -423,18 +585,25 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
             $payload['system'] = self::system($request, $queued);
         }
 
-        // The basic search tool, deliberately, and not the newer dated
-        // variants. The newer ones only exist on the current generation, and
-        // this field is a model id somebody typed - it may be any Claude model
-        // the account can reach, including one older than that. /v1/models
-        // reports no web-search capability at all, so there is nothing to
-        // branch on; the variant that works everywhere is the one to send.
-        if ($request->research) {
-            $tool = ['type' => 'web_search_20250305', 'name' => 'web_search'];
-            if ($request->maxSearches > 0) {
-                $tool['max_uses'] = $request->maxSearches;
-            }
-            $payload['tools'] = [$tool];
+        // Searching is decided per model from the listing. Only an explicit
+        // `false` keeps the tool off: a model the listing has nothing to say
+        // about is asked to search, and answers from what it knows if it cannot.
+        $record = $this->record($request->model) ?? [];
+        if ($request->research && ($record['web_search'] ?? null) !== false) {
+            // The filtering tool is live only. It is the cheaper one, but a
+            // queued request that an account turns out not to allow is refused
+            // a day later with nothing to retry; a live one is asked again.
+            $payload['tools'] = [!$queued && ($record['filtered_search'] ?? null) === true
+                ? self::filteredSearchTool($request->maxSearches)
+                : self::basicSearchTool($request->maxSearches)];
+        }
+
+        // A model can decline a page for what it is about - a security course
+        // is the usual case. This has the API retry on the model Anthropic
+        // recommends for that kind of refusal, in place of failing the page.
+        // Never on a queued request, where the field errors the item.
+        if (!$queued) {
+            $payload['fallbacks'] = 'default';
         }
 
         // No `temperature`, `top_p` or `top_k`, whatever the profile says: on
@@ -442,6 +611,39 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
         // queued one would only say so a day later. See VERSION.
 
         return $payload;
+    }
+
+    /** @return array<string,mixed> */
+    private static function basicSearchTool(int $maxSearches): array
+    {
+        return self::capped(['type' => self::SEARCH_TOOL, 'name' => 'web_search'], $maxSearches);
+    }
+
+    /**
+     * `response_inclusion` leaves out the raw results a filter already read,
+     * which CourseForge would only discard - it keeps the page and nothing else.
+     *
+     * @return array<string,mixed>
+     */
+    private static function filteredSearchTool(int $maxSearches): array
+    {
+        return self::capped([
+            'type' => self::FILTERED_SEARCH_TOOL,
+            'name' => 'web_search',
+            'response_inclusion' => 'excluded',
+        ], $maxSearches);
+    }
+
+    /**
+     * @param array<string,mixed> $tool
+     * @return array<string,mixed>
+     */
+    private static function capped(array $tool, int $maxSearches): array
+    {
+        if ($maxSearches > 0) {
+            $tool['max_uses'] = $maxSearches;
+        }
+        return $tool;
     }
 
     /**
@@ -564,18 +766,23 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
     }
 
     /**
-     * Empty, and that is the honest answer rather than a shrug.
+     * The models the listing says can search.
      *
-     * /v1/models reports batch, citations, code execution, context management,
-     * effort, image and PDF input, structured outputs and thinking. It says
-     * nothing at all about web search, so there is no subset to name and the
-     * toggle is offered for every model this account can reach.
+     * `capabilities.server_tools.web_search` answers it per model. An empty
+     * result means the listing did not say, which the interface reads as "any".
      *
      * @return array<int,string>
      */
     public function searchModels(): array
     {
-        return [];
+        $ids = [];
+        foreach ($this->catalogue() as $record) {
+            if (($record['web_search'] ?? null) === true) {
+                $ids[] = (string)$record['id'];
+            }
+        }
+        sort($ids, SORT_NATURAL | SORT_FLAG_CASE);
+        return $ids;
     }
 
     public function searchNote(): string
@@ -776,6 +983,11 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
         return [
             'id' => $id,
             'batch' => self::flag($capabilities['batch']['supported'] ?? null),
+            'web_search' => self::flag($capabilities['server_tools']['web_search']['supported'] ?? null),
+            // Named `code_execution` on the API, and it is the right thing to
+            // read: it says whether code the model runs can call the request's
+            // other tools, which is exactly what filtering a search does.
+            'filtered_search' => self::flag($capabilities['code_execution']['supported'] ?? null),
             'thinking' => self::flag($thinking['supported'] ?? null),
             'legacy_thinking' => self::flag($thinking['types']['enabled']['supported'] ?? null),
             'effort' => $levels,
@@ -895,11 +1107,13 @@ final class AnthropicProvider extends HttpProvider implements BatchCapable, Sear
         //
         // Everything before the last tool block is therefore dropped. With no
         // tool blocks at all - every request that does not research - the loop
-        // below finds nothing and this is exactly what it was before.
+        // below finds nothing and this is exactly what it was before. The
+        // result blocks are matched by their ending because a filtered search
+        // adds code execution's own, and the family grows with the tools.
         $lastTool = -1;
         foreach ($blocks as $index => $block) {
-            $type = is_array($block) ? ($block['type'] ?? '') : '';
-            if ($type === 'web_search_tool_result' || $type === 'server_tool_use') {
+            $type = is_array($block) ? (string)($block['type'] ?? '') : '';
+            if ($type === 'server_tool_use' || str_ends_with($type, '_tool_result')) {
                 $lastTool = (int)$index;
             }
         }

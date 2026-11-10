@@ -131,7 +131,7 @@ final class Presets
             'label'    => 'xAI (Grok)',
             'base_url' => 'https://api.x.ai/v1',
             'batch'    => 'probe',
-            'docs'     => 'https://docs.x.ai/api',
+            'docs'     => 'https://docs.x.ai/developers/rest-api-reference',
             'hint'     => 'Grok models via an OpenAI-shaped endpoint.',
         ],
         'mistral' => [
@@ -152,21 +152,24 @@ final class Presets
             'label'    => 'DeepInfra',
             'base_url' => 'https://api.deepinfra.com/v1/openai',
             'batch'    => 'probe',
-            'docs'     => 'https://deepinfra.com/docs',
+            'docs'     => 'https://docs.deepinfra.com/',
             'hint'     => 'Cheap open-weight hosting.',
         ],
         'nebius' => [
-            'label'    => 'Nebius AI Studio',
-            'base_url' => 'https://api.studio.nebius.com/v1',
+            'label'    => 'Nebius Token Factory',
+            // api.studio.nebius.com still answers, so an account saved with it
+            // keeps working, but AI Studio is now Token Factory and every
+            // current document uses this address.
+            'base_url' => 'https://api.tokenfactory.nebius.com/v1',
             'batch'    => 'probe',
-            'docs'     => 'https://docs.nebius.com/studio/inference',
+            'docs'     => 'https://docs.tokenfactory.nebius.com/',
             'hint'     => 'EU-hosted open-weight models.',
         ],
         'moonshot' => [
             'label'    => 'Moonshot (Kimi)',
             'base_url' => 'https://api.moonshot.ai/v1',
             'batch'    => 'probe',
-            'docs'     => 'https://platform.moonshot.ai/docs',
+            'docs'     => 'https://platform.kimi.ai/docs',
             'hint'     => 'Kimi K-series; very large single-response output budgets.',
         ],
         'zai' => [
@@ -202,7 +205,7 @@ final class Presets
             'local'        => true,
             'models_quirk' => '/v1/models lists loaded and loadable models; ids are the local file '
                             . 'identifiers, so free-text entry is mandatory.',
-            'docs'         => 'https://lmstudio.ai/docs/app/api/endpoints/openai',
+            'docs'         => 'https://lmstudio.ai/docs/developer/openai-compat',
             'hint'         => 'Local desktop server. Start the server in LM Studio first; first '
                             . 'request may block while the model loads - use a long cURL timeout.',
         ],
@@ -214,7 +217,7 @@ final class Presets
             'local'        => true,
             'models_quirk' => '/v1/models returns exactly the served model(s). The id must match '
                             . 'the --served-model-name / HF path EXACTLY or you get a 404.',
-            'docs'         => 'https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html',
+            'docs'         => 'https://docs.vllm.ai/en/latest/serving/openai_compatible_server/',
             'hint'         => 'Self-hosted GPU serving. Model id must match the server exactly.',
         ],
         'llamacpp' => [

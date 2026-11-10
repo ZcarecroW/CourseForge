@@ -9,6 +9,8 @@ Every release migrates its own database on first start, guarded by a schema vers
 
 Use **Administration › Updates** or `php tools/update.php --install`. See [Updates](updates.md).
 
+**5.3 → 5.4:** no database change. A live page that researches now really searches on OpenAI, where it silently did not before, and is billed for those searches. The Nebius preset points at `api.tokenfactory.nebius.com`; an account saved with the old address keeps working.
+
 **5.2 → 5.3:** the database gains one column (`pages.scope`). Existing courses have no page scopes until the outline is revised or **Plan missing scopes** is pressed on the Structure tab; until then they are written as before, with the compact course map. Claude is now asked on API version `2026-10-21`, so the profile's temperature no longer applies to Claude models.
 
 **5.1 → 5.2:** publishing became a background task. Set up [the scheduler](scheduler.md) if you have not, or keep the Publish tab open while a push runs.

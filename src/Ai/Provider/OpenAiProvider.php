@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace CourseForge\Ai\Provider;
 
 use CourseForge\Ai\AiRequest;
+use CourseForge\Support\HttpException;
+use CourseForge\Support\HttpResult;
 
 /**
  * OpenAI itself, and every endpoint that was configured before the preset
@@ -31,6 +33,10 @@ use CourseForge\Ai\AiRequest;
  *     than the raw list - plus the `shutdown_date` field, which is free
  *     deprecation telemetry and is surfaced as a badge rather than copied into
  *     a hardcoded table that would rot.
+ *
+ * One request leaves that shape: a live page that researches. Searching needs
+ * the Responses API on every model that is not search-tuned, so chat() sends
+ * those there and reads the answer back from its different envelope.
  *
  * The curation applies only when the endpoint really is api.openai.com. Every
  * account written before 4.0 has this class whatever it points at, because
@@ -310,17 +316,11 @@ class OpenAiProvider extends OpenAiCompatibleProvider implements SearchCapable
      * @return array<string,mixed>
      */
     /**
-     * Models that can search from /chat/completions.
-     *
-     * This is the one provider where the capability belongs to the model rather
-     * than to the account, and it is worth being exact about why. OpenAI's
-     * general web-search tool lives on the Responses API; CourseForge speaks
-     * chat/completions, where searching is instead a `web_search_options` field
-     * that only the search-tuned models honour. Sending it anywhere else is at
-     * best ignored, so the model is what decides and `searchModels()` publishes
-     * the list rather than letting the toggle fail quietly.
+     * The search-tuned models: the only ones that can search from
+     * /chat/completions, through a `web_search_options` field. `gpt-5-search-api`
+     * is the current one. Everything else searches through the Responses API.
      */
-    private const SEARCH_MODELS = '/-search(-preview)?(-\\d{4}-\\d{2}-\\d{2})?$/i';
+    private const SEARCH_MODELS = '/-search(-api|-preview)?(-\\d{4}-\\d{2}-\\d{2})?$/i';
 
     /* ------------------------------------------------------- SearchCapable */
 
@@ -330,32 +330,220 @@ class OpenAiProvider extends OpenAiCompatibleProvider implements SearchCapable
     }
 
     /**
-     * The search-tuned models this account can actually see.
-     *
-     * Non-empty on purpose, unlike the other three providers: here it is a real
-     * restriction, and the interface's contract is that an empty array means
-     * "the provider did not say". Saying nothing would let somebody switch
-     * research on for a course written by an ordinary model and get no
-     * searching and no explanation.
+     * Empty: on a live page every model can search, through the Responses API
+     * or, for the search-tuned ones, through their own field.
      *
      * @return array<int,string>
      */
     public function searchModels(): array
     {
-        $out = [];
-        foreach ($this->models() as $model) {
-            $id = is_array($model) ? (string)($model['id'] ?? '') : (string)$model;
-            if ($id !== '' && preg_match(self::SEARCH_MODELS, $id) === 1) {
-                $out[] = $id;
-            }
-        }
-        return $out;
+        return [];
     }
 
     public function searchNote(): string
     {
-        return 'On this endpoint only OpenAI\'s search-tuned models can search, and they are billed '
-            . 'per call on top of their tokens. A course written by any other model ignores the toggle.';
+        return 'OpenAI charges $10 per 1,000 searches, plus the search content at the model\'s token '
+            . 'rates. Its batch queue cannot search, so pages generated through the queue are written '
+            . 'from what the model knows - generate them live to have them researched.';
+    }
+
+    /* ----------------------------------------------------------------- chat */
+
+    /** A live page that has to search goes through the Responses API. */
+    public function chat(AiRequest $request): string
+    {
+        if (!$this->searchesThroughResponses($request)) {
+            return parent::chat($request);
+        }
+
+        $this->assertConfigured();
+
+        $payload = $this->responsesPayload($request);
+        $res = $this->send('POST', '/responses', $payload, $this->chatTimeout());
+        $res = $this->retryResponse($res, $payload);
+
+        // A model or an account without the tool. A provider that cannot search
+        // writes the same page from what it knows; nothing is refused for
+        // wanting to search.
+        if ($res->status === 400 && preg_match('/web_search|\btools?\b/i', $res->errorMessage(500)) === 1) {
+            return parent::chat($request);
+        }
+
+        $this->assertOk($res, 'the completion', $this->url('/responses'));
+        $this->assertJson($res, 'the completion');
+
+        $read = self::readResponse(is_array($res->data) ? $res->data : []);
+        if ($read['problem'] !== '') {
+            throw HttpException::badRequest($this->label() . ': ' . $read['problem']);
+        }
+
+        return $read['text'];
+    }
+
+    /**
+     * Only towards OpenAI itself, and never for a search-tuned model, which
+     * stays on /chat/completions. The queue never comes through here: OpenAI
+     * answers `web_search_unsupported` to a batch line that asks for the tool.
+     */
+    private function searchesThroughResponses(AiRequest $request): bool
+    {
+        return $request->research
+            && trim($request->model) !== ''
+            && self::isOpenAiHost($this->baseUrl)
+            && preg_match(self::SEARCH_MODELS, trim($request->model)) !== 1;
+    }
+
+    /**
+     * One Responses request.
+     *
+     * The shared course context goes in as a developer message, because
+     * `instructions` cannot carry a cache point. `store: false` matches what
+     * /chat/completions does by default: this endpoint would otherwise keep the
+     * course on OpenAI's side for thirty days.
+     *
+     * @return array<string,mixed>
+     */
+    private function responsesPayload(AiRequest $request): array
+    {
+        $explicit = $request->hasContext() && self::cachesExplicitly($request->model);
+
+        $input = [];
+        if ($request->systemParts() !== []) {
+            $parts = [];
+            foreach ($request->systemParts() as $part) {
+                $block = ['type' => 'input_text', 'text' => $part];
+                if ($explicit) {
+                    $block['prompt_cache_breakpoint'] = ['mode' => 'explicit'];
+                }
+                $parts[] = $block;
+            }
+            $input[] = ['role' => 'developer', 'content' => $parts];
+        }
+        $input[] = ['role' => 'user', 'content' => [['type' => 'input_text', 'text' => $request->user]]];
+
+        $payload = [
+            'model' => $request->model,
+            'input' => $input,
+            'tools' => [['type' => 'web_search']],
+            'store' => false,
+        ];
+
+        if ($request->maxTokens > 0) {
+            $payload['max_output_tokens'] = $request->maxTokens;
+        }
+        if ($request->maxSearches > 0) {
+            $payload['max_tool_calls'] = $request->maxSearches;
+        }
+        if (!self::isReasoning($request->model)) {
+            $payload['temperature'] = $request->temperature;
+        }
+        if ($request->hasContext()) {
+            $payload['prompt_cache_key'] = $request->cacheKey();
+        }
+        if ($explicit) {
+            $payload['prompt_cache_options'] = ['mode' => 'explicit'];
+        }
+
+        return $payload;
+    }
+
+    /**
+     * One retry when a 400 blames an optional field, as the chat lane has.
+     *
+     * @param array<string,mixed> $payload
+     */
+    private function retryResponse(HttpResult $res, array $payload): HttpResult
+    {
+        if ($res->status !== 400) {
+            return $res;
+        }
+
+        $reason = strtolower($res->errorMessage(500));
+        $changed = false;
+
+        foreach (['temperature', 'max_tool_calls'] as $param) {
+            if (isset($payload[$param]) && str_contains($reason, $param)) {
+                unset($payload[$param]);
+                $changed = true;
+            }
+        }
+
+        if (str_contains($reason, 'prompt_cache')
+            && (isset($payload['prompt_cache_key']) || isset($payload['prompt_cache_options']))) {
+            unset($payload['prompt_cache_key'], $payload['prompt_cache_options']);
+            foreach ($payload['input'] as $i => $message) {
+                foreach ($message['content'] as $j => $_) {
+                    unset($payload['input'][$i]['content'][$j]['prompt_cache_breakpoint']);
+                }
+            }
+            $changed = true;
+        }
+
+        return $changed ? $this->send('POST', '/responses', $payload, $this->chatTimeout()) : $res;
+    }
+
+    /**
+     * The page out of a Responses object, or why there is none.
+     *
+     * The same rule as the other providers: a body that arrived as a success is
+     * not yet a page. An answer stopped at the output limit is `incomplete` and
+     * can carry most of a lesson. The text is the last `message` item only -
+     * with a search tool the model can write between searches, and that
+     * narration is not the page.
+     *
+     * @param array<string,mixed> $response
+     * @return array{text:string,problem:string}
+     */
+    public static function readResponse(array $response): array
+    {
+        $fail = static fn(string $why): array => ['text' => '', 'problem' => $why];
+
+        $error = $response['error'] ?? null;
+        if (is_array($error) && $error !== []) {
+            return $fail(self::failureLine($error));
+        }
+
+        $status = strtolower((string)($response['status'] ?? ''));
+        if ($status === 'incomplete') {
+            $reason = strtolower((string)($response['incomplete_details']['reason'] ?? ''));
+            return $fail(match ($reason) {
+                'max_output_tokens' => 'The answer was cut off by the output limit, so the page is incomplete '
+                    . '(incomplete_details.reason=max_output_tokens). Raise "Max tokens" for this slot - searching '
+                    . 'and reasoning are spent from the same limit.',
+                'content_filter' => 'OpenAI blocked this answer (incomplete_details.reason=content_filter). '
+                    . 'Whatever text came with it is the part written before the block, not a page.',
+                default => 'The model stopped before finishing the answer (status=incomplete'
+                    . ($reason !== '' ? ', reason ' . $reason : '') . ').',
+            });
+        }
+        if ($status !== '' && $status !== 'completed') {
+            return $fail('The response ended with status ' . $status . ' and no page.');
+        }
+
+        $message = null;
+        foreach (array_reverse((array)($response['output'] ?? [])) as $item) {
+            if (is_array($item) && ($item['type'] ?? '') === 'message') {
+                $message = $item;
+                break;
+            }
+        }
+
+        $parts = [];
+        foreach ((array)($message['content'] ?? []) as $part) {
+            if (!is_array($part)) {
+                continue;
+            }
+            if (($part['type'] ?? '') === 'refusal') {
+                return $fail('The model declined to answer this request: '
+                    . mb_substr(trim((string)($part['refusal'] ?? '')), 0, 200));
+            }
+            if (($part['type'] ?? '') === 'output_text' && is_string($part['text'] ?? null)) {
+                $parts[] = $part['text'];
+            }
+        }
+
+        $text = trim(implode('', $parts));
+        return $text !== '' ? ['text' => $text, 'problem' => ''] : $fail('The response contained no text.');
     }
 
     /** The shared body, plus the one field that is OpenAI's alone. */

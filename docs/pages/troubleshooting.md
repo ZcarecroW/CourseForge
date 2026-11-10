@@ -69,7 +69,7 @@ Put page-specific facts in the inspector's **context** tab, which outranks the m
 
 ### The model refuses temperature, or the setting has no effect
 
-Claude (API version `2026-10-21`) and OpenAI's reasoning models refuse sampling parameters; CourseForge leaves them out, so the temperature has no effect on those models. That is expected.
+Claude (API version `2026-10-21`), Gemini and OpenAI's reasoning models refuse or have deprecated sampling parameters; CourseForge leaves them out, so the temperature has no effect on those models. That is expected.
 
 ### Requests fail with 429 (rate limited)
 
@@ -81,7 +81,7 @@ Ollama's OpenAI endpoint cannot set the context length, so long prompts are sile
 
 ### Gemini answers 401 ACCESS_TOKEN_TYPE_UNSUPPORTED
 
-Google is migrating Gemini API keys, and some new `AQ.` keys are refused by `generateContent`. CourseForge shows Google's own error verbatim; try a key of the other type, or use Gemini through OpenRouter. See [AI providers](providers.md#google-gemini).
+Developers still report some of the `AQ.` auth keys that AI Studio now issues being refused by `generateContent`, and Google rejects standard keys that have no restrictions. CourseForge shows Google's own error verbatim; try a standard key restricted to the Generative Language API, or use Gemini through OpenRouter. See [AI providers](providers.md#google-gemini).
 
 ## Runs and the scheduler
 

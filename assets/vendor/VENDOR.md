@@ -14,8 +14,8 @@ Only two things are required when updating one of these:
 
 | Specifier   | File                        | Version | Licence      | Source                                                    |
 |-------------|-----------------------------|---------|--------------|-----------------------------------------------------------|
-| `vue`       | `vue.esm-browser.prod.js`   | 3.5.44  | MIT          | https://unpkg.com/vue@3.5.44/dist/vue.esm-browser.prod.js |
-| `marked`    | `marked.esm.js`             | 18.1.2  | MIT          | https://unpkg.com/marked@18.1.2/lib/marked.esm.js         |
+| `vue`       | `vue.esm-browser.prod.js`   | 3.5.45  | MIT          | https://unpkg.com/vue@3.5.45/dist/vue.esm-browser.prod.js |
+| `marked`    | `marked.esm.js`             | 18.2.0  | MIT          | https://unpkg.com/marked@18.2.0/lib/marked.esm.js         |
 | `dompurify` | `purify.es.mjs`             | 3.4.17  | MPL-2.0/Apache-2.0 | https://unpkg.com/dompurify@3.4.17/dist/purify.es.mjs |
 | `fuse`      | `fuse.mjs`                  | 7.5.0   | Apache-2.0   | https://unpkg.com/fuse.js@7.5.0/dist/fuse.mjs             |
 
@@ -88,12 +88,13 @@ block would try to reach npm. The explicit table in
 
 | Specifier / path                    | Version  | Licence   | Source                                                            |
 |-------------------------------------|----------|-----------|-------------------------------------------------------------------|
-| `shiki` → `shiki/core.js`           | 4.5.0    | MIT       | https://esm.sh/@shikijs/core@4.5.0/es2022/core.bundle.mjs        |
-| `shiki/engine` → `shiki/engine-javascript.js` | 4.5.0 | MIT | https://esm.sh/@shikijs/engine-javascript@4.5.0/es2022/engine-javascript.bundle.mjs |
-| `shiki/langs/*.mjs` (360 files)     | 4.5.0    | MIT       | https://unpkg.com/@shikijs/langs@4.5.0/dist/<name>.mjs             |
-| `shiki/themes/*.mjs` (2 files)      | 4.5.0    | MIT       | https://unpkg.com/@shikijs/themes@4.5.0/dist/<name>.mjs            |
-| `mermaid/mermaid.esm.min.mjs` + `mermaid/chunks/mermaid.esm.min/*.mjs` (104 files) | 12.2.0 | MIT | https://unpkg.com/mermaid@12.2.0/dist/ (same paths) |
-| `mathjax/tex-mml-svg.js`            | 3.2.2    | Apache-2.0| https://unpkg.com/mathjax@3.2.2/es5/tex-mml-svg.js                 |
+| `shiki` → `shiki/core.js`           | 4.6.0    | MIT       | `@shikijs/core@4.6.0` bundled with esbuild (see below)           |
+| `shiki/engine` → `shiki/engine-javascript.js` | 4.6.0 | MIT | https://esm.sh/@shikijs/engine-javascript@4.6.0/es2022/engine-javascript.bundle.mjs |
+| `shiki/langs/*.mjs` (360 files)     | 4.6.0    | MIT       | https://unpkg.com/@shikijs/langs@4.6.0/dist/<name>.mjs             |
+| `shiki/themes/*.mjs` (2 files)      | 4.6.0    | MIT       | https://unpkg.com/@shikijs/themes@4.6.0/dist/<name>.mjs            |
+| `mermaid/mermaid.esm.min.mjs` + `mermaid/chunks/mermaid.esm.min/*.mjs` (105 files) | 12.3.0 | MIT | https://unpkg.com/mermaid@12.3.0/dist/ (same paths) |
+| `mathjax/tex-mml-svg.js`            | 4.1.3    | Apache-2.0| https://unpkg.com/mathjax@4.1.3/tex-mml-svg.js                     |
+| `mathjax/newcm-4.1.3/svg/dynamic/*.js` (40 files) | 4.1.3 | Apache-2.0 | https://unpkg.com/@mathjax/mathjax-newcm-font@4.1.3/svg/dynamic/<name>.js |
 
 ## Notes
 
@@ -118,8 +119,12 @@ vendored. Worth knowing before debugging the preview.
 search) behind `core/fuzzy.js`, which is the only file that imports it.
 
 **Shiki** is split the way it is on purpose. `core.js` and
-`engine-javascript.js` are esm.sh bundles because their own dependency trees are
-a dozen packages deep and none of it is shared with anything else. The grammars
+`engine-javascript.js` are single bundles because their own dependency trees are
+a dozen packages deep and none of it is shared with anything else. The engine is
+esm.sh's bundle; `core.js` is built from the npm package with
+`esbuild --bundle --format=esm --minify --target=es2022 --platform=browser`,
+because from 4.6 esm.sh inlines a Node `process` shim that added 21 KB a browser
+never runs. The grammars
 and themes are the original files, untransformed, because they are plain data
 that the highlighter is handed at runtime — one file per language, fetched the
 first time a block in that language appears. The JavaScript regex engine is used
@@ -156,32 +161,27 @@ reaches a CDN. Both the preview and BookStackDev pin `layout: 'dagre'` and
 was drawn before. Mermaid 12 needs Safari 17.4 or later; Chrome, Edge and Firefox
 have been past its ES2024 floor for longer.
 
-**MathJax** is version 3 rather than 4, and the SVG output rather than CHTML.
-Both follow from the same requirement: nothing may be fetched at runtime.
-Version 3's SVG component carries every glyph outline it will ever need inside
-the single file, so there are no web fonts to vendor.
+**MathJax** is the SVG output rather than CHTML, because nothing may be fetched
+from anywhere else at runtime and SVG needs no web fonts. The combined
+`tex-mml-svg.js` inlines the common outlines; the default font's rarer ranges
+(calligraphic, fraktur, Cyrillic and so on) are separate files, and left alone
+the loader would fetch them from jsDelivr and wait forever on an offline install.
+So `mathjax/newcm-4.1.3/svg/dynamic/` holds all 40 of them, 9.5 MB, each fetched
+only when a formula needs it, and `core/math.js` points `svg.fontPath` there.
+The version is in the folder name because MathJax builds those file names itself
+and no `?v=` stamp can reach them; **change the path in `core/math.js` when you
+update this directory.**
 
-Version 4 nearly does the same and not quite. Its combined `tex-mml-svg.js` does
-inline the common outlines — the claim that it moves the whole font out is
-wrong — but the new default font's *extended* ranges were broken out into
-separately loaded chunks, and the bundle carries
-`dynamicPrefix: "@mathjax/mathjax-newcm-font/js/svg/dynamic"` with a loader that
-defaults to jsDelivr. MathJax's own documentation is plain about what happens
-then: it pauses and waits for the data to arrive. So on an offline install a
-`\mathcal` would hang rather than render. Vendoring v4 properly means also
-vendoring that dynamic directory out of a 49 MB font package and repointing
-`MathJax.loader.paths` — a project rather than a version bump. 3.2.2 is the last
-3.x release, so this pin cannot drift any further.
+The accessibility extras are off in `core/math.js`, and it has to be done through
+`options.menuOptions.settings`: those settings overwrite the `enable*` options
+when the document is created, even with the menu disabled. Leave them on and
+MathJax starts a speech worker from `sre/`, which is not vendored, and every
+formula waits on it forever.
 
 The trailing `//# sourceMappingURL=` comments were removed from `marked.esm.js`,
 `purify.es.mjs` and every file under `mermaid/`: the `.map` files are not
 vendored, and leaving the comments in produces a 404 on every page load with
 devtools open.
-
-One line was removed from `shiki/core.js` for the same reason —
-`import __Process$ from "/node/process.mjs"`, an esm.sh shim for a Node global
-that the bundle only reads inside a `typeof __Process$ < "u"` guard. Undeclared,
-that guard is simply false, which is the behaviour that was wanted anyway.
 
 Icons are **not** a dependency — they are inline SVG paths in
 `assets/js/components/AppIcon.js`, so there is no icon font, no CDN stylesheet
@@ -189,8 +189,8 @@ and no flash of unstyled icons.
 
 ## Weight
 
-About 20 MB on disk, in 601 files — most of it the two grammar directories and
-Mermaid's chunks.
+About 29 MB on disk, in 643 files — most of it the two grammar directories,
+Mermaid's chunks and MathJax's glyph ranges.
 Almost none of it is on the critical path, because everything added for the
 editor and the preview is behind a lazy import, and both grammar sets are
 fetched one file at a time. Measured on a page that uses all of it
@@ -202,7 +202,7 @@ fetched one file at a time. Measured on a page that uses all of it
 | CodeMirror, plus one mode per language shown | the Content tab is opened            | 1 535 |
 | Shiki, plus one file per language shown   | the preview holds a fenced block        | 745   |
 | Mermaid core, plus the chunks one diagram type needs (a flowchart) | the preview holds a diagram | 863 |
-| MathJax                                   | the preview holds a formula             | 2 071 |
+| MathJax, plus one file per rare glyph range used | the preview holds a formula      | 1 806 |
 
 Signing in still costs what it did in 3.0, and opening a course costs what it
 did with a fifth as many grammars on disk. A course with no diagrams never

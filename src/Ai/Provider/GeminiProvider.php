@@ -40,21 +40,16 @@ use RuntimeException;
  * through a sentence, is a far worse outcome than a run that stopped and said
  * why, and a caller cannot tell the two apart from an empty string.
  *
- * WARNING, dated 2026-08-24 - Google is in the middle of retiring API keys and
- * this adapter ships during the changeover. Unrestricted standard keys are
- * already rejected, and in September 2026 - weeks from the date above - the
- * Gemini API stops accepting standard keys at all. Their replacement is the
- * service-account-bound "auth key" with an `AQ.` prefix, and there is an open,
- * unresolved cluster of reports of those keys answering 401
- * ACCESS_TOKEN_TYPE_UNSUPPORTED on `generateContent` through both
- * `x-goog-api-key` and the legacy `?key=` form. Because of that, this class
- * never collapses a Gemini 4xx into "authentication failed": describeFailure()
- * hands the operator Google's own error envelope verbatim - status, numeric
- * code, every `reason` in `details[]` and the raw body - because during this
- * window that envelope is the only thing that distinguishes a wrong key from a
- * key type the endpoint will not take. If this code looks over-careful about
- * error text in three months' time, that is why, and the caution can be
- * removed once the migration has settled.
+ * A note on keys, last checked 2026-11-10. Google rejects unrestricted standard
+ * keys, while standard keys with explicit restrictions keep working, and every
+ * key AI Studio has created since 2026-05-28 is a service-account-bound "auth
+ * key" with an `AQ.` prefix, sent the same way in `x-goog-api-key`. Developers
+ * still report those keys answering 401 ACCESS_TOKEN_TYPE_UNSUPPORTED on
+ * `generateContent`. Because of that, this class never collapses a Gemini 4xx
+ * into "authentication failed": describeFailure() hands the operator Google's
+ * own error envelope verbatim - status, numeric code, every `reason` in
+ * `details[]` and the raw body - because that envelope is the only thing that
+ * distinguishes a wrong key from a key type the endpoint will not take.
  *
  * It is offered in the account picker as beta for the same reason.
  */
@@ -77,6 +72,7 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
      * a listed family still counts.
      */
     private const BATCH_MODELS = [
+        'gemini-4-carbon',
         'gemini-4-argon',
         'gemini-3.8-flash',
         // Deprecated on 2026-10-08; Google routes requests that name them to
@@ -160,12 +156,11 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
             'needs_key' => true,
             'batch' => true,
             'beta' => true,
-            'hint' => 'The native Gemini Developer API with an AI Studio key. Marked beta because Google is '
-                . 'retiring standard API keys in September 2026 and the auth keys that replace them are still '
-                . 'being reported as refused on this endpoint - if a call fails, read the reply CourseForge '
-                . 'shows you word for word before changing anything. The batch queue halves the price but is '
-                . 'paid-tier only, and a batch that has not finished within 48 hours expires with no results '
-                . 'at all.',
+            'hint' => 'The native Gemini Developer API with an AI Studio key. Marked beta because Google refuses '
+                . 'unrestricted standard keys and the auth keys AI Studio issues now are still being reported as '
+                . 'refused on this endpoint - if a call fails, read the reply CourseForge shows you word for word '
+                . 'before changing anything. The batch queue halves the price but is paid-tier only, and a batch '
+                . 'that has not finished within 48 hours expires with no results at all.',
         ];
     }
 
@@ -491,8 +486,8 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
 
     public function searchNote(): string
     {
-        return 'Grounding with Google Search is billed per request that uses it, not per search, '
-            . 'and the free tier includes a daily allowance.';
+        return 'From Gemini 3 on, grounding with Google Search is billed per search query, at $14 per 1,000 '
+            . 'after 5,000 free a month, up to 1,500 a day. It is not available on the free tier.';
     }
 
     /* ------------------------------------------------- the wire body, shared */
@@ -513,6 +508,10 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
             'contents' => [
                 ['role' => 'user', 'parts' => [['text' => $request->user]]],
             ],
+            // New paid projects have kept every request in AI Studio's logs
+            // since 2026-10-26 unless told otherwise. Nothing here reads those
+            // logs, so a course is not left on Google's side for 55 days.
+            'store' => false,
         ];
 
         if ($request->systemParts() !== []) {
@@ -535,9 +534,6 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
             // and more room than a course page needs.
             $config['maxOutputTokens'] = $request->maxTokens;
         }
-        if (self::acceptsSampling($request->model)) {
-            $config['temperature'] = max(0.0, min(2.0, $request->temperature));
-        }
         if ($config !== []) {
             $payload['generationConfig'] = $config;
         }
@@ -550,33 +546,17 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
             $payload['tools'] = [['google_search' => new \stdClass()]];
         }
 
-        // Three things are deliberately absent. `candidateCount` is unsupported
-        // on every Gemini 3 model. `safetySettings` are off by default on 2.5
-        // and 3, so sending them can only make the filters stricter than they
-        // already are. `thinkingConfig` is spelled thinkingLevel on 3 and
-        // thinkingBudget on 2.5, each an error on the other generation, and the
-        // per-model default is the right setting for prose.
+        // Four things are deliberately absent. `temperature` and the other
+        // sampling parameters were deprecated on 2026-07-21: ignored today and
+        // to become a 400, so the slider does not apply to Gemini.
+        // `candidateCount` is unsupported on every Gemini 3 model.
+        // `safetySettings` are off by default on 2.5 and 3, so sending them can
+        // only make the filters stricter than they already are.
+        // `thinkingConfig` is spelled thinkingLevel on 3 and thinkingBudget on
+        // 2.5, each an error on the other generation, and the per-model default
+        // is the right setting for prose.
 
         return $payload;
-    }
-
-    /**
-     * Whether this model still honours `temperature`.
-     *
-     * Sampling was deprecated across the board on 2026-07-21. Gemini 3.6 and
-     * 3.7 ignore or reject `temperature`, `topP` and `topK` outright, and on
-     * the 3.x models that still accept them a temperature below 1.0 is
-     * documented as causing looping and degraded output - so the slider is
-     * suppressed for the whole generation rather than passed through and hoped
-     * for. An id this cannot parse is treated as new, because omitting the
-     * parameter has never been an error anywhere and sending it now is.
-     */
-    private static function acceptsSampling(string $model): bool
-    {
-        if (preg_match('/gemini-(\d+)/i', $model, $match) === 1) {
-            return (int)$match[1] < 3;
-        }
-        return false;
     }
 
     /**
@@ -826,14 +806,14 @@ final class GeminiProvider extends HttpProvider implements BatchCapable, SearchC
         // its value.
         $form = match (true) {
             str_starts_with($apiKey, 'AQ.') => 'The account holds one of the new service-account-bound auth keys.',
-            str_starts_with($apiKey, 'AIza') => 'The account holds a standard API key, which is the form being '
-                . 'retired - a new project needs an auth key from AI Studio instead.',
+            str_starts_with($apiKey, 'AIza') => 'The account holds a standard API key, which only works while it '
+                . 'has explicit restrictions - restrict it to the Generative Language API, or create an auth key '
+                . 'in AI Studio.',
             default => 'The key stored for this account is in neither of the two documented forms.',
         };
 
-        return ' Google is retiring API keys as this is read: unrestricted standard keys are already refused, '
-            . 'standard keys stop working in September 2026, and the auth keys replacing them have an open '
-            . 'cluster of reports of answering exactly this way on generateContent. ' . $form
+        return ' Google refuses unrestricted standard keys, and the auth keys AI Studio issues now have been '
+            . 'reported answering exactly this way on generateContent. ' . $form
             . ' Read the reply below before changing anything - it is the only thing that tells a wrong key '
             . 'apart from a key type this endpoint will not take.';
     }

@@ -132,6 +132,48 @@ one card per group. The scheduler card is the one that matters most: your host
 calls `cron.php` once a minute, and from then on runs and publishing carry on
 with the browser closed.
 
+## What is new in 5.4
+
+**Web research works on OpenAI again.** The endpoint CourseForge used can only
+search on search-tuned models, and the ones it recognised have been shut down,
+so the switch quietly did nothing and the page was written from memory. A live
+page that researches now goes through OpenAI's Responses API, on any model,
+within the course's search budget. OpenAI's batch queue cannot search, so a
+queued page is still written from what the model knows; generate it live when
+it has to be researched.
+
+**Claude reads less of what it searches.** Where the model list says a model can,
+research uses the search tool that filters the results with code before they
+reach the model, which is where a searching page spends most of its input. The
+same list now decides which models get a search tool at all. A long search that
+the API pauses used to fail the page after the searches had been paid for; it is
+now resumed.
+
+**A page Claude declines can still be written.** Live pages ask Anthropic to
+retry a declined request on the model it recommends for that kind of refusal,
+which is mostly what a security or biology course needs. The page is kept and a
+line naming both models goes to the log. Queued pages cannot use this, because
+the batch queue rejects the option.
+
+**Gemini, as it is today.** The queue knows `gemini-4-carbon`, released on 10 November.
+Every request now sets `store: false`, because new paid projects have kept
+requests in AI Studio's logs for 55 days by default since October. The profile's
+temperature is no longer sent, since Google has deprecated it. The advice about
+API keys says what Google says now rather than what it announced in August.
+
+**Gateways.** The Nebius preset points at Nebius Token Factory; an account saved
+with the old address keeps working. Six preset documentation links that had moved
+are corrected.
+
+**Libraries current.** Vue 3.5.45, marked 18.2.0, Shiki 4.6.0, Mermaid 12.3.0 and
+MathJax 4.1.3. The preview now draws formulas with the same major version your
+published pages use, from a main script 13% smaller than before. The rarer glyph
+ranges are vendored too, 9.5 MB fetched one file at a time and only when a
+formula needs them, so the preview still never reaches a CDN.
+
+Upgrading from 5.3 is a normal update with no database change. Courses with web
+research on that run live against OpenAI will now search, and be billed for it.
+
 ## What is new in 5.3
 
 **Every page knows what every other page teaches.** The outline now carries a

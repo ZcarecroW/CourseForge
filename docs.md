@@ -1272,19 +1272,16 @@ the system prompt is a top-level `systemInstruction` — everything about sampli
 and length is nested in `generationConfig` under different names, and the answer
 comes back in `candidates[]` rather than `choices[]`.
 
-> **Gemini's API keys are being migrated, and this adapter ships during the
-> changeover.** As of 2026-08-24 the code records that unrestricted standard keys
-> are already rejected, that the Gemini API is expected to stop accepting
-> standard keys altogether in September 2026, and that their replacement — the
-> service-account-bound key with an `AQ.` prefix — has an open, unresolved
-> cluster of reports of answering `401 ACCESS_TOKEN_TYPE_UNSUPPORTED` on
+> **Gemini is offered as beta because of its API keys.** As of 2026-11-10 Google
+> rejects unrestricted standard keys, standard keys with explicit restrictions
+> keep working, and every key AI Studio has issued since May 2026 is a
+> service-account-bound auth key with an `AQ.` prefix. Developers still report
+> some of those answering `401 ACCESS_TOKEN_TYPE_UNSUPPORTED` on
 > `generateContent`. Because of that, the adapter never collapses a Gemini 4xx
 > into "authentication failed": it hands you Google's own error envelope
 > verbatim — status, numeric code, every `reason` in `details[]` and the raw body
-> — because during this window that envelope is the only thing that distinguishes
-> a wrong key from a key type the endpoint will not take. This is why Gemini is
-> offered as beta. If the caution looks excessive by the time you read it, that
-> is the intended outcome.
+> — because that envelope is the only thing that distinguishes a wrong key from
+> a key type the endpoint will not take.
 
 **OpenRouter** carries the vendor prefix in the model id (`anthropic/claude-opus-5`)
 and its own routing suffixes (`:free`, `:nitro`) which are typed in rather than

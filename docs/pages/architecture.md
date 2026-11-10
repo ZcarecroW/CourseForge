@@ -113,7 +113,7 @@ Secrets: passwords as `password_hash()` digests, invite codes and connection tok
 No framework, no dependencies - CourseForge installs without Composer, so its tests must run without it too.
 
 ```bash
-php tests/run.php              # every test (434 in 5.3)
+php tests/run.php              # every test (458 in 5.4)
 php tests/run.php openrouter   # only the files whose name contains that word
 node tools/outline-test.mjs    # the JavaScript outline parser against the PHP one's fixtures
 node tools/detect-test.mjs     # the language detector's corpus

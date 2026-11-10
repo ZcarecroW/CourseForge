@@ -572,7 +572,7 @@ final class Providers
                 'needs_key' => (bool)($gemini['needs_key'] ?? true),
                 'batch' => (bool)($gemini['batch'] ?? true),
                 'beta' => (bool)($gemini['beta'] ?? true),
-                'docs' => 'https://ai.google.dev/api',
+                'docs' => 'https://aistudio.google.com/docs',
                 'verified' => true,
                 'hint' => (string)($gemini['hint'] ?? ''),
                 'batch_note' => 'The queue is paid-tier only, so a free-tier key is refused at submit - and a '
